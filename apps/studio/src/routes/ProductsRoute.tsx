@@ -5,14 +5,16 @@
  * The list shows every family with its number, variants and problems, and the lineup tab every
  * variant as a row with its released revision, cost and route, downloadable as JSON or CSV. A
  * family's page lists its variants (each linked to its design), asks the numbering scheme for the
- * next variant number, adds a variant, merges other families in, splits variants off, and edits the
- * record as JSON. Every save is one change set and raises `product.changed`.
+ * next variant number, adds a variant, merges other families in, splits variants off, and edits names, options and variants with fields. Every save is one change set and raises `product.changed`.
  */
 
+import { ProductForm } from './ProductForm.tsx';
+import { newRecordId } from '../display.ts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { useMemo, useState, type JSX } from 'react';
 import { toast } from 'sonner';
+import { RecordCover } from '../RecordCover.tsx';
 import type { LineupRow, ProductFamily } from '@wirehub/model';
 import { Button, Callout, Checkbox, Chip, DataTable, Field, Input, KeyValues, Page, PageBody, Select, SidePanel, Tab, TabList, TabPanel, Tabs, Textarea, Toolbar, type DataColumn } from '@wirehub/editor-react';
 
@@ -38,14 +40,20 @@ import {
 } from '../products.browser.ts';
 
 const pretty = (v: unknown): string => JSON.stringify(v, null, 2);
-const EXAMPLE: ProductFamily = {
-  id: 'example-product',
-  label: 'Example product',
-  partNumber: 'CBL-00100-XX',
-  options: [{ id: 'colour', label: 'Colour', values: [{ id: 'black', label: 'Black' }] }],
-  variants: [],
-  src: 'synthetic example',
-};
+
+function productIssueMessage(message: string, products: readonly ProductFamily[], designs: readonly { id: string; label: string }[]): string {
+  const names = new Map(designs.map((d) => [d.id, d.label]));
+  for (const p of products) {
+    names.set(p.id, p.label || 'Unnamed product');
+    for (const v of p.variants) names.set(v.id, v.label || names.get(v.design) || 'Unnamed variant');
+    for (const axis of p.options ?? []) {
+      names.set(axis.id, axis.label || 'Option');
+      for (const choice of axis.values) names.set(choice.id, choice.label || 'Unnamed value');
+    }
+  }
+  return message.replace(/[A-Za-z0-9][A-Za-z0-9_-]*/g, (key) => names.get(key) ?? (/^[a-f\d]{8}-[a-f\d-]{27,}$/i.test(key) ? 'unavailable item' : key));
+}
+
 
 function money(row: Pick<LineupRow, 'cost' | 'currency'>): string {
   if (row.cost === undefined) return '';
@@ -54,7 +62,7 @@ function money(row: Pick<LineupRow, 'cost' | 'currency'>): string {
 
 const lineupId = (r: LineupRow): string => `${r.product}/${r.variant}`;
 
-function lineupColumns(showProduct: boolean): DataColumn<LineupRow>[] {
+function lineupColumns(showProduct: boolean, products: readonly ProductFamily[]): DataColumn<LineupRow>[] {
   return [
     ...(showProduct
       ? [{ id: 'product', header: 'Product', width: 150, sortValue: (r: LineupRow) => r.productLabel, cell: (r: LineupRow) => (
@@ -63,24 +71,27 @@ function lineupColumns(showProduct: boolean): DataColumn<LineupRow>[] {
           </Link>
         ) }]
       : []),
-    { id: 'variant', header: 'Variant', width: 130, sortValue: (r) => r.variantLabel ?? r.variant, cell: (r) => r.variantLabel ?? r.variant },
+    { id: 'variant', header: 'Variant', width: 130, sortValue: (r) => r.variantLabel || r.designLabel || 'Unnamed variant', cell: (r) => r.variantLabel || r.designLabel || 'Unnamed variant' },
     { id: 'number', header: 'Number', width: 130, mono: true, sortValue: (r) => r.partNumber ?? '', cell: (r) => r.partNumber ?? '' },
-    { id: 'design', header: 'Design', width: 220, sortValue: (r) => r.designLabel ?? r.design, cell: (r) => (
-      <Link to="/cables/$id" params={{ id: r.design }} search={{ view: 'build' }} className="underline">
-        {r.designLabel ?? r.design}
-      </Link>
+    { id: 'design', header: 'Design', width: 220, sortValue: (r) => r.designLabel || 'Unavailable design', cell: (r) => (
+      <span className="inline-flex items-center gap-2">
+        <RecordCover kind="designs" id={r.design} label={r.designLabel || 'Unavailable design'} compact bare thumbClass="h-8 w-11" />
+        <Link to="/cables/$id" params={{ id: r.design }} search={{ view: 'build' }} className="underline">
+          {r.designLabel || 'Unavailable design'}
+        </Link>
+      </span>
     ) },
     { id: 'length', header: 'Length', width: 90, numeric: true, sortValue: (r) => r.lengthMm ?? 0, cell: (r) => (r.lengthMm === undefined ? '' : `${r.lengthMm} mm`) },
-    { id: 'options', header: 'Options', width: 160, cell: (r) => Object.entries(r.options).map(([k, v]) => `${k}: ${v}`).join(', ') },
+    { id: 'options', header: 'Options', width: 160, cell: (r) => Object.entries(r.options).map(([k, v]) => { const axis = products.find((p) => p.id === r.product)?.options?.find((a) => a.id === k); return `${axis?.label || 'Option'}: ${v}`; }).join(', ') },
     { id: 'released', header: 'Released', width: 100, sortValue: (r) => r.releasedRev ?? 0, cell: (r) => (r.releasedRev === undefined ? <span className="text-warn">none</span> : `Rev ${r.releasedRev}`) },
     { id: 'cost', header: 'Cost', width: 100, numeric: true, sortValue: (r) => r.cost ?? 0, cell: (r) => money(r) },
     { id: 'route', header: 'Route', width: 110, cell: (r) => <RouteChip route={r.route} maker={r.maker} /> },
   ];
 }
-const LINEUP_ALL = lineupColumns(true);
-const LINEUP_ONE = lineupColumns(false);
 
 function LineupTable({ rows, showProduct, loading }: { rows: LineupRow[]; showProduct: boolean; loading?: boolean }): JSX.Element {
+  const { db } = useStudio();
+  const columns = useMemo(() => lineupColumns(showProduct, db.products ?? []), [showProduct, db.products]);
   return (
     <DataTable
       loading={loading === true}
@@ -88,7 +99,7 @@ function LineupTable({ rows, showProduct, loading }: { rows: LineupRow[]; showPr
       testId="lineup"
       className={showProduct ? undefined : 'cs-ui-dt-inline'}
       rows={rows}
-      columns={showProduct ? LINEUP_ALL : LINEUP_ONE}
+      columns={columns}
       getRowId={lineupId}
       columnsKey={showProduct ? 'lineup' : 'variants'}
       rowAttrs={(r) => ({ 'data-variant': lineupId(r) })}
@@ -99,7 +110,8 @@ function LineupTable({ rows, showProduct, loading }: { rows: LineupRow[]; showPr
 
 export function ProductsRoute(): JSX.Element {
   const client = useQueryClient();
-  const { me } = useStudio();
+  const studio = useStudio();
+  const { me } = studio;
   const readOnly = me?.role === 'viewer';
   const [tab, setTab] = useState<'families' | 'lineup'>('families');
   const [retired, setRetired] = useState(false);
@@ -110,6 +122,7 @@ export function ProductsRoute(): JSX.Element {
   const navigate = useNavigate();
   const view = query.data;
   const selectedProduct = view?.products.find((p) => p.id === selected);
+  const issueMessage = (message: string): string => productIssueMessage(message, studio.db.products ?? [], studio.designs);
 
   const create = async (): Promise<void> => {
     if (view === undefined || editing === undefined) return;
@@ -120,7 +133,9 @@ export function ProductsRoute(): JSX.Element {
       toast.error('That is not valid JSON.', { description: error instanceof Error ? error.message : undefined });
       return;
     }
-    const out = await saveProducts([...view.local.filter((p) => p.id !== record.id), record], view.etag);
+    if (!record.label?.trim()) return void toast.error('Give the product a name.');
+    record = { ...record, id: newRecordId(record.label, view.products.map((p) => p.id), 'product') };
+    const out = await saveProducts([...view.local, record], view.etag);
     if (!out.ok) {
       toast.error(out.message, { description: out.hint });
       return;
@@ -146,7 +161,7 @@ export function ProductsRoute(): JSX.Element {
     { id: 'origin', header: 'Origin', width: 130, cell: (p) => (p.origin === 'pack' ? `pack ${p.pack}` : '') },
     { id: 'problems', header: 'Problems', width: 220, cell: (p) => {
       const problems = problemsOf(p);
-      return problems.length === 0 ? '' : <span className={problems.some((i) => i.severity === 'error') ? 'text-err' : 'text-warn'}>{problems.length} {problems.length === 1 ? 'problem' : 'problems'}: {problems[0]!.message}</span>;
+      return problems.length === 0 ? '' : <span className={problems.some((i) => i.severity === 'error') ? 'text-err' : 'text-warn'}>{problems.length} {problems.length === 1 ? 'problem' : 'problems'}: {issueMessage(problems[0]!.message)}</span>;
     } },
   // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [view]);
@@ -156,7 +171,7 @@ export function ProductsRoute(): JSX.Element {
       <RouteHeader
         title="Products"
         count={view === undefined ? undefined : `${view.products.length} ${view.products.length === 1 ? 'product' : 'products'}`}
-        primary={readOnly ? undefined : <Button variant="primary" disabled={view === undefined || editing !== undefined} onClick={() => { setTab('families'); setEditing(pretty(EXAMPLE)); }}>New product…</Button>}
+        primary={readOnly ? undefined : <Button variant="primary" disabled={view === undefined || editing !== undefined} onClick={() => { setTab('families'); setEditing(pretty({ id: '', label: '', src: '', variants: [] })); }}>New product…</Button>}
       />
       <Tabs value={tab} onValueChange={(v) => setTab(v as 'families' | 'lineup')} className="flex min-h-0 flex-1 flex-col">
         <TabList aria-label="products" className="px-4">
@@ -169,7 +184,7 @@ export function ProductsRoute(): JSX.Element {
               selectedProduct === undefined ? undefined : (
                 <SidePanel
                   title={selectedProduct.label}
-                  subtitle={selectedProduct.id}
+                  subtitle={selectedProduct.partNumber}
                   chips={selectedProduct.origin === 'pack' ? <Chip>{`pack ${selectedProduct.pack}`}</Chip> : undefined}
                   onClose={() => setSelected(undefined)}
                   label="Product details"
@@ -178,7 +193,7 @@ export function ProductsRoute(): JSX.Element {
                   <div className="flex flex-col gap-3">
                     <KeyValues items={[['Number', selectedProduct.partNumber ?? '—'], ['Variants', String(selectedProduct.variants.length)], ['Also known as', (selectedProduct.aliases ?? []).join(', ') || '—']]} />
                     {problemsOf(selectedProduct).map((i) => (
-                      <Callout key={`${i.where}:${i.message}`} tone={i.severity === 'error' ? 'err' : 'warn'}>{i.message}</Callout>
+                      <Callout key={`${i.where}:${i.message}`} tone={i.severity === 'error' ? 'err' : 'warn'}>{issueMessage(i.message)}</Callout>
                     ))}
                   </div>
                 </SidePanel>
@@ -191,7 +206,7 @@ export function ProductsRoute(): JSX.Element {
               <>
                 {view === undefined || readOnly || editing === undefined ? null : (
                   <div className="flex max-w-3xl flex-col gap-2 p-4">
-                    <Textarea mono rows={14} aria-label="Product record" value={editing} spellCheck={false} onChange={(e) => setEditing(e.target.value)} />
+                    <ProductForm text={editing} onChange={setEditing} designs={studio.designs} />
                     <div className="flex gap-2">
                       <Button variant="primary" onClick={() => void create()}>Save</Button>
                       <Button onClick={() => setEditing(undefined)}>Cancel</Button>
@@ -210,7 +225,7 @@ export function ProductsRoute(): JSX.Element {
                   onActivate={(p) => void navigate({ to: '/products/$id', params: { id: p.id } })}
                   columnsKey="products"
                   rowAttrs={(p) => ({ 'data-product': p.id })}
-                  empty={<EmptyState topic="products" action={readOnly ? undefined : <Button variant="primary" disabled={editing !== undefined} onClick={() => setEditing(pretty(EXAMPLE))}>Create your first product</Button>}>Group your assembly designs into a product family and its variants.</EmptyState>}
+                  empty={<EmptyState topic="products" action={readOnly ? undefined : <Button variant="primary" disabled={editing !== undefined} onClick={() => setEditing(pretty({ id: '', label: '', src: '', variants: [] }))}>Create your first product</Button>}>Group your assembly designs into a product family and its variants.</EmptyState>}
                 />
               </>
             )}
@@ -277,7 +292,7 @@ export function ProductRoute(): JSX.Element {
     toast.message(out.value.suggestion.explanation);
   };
 
-  if (page.isError) return <Page><RouteHeader title="Product not found" /><PageBody padded><p className="text-err">There is no product called {id}.</p></PageBody></Page>;
+  if (page.isError) return <Page><RouteHeader title="Product not found" /><PageBody padded><p className="text-err">This product is no longer available.</p></PageBody></Page>;
   if (product === undefined) return <Page><RouteHeader title="Products" /><PageBody padded><p className="text-faint">Loading…</p></PageBody></Page>;
   const designOptions = studio.designs.map((d) => ({ value: d.id, label: d.label }));
   return (
@@ -294,7 +309,7 @@ export function ProductRoute(): JSX.Element {
         <ul className="my-2" role="alert">
           {page.data!.issues.map((i) => (
             <li key={`${i.where}:${i.message}`} className={i.severity === 'error' ? 'text-err' : 'text-warn'}>
-              {i.message}
+              {productIssueMessage(i.message, [product], studio.designs)}
             </li>
           ))}
         </ul>
@@ -311,10 +326,10 @@ export function ProductRoute(): JSX.Element {
             <fieldset className="flex flex-wrap items-end gap-2 rounded-md border border-line p-2" data-testid="add-variant">
               <legend>New variant</legend>
               <Field label="Design">
-                <Select aria-label="Variant design" className="w-56" placeholder="Pick a design…" value={adding.design === '' ? undefined : adding.design} options={designOptions} onValueChange={(v) => setAdding({ ...adding, design: v, id: adding.id === '' ? v : adding.id })} />
+                <Select aria-label="Variant design" className="w-56" placeholder="Pick a design…" value={adding.design === '' ? undefined : adding.design} options={designOptions} onValueChange={(v) => setAdding({ ...adding, design: v, id: adding.id === '' ? studio.designs.find((d) => d.id === v)?.label ?? 'Variant' : adding.id })} />
               </Field>
-              <Field label="Variant id">
-                <Input aria-label="Variant id" value={adding.id} onChange={(e) => setAdding({ ...adding, id: e.target.value })} />
+              <Field label="Variant name">
+                <Input aria-label="Variant name" value={adding.id} onChange={(e) => setAdding({ ...adding, id: e.target.value })} />
               </Field>
               <Field label="Number">
                 <Input mono aria-label="Variant number" value={adding.partNumber} onChange={(e) => setAdding({ ...adding, partNumber: e.target.value })} />
@@ -342,7 +357,8 @@ export function ProductRoute(): JSX.Element {
                   const length = Number(adding.lengthMm);
                   const options = Object.fromEntries(Object.entries(adding.options).filter(([, v]) => v !== ''));
                   const variant = {
-                    id: adding.id,
+                    id: newRecordId(adding.id, product.variants.map((v) => v.id), 'variant'),
+                    label: adding.id,
                     design: adding.design,
                     ...(adding.partNumber.trim() === '' ? {} : { partNumber: adding.partNumber.trim() }),
                     ...(adding.lengthMm.trim() !== '' && Number.isFinite(length) && length > 0 ? { lengthMm: length } : {}),
@@ -380,18 +396,18 @@ export function ProductRoute(): JSX.Element {
             <fieldset className="flex flex-wrap items-center gap-3 rounded-md border border-line p-2" data-testid="split">
               <legend>Split variants off into a new product</legend>
               {product.variants.map((v) => (
-                <Checkbox key={v.id} checked={splitPick.includes(v.id)} onCheckedChange={(on) => setSplitPick((m) => (on ? [...m, v.id] : m.filter((x) => x !== v.id)))} label={v.label ?? v.id} />
+                <Checkbox key={v.id} checked={splitPick.includes(v.id)} onCheckedChange={(on) => setSplitPick((m) => (on ? [...m, v.id] : m.filter((x) => x !== v.id)))} label={v.label || studio.designs.find((d) => d.id === v.design)?.label || 'Unnamed variant'} />
               ))}
-              <Input aria-label="New product id" placeholder="new id" className="w-36" value={splitTo.id} onChange={(e) => setSplitTo({ ...splitTo, id: e.target.value })} />
-              <Input aria-label="New product name" placeholder="name" className="w-44" value={splitTo.label} onChange={(e) => setSplitTo({ ...splitTo, label: e.target.value })} />
+
+              <Input aria-label="New product name" placeholder="name" className="w-44" value={splitTo.label} onChange={(e) => setSplitTo({ id: newRecordId(e.target.value, (list.data?.products ?? []).map((p) => p.id), 'product'), label: e.target.value })} />
               <Button
-                disabled={splitPick.length === 0 || splitTo.id === ''}
+                disabled={splitPick.length === 0 || splitTo.label.trim() === ''}
                 onClick={async () => {
                   const out = await splitProduct(id, splitPick, splitTo);
                   if (!out.ok) return void toast.error(out.message, { description: out.hint });
                   refresh(out.value);
                   setSplitPick([]);
-                  toast.success(`Split ${splitPick.length} variant${splitPick.length === 1 ? '' : 's'} into ${splitTo.label || splitTo.id}.`);
+                  toast.success(`Split ${splitPick.length} variant${splitPick.length === 1 ? '' : 's'} into ${splitTo.label || 'new product'}.`);
                   void navigate({ to: '/products/$id', params: { id: splitTo.id } });
                 }}
               >
@@ -401,11 +417,11 @@ export function ProductRoute(): JSX.Element {
           )}
           {json === undefined ? (
             <Button className="self-start" onClick={() => setJson(pretty(product))}>
-              Edit as JSON…
+              Edit product…
             </Button>
           ) : (
             <div className="flex flex-col gap-2">
-              <Textarea mono rows={14} aria-label="Product record" value={json} spellCheck={false} onChange={(e) => setJson(e.target.value)} />
+              <ProductForm text={json} onChange={setJson} designs={studio.designs} />
               <div className="flex gap-2">
                 <Button
                   variant="primary"

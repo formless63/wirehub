@@ -1,9 +1,9 @@
 /**
  * The compose stack's secrets volume (`compose.yaml`, the `secrets` volume,
  * mounted at `/run/wirehub`): one file per secret, holding the value every
- * service uses. The one-shot services write it — `bootstrap` the passwords,
- * tokens and the setup code, `garage-init` the S3 keys Garage creates,
- * `backup-init` the restic password — and the long-running services read it
+ * service uses. The app's startup (`start.ts`) writes it — the passwords,
+ * tokens and the setup code (`bootstrap.ts`), the S3 keys Garage creates
+ * (`garage-init.ts`) — and `backup-init` the restic password; and the long-running services read it
  * through `*_FILE` variables (`POSTGRES_PASSWORD_FILE`, `S3_SECRET_ACCESS_KEY_FILE`
  * …), so the default stack needs no `.env` at all.
  *
@@ -90,7 +90,12 @@ function handOver(path: string): void {
 /** Create the secrets directory (readable by every service, writable by the app user). */
 export function prepareDir(dir: string): void {
   mkdirSync(dir, { recursive: true });
-  chmodSync(dir, 0o755);
+  try {
+    chmodSync(dir, 0o755);
+  } catch (error) {
+    // not the directory's owner (not root): fine as long as the files can be written, which the first write tells
+    if (typeof process.getuid === 'function' && process.getuid() === 0) throw error;
+  }
   handOver(dir);
 }
 

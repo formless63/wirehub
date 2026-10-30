@@ -64,8 +64,7 @@ async function call(method: string, path: string, body?: unknown, user?: string)
 const base = `/api/designs/${ID}/versions`;
 
 describe('save version', () => {
-  it('needs a note, takes the drawing revision first, then counts up', async () => {
-    expect((await call('POST', base, { note: ' ' })).status).toBe(400);
+  it('takes the drawing revision first, then counts up; a missing note says what changed', async () => {
     const first = await call('POST', base, { note: 'first release' });
     expect(first.status).toBe(201);
     expect(first.body.version).toMatchObject({ rev: 1, savedBy: 'Owner', note: 'first release', locked: true });
@@ -75,12 +74,19 @@ describe('save version', () => {
     const edited = { ...loadDesign(ID), label: 'changed' };
     deps.designs.write(ID, edited);
     expect(((await call('GET', base)).body as VersionListing).working.unreleased).toBe(true);
-    const second = await call('POST', base, { note: 'renamed' });
-    expect(second.body.version).toMatchObject({ rev: 2, basedOnRev: 1 });
+    const second = await call('POST', base, { note: ' ' });
+    expect(second.body.version).toMatchObject({ rev: 2, basedOnRev: 1, note: 'label changed' });
     expect((await deps.drawings?.read(ID))?.meta.revision).toBe('2');
     const file = (await call('GET', `${base}/1`)).body as DesignVersionFile;
     expect(file.design.label).toBe(loadDesign(ID).label);
     expect(file.definitions.connectors.length).toBeGreaterThan(0);
+  });
+
+  it('carries a sub-assembly\'s kind into the released version file', async () => {
+    deps.designs.write(ID, { ...loadDesign(ID), kind: 'subassembly' });
+    expect((await call('POST', base, { note: 'partial' })).status).toBe(201);
+    const file = (await call('GET', `${base}/1`)).body as DesignVersionFile;
+    expect(file.design.kind).toBe('subassembly');
   });
 
   it('hands back the drawing\'s fresh ETag exactly when this save rewrote it', async () => {
@@ -99,6 +105,18 @@ describe('save version', () => {
     const drawingNow = await deps.drawings?.read(ID);
     expect(drawingNow?.meta.revision).toBe('2');
     expect(second.body.drawingTag).toBe(contentETag(drawingNow));
+  });
+
+  it('a changed record the design uses is a change: Save is allowed and its note names it', async () => {
+    await call('POST', base, { note: 'first release' });
+    const frozen = ((await call('GET', `${base}/1`)).body as DesignVersionFile).definitions.connectors[0]!;
+    deps.loadDb = () => ({ ...db, connectors: db.connectors.map((c) => (c.id === frozen.id ? { ...c, label: 'Synthetic relabelled' } : c)) });
+    const listing = (await call('GET', base)).body as VersionListing;
+    expect(listing.working).toMatchObject({ unreleased: true, inputsChanged: ['Synthetic relabelled'] });
+    const second = await call('POST', base, {});
+    expect(second.status).toBe(201);
+    expect(second.body.version).toMatchObject({ rev: 2, note: 'Changed Synthetic relabelled' });
+    expect(second.body.working).toMatchObject({ unreleased: false });
   });
 
   it('the cable list carries the rev and the unreleased chip', async () => {
@@ -269,5 +287,41 @@ describe('release approvals (cs-5k1.11)', () => {
     expect(html).toContain('approved by owner-person');
     expect(html).not.toContain('UNAPPROVED');
     expect((await call('GET', `/api/designs/${ID}/documents/build-sheet?rev=released&format=html`)).status).toBe(200);
+  });
+});
+
+describe('captured engineering facts', () => {
+  const exported = async (name: string, rev?: number): Promise<string> => {
+    const res = (await call('GET', `/api/designs/${ID}/exports/${name}${rev === undefined ? '' : `?rev=${rev}`}`)) as { status: number; bytes?: Uint8Array };
+    expect(res.status).toBe(200);
+    return new TextDecoder().decode(res.bytes);
+  };
+
+  it('Rev 1 processes.json stays as saved after the live vocabulary changes; the working copy follows', async () => {
+    const shells = { id: 'synthetic-backshell-fit', label: 'Backshell fit', derive: [{ each: 'mechanical' as const, where: { eq: [{ path: 'kind' }, 'shell'] as [{ path: string }, string] } }], src: 'synthetic example' };
+    deps.loadDb = () => ({ ...db, processes: [shells] });
+    expect((await call('POST', base, { note: 'first' })).status).toBe(201);
+    const rev1 = await exported('processes.json', 1);
+    expect(JSON.parse(rev1)).toMatchObject({
+      format: 'wirehub.processes',
+      design: { id: ID, rev: 1 },
+      vocabulary: 'captured',
+      processes: [{ id: 'synthetic-backshell-fit', label: 'Backshell fit', known: true, source: 'derived', derived: { matches: [{ each: 'mechanical', subject: 'm1' }, { each: 'mechanical', subject: 'm3' }], more: 0 } }],
+    });
+    // the live process is renamed and now derives from boots only (none here)
+    deps.loadDb = () => ({ ...db, processes: [{ ...shells, label: 'Renamed', derive: [{ each: 'mechanical' as const, where: { eq: [{ path: 'kind' }, 'boot'] as [{ path: string }, string] } }] }] });
+    expect(await exported('processes.json', 1)).toBe(rev1);
+    expect(JSON.parse(await exported('processes.json'))).toMatchObject({ vocabulary: 'live', processes: [] });
+  });
+
+  it('Rev 1 mass.json stays as saved after a live record mass changes; the working copy follows', async () => {
+    const weighed = (g: number) => ({ ...db, mechanicals: (db.mechanicals ?? []).map((m) => ({ ...m, mass: { g } })) });
+    deps.loadDb = () => weighed(2);
+    expect((await call('POST', base, { note: 'first' })).status).toBe(201);
+    const rev1 = await exported('mass.json', 1);
+    expect(JSON.parse(rev1)).toMatchObject({ format: 'wirehub.mass', design: { id: ID, rev: 1 } });
+    deps.loadDb = () => weighed(5);
+    expect(await exported('mass.json', 1)).toBe(rev1);
+    expect(JSON.parse(await exported('mass.json')).total).not.toEqual(JSON.parse(rev1).total);
   });
 });

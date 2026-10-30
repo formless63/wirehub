@@ -9,12 +9,15 @@
  * blobs), edit locks in memory (B6), depictions in the file tree (B7).
  */
 
+import { pgToolOutputStore } from './tool-outputs.ts';
 import { pendingPinnedMigrations } from './module-migrations.ts';
 import { sql } from 'kysely';
 import type { InstalledPacks } from '@wirehub/catalog';
 import { CURRENT_SCHEMA_VERSION } from '@wirehub/model';
 
 import type { WorkbenchDeps } from '../api.ts';
+import { ASSET_REPLACED_DOC, replacementOf } from '../assets.ts';
+import { pgAssetReferences } from './asset-refs.ts';
 import type { BlobStore } from '../blobs.ts';
 import type { BackupControl, BackupStatus } from '../backup/status.ts';
 import type { DepictionDeps, DepictionStore } from '../depictions.ts';
@@ -30,6 +33,10 @@ import { exportSnapshot } from './export.ts';
 import { pgCommit } from './commit.ts';
 import { pgHistorySource } from '../history/pg.ts';
 import { gitMirrorConfigFromEnv, mirrorIntervalMs } from '../history/mirror.ts';
+import { pgThumbnailCache } from './thumbnails.ts';
+import { fileThumbnailCache } from '../thumbnails.ts';
+import { pgDocumentCache } from './document-cache.ts';
+import { fileDocumentCache } from '../document-cache.ts';
 import { pgModelCache } from './model-cache.ts';
 import { pgSetupDeps } from './setup.ts';
 import { claimSetupDeps, emptyDepictionStore, ownerCount, setupModeDeps } from './setup-mode.ts';
@@ -39,12 +46,19 @@ import { parseSuggestedModules } from '../setup.ts';
 import { pgLockStore } from './locks.ts';
 import { pgPrefsStore } from './user-prefs.ts';
 import { memoryPrefsStore } from '../user-prefs.ts';
+import { pgInventoryStore } from './inventory.ts';
+import { memoryInventoryStore } from '../inventory/store.ts';
+import { pgUnitTestStore } from './unit-tests.ts';
+import { memoryUnitTestStore } from '../units/store.ts';
+import { memoryOfferStore } from '../sourcing/offers.ts';
+import { pgOfferStore } from './offers.ts';
 import type { PgBoss } from 'pg-boss';
 import { remoteConvert } from '../jobs/convert.ts';
 import { stageImportInput } from '../jobs/import.ts';
 import { modelCacheTrigger } from '../jobs/model-cache.ts';
 import { liveNotifier, notifierFromEnv } from '../notify.ts';
 import { createJobService, inlineJobRunner } from '../jobs/service.ts';
+import { jobInputCapture } from '../effective-inputs.ts';
 import { createWebhookEmitter } from '../webhooks/emitter.ts';
 import { JOB_KINDS } from '../jobs/types.ts';
 import { moduleJobKinds } from '../jobs/module-queues.ts';
@@ -95,14 +109,26 @@ export function pgWorkbenchDeps(options: PgDepsOptions): WorkbenchDeps {
   const { cache } = options;
   const context: PgReadContext = { snapshot: () => cache.get(), blobs: options.blobs, orgId: cache.orgId };
   const assets = pgAssetStore(context);
+  /** an asset a cleaned copy replaced reads as that copy (`assets.ts`, ASSET_REPLACED_DOC) */
+  const replaced = async (sha: string): Promise<string> => {
+    const text = (await cache.get()).source.read(ASSET_REPLACED_DOC);
+    return (text === undefined ? undefined : replacementOf(JSON.parse(text) as Record<string, string>, sha)) ?? sha;
+  };
   return {
     designs: pgDesignStore(context),
     definitions: pgDefinitionStore(context),
     drawings: pgDrawingStore(context, assets),
     assets,
     modelLinks: pgModelLinkStore(context),
+    ...(options.db === undefined ? {} : { assetReferences: pgAssetReferences(options.db, cache.orgId) }),
+    // native tool-pack runs (migration 0026): rows plus derived blobs
+    ...(options.db === undefined ? {} : { toolOutputs: pgToolOutputStore(options.db, cache.orgId, options.blobs) }),
     // converted models: derived blobs in the database when it has one (B10), else the gitignored file cache
     modelCache: options.db !== undefined ? pgModelCache(options.db, cache.orgId, options.blobs) : fileModelCache(),
+    // photo thumbnails: derived blobs when there is a database, else the gitignored file cache
+    thumbnails: options.db !== undefined ? pgThumbnailCache(options.db, cache.orgId, options.blobs) : fileThumbnailCache(),
+    // released revision renders: derived blobs when there is a database and a blob store, else the gitignored file cache
+    documentCache: options.db !== undefined && options.blobs !== undefined ? pgDocumentCache(options.db, cache.orgId, options.blobs) : fileDocumentCache(),
     vocab: pgVocabStore(context),
     tags: pgTagStore(context),
     wireLibrary: pgWireLibraryStore(context),
@@ -122,7 +148,7 @@ export function pgWorkbenchDeps(options: PgDepsOptions): WorkbenchDeps {
     },
     depictions: pgDepictionStore(context),
     docs: pgDocStore(context),
-    files: pgFileStore(),
+    files: pgFileStore(context),
     commit:
       options.db !== undefined && cache instanceof SnapshotCache
         ? pgCommit({ db: options.db, cache, modules: options.modules ?? registry, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), verify: process.env.WIREHUB_BLOB_VERIFY !== 'off' })
@@ -134,10 +160,11 @@ export function pgWorkbenchDeps(options: PgDepsOptions): WorkbenchDeps {
     ...(options.db === undefined ? {} : { history: pgHistorySource(options.db, cache.orgId) }),
     // by hash alone: an earlier photo, no longer named by the catalog, is still in the store until swept
     blobByHash: async (sha) => {
-      const bytes = options.blobs === undefined ? undefined : await options.blobs.get(blobObjectKey(cache.orgId, sha));
+      const bytes = options.blobs === undefined ? undefined : await options.blobs.get(blobObjectKey(cache.orgId, await replaced(sha)));
       return bytes === undefined ? undefined : new Uint8Array(bytes);
     },
-    blob: async (sha) => {
+    blob: async (asked) => {
+      const sha = await replaced(asked);
       const row = (await cache.get()).rows?.blobs.find((b) => b.sha256 === sha);
       if (row === undefined || options.blobs === undefined) return undefined;
       const bytes = await options.blobs.get(blobObjectKey(cache.orgId, sha));
@@ -147,6 +174,9 @@ export function pgWorkbenchDeps(options: PgDepsOptions): WorkbenchDeps {
     // one lease table for every process when there is a database (B6)
     locks: options.db !== undefined ? pgLockStore(options.db, cache.orgId) : memoryLockStore(),
     userPrefs: options.db !== undefined ? pgPrefsStore(options.db, cache.orgId) : memoryPrefsStore(),
+    inventory: options.db !== undefined ? pgInventoryStore(options.db, cache.orgId) : memoryInventoryStore(),
+    unitTests: options.db !== undefined ? pgUnitTestStore(options.db, cache.orgId) : memoryUnitTestStore(),
+    offers: options.db !== undefined ? pgOfferStore(options.db, cache.orgId) : memoryOfferStore(),
     ...(options.events === undefined ? {} : { events: options.events }),
     modules: options.modules ?? registry,
   };
@@ -265,12 +295,20 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
       // git-mirror is always a kind: it may be set up in Settings at any time (a run without one skips)
       // the module kinds follow the (live) registry: a runtime code module's queue counts once it is loaded
       const kinds = () => [...JOB_KINDS.filter((k) => k !== 'convert' || (jobMode === 'worker' && options.blobs !== undefined)), ...moduleJobKinds(real.modules)];
+      // one process runs every job (WIREHUB_WORKER=off): a row it left running when it last stopped is interrupted
+      // (at start, and each minute: a lease that ran out after a quick restart is found on the next look)
+      if (jobMode === 'inline' && store.reconcile !== undefined) {
+        void store.reconcile().catch(() => undefined);
+        setInterval(() => void store.reconcile!().catch(() => undefined), 60_000).unref?.();
+      }
       real.jobs = createJobService({
         store,
         runner,
         kinds,
         ...(jobMode === 'worker' ? { worker: () => lastBeat(handle.db, id) } : {}),
         stageInput: async (bytes) => ({ ...(await stageImportInput(bytes, options.blobs, id)) }),
+        // a job naming a design records the exact inputs it starts from
+        captureInputs: jobInputCapture(() => real),
       });
       // with no worker the cron has no owner: the git mirror runs on a timer here (cs-5k1.26). The
       // timer looks every minute (or `mirrorEveryMs`) and runs the mirror when it is configured and its

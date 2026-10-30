@@ -237,7 +237,7 @@ export function BreakoutPanel({ state, id }: { state: EditorState; id: string })
         ))}
       </ul>
       <select className="cs-select" value={legDef} onChange={(event) => setLegDef(event.target.value)} aria-label="leg stock">
-        <option value="">new leg of {trunk?.def ?? 'the trunk’s stock'}</option>
+        <option value="">new leg of {trunk === undefined ? 'the trunk’s stock' : wireDisplayName(db, trunk.def)}</option>
         {db.wires.map((w) => (
           <option key={w.id} value={w.id}>
             new leg of {wireDisplayName(db, w.id)}

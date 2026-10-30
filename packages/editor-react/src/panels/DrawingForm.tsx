@@ -8,7 +8,7 @@
  * revision and lengths are facts about the *drawing*.
  */
 
-import type { CableDesign, Db } from '@wirehub/model';
+import { pcbaName, type CableDesign, type Db } from '@wirehub/model';
 import type { DrawingMeta } from '@wirehub/docs';
 import { useState, type JSX } from 'react';
 
@@ -147,7 +147,7 @@ function overridable(design: CableDesign, db: Db): { id: string; hint: string }[
   const out: { id: string; hint: string }[] = [];
   for (const instance of design.instances.pcbas) {
     const pcba = db.pcbas.find((p) => p.id === instance.def);
-    out.push({ id: instance.id, hint: pcba === undefined ? instance.def : `${pcba.partNumber} ${pcba.revision}` });
+    out.push({ id: instance.id, hint: pcba === undefined ? instance.def : pcbaName(pcba) });
   }
   for (const instance of design.instances.components) {
     const component = db.components.find((c) => c.id === instance.def);
@@ -212,10 +212,11 @@ export function DrawingForm(props: DrawingFormProps): JSX.Element {
   const remarksText = (meta.remarks ?? []).join('\n');
 
   return (
-    <details className="cs-drawing-form" open>
+    <details className="cs-drawing-form">
       <summary>
         Title block, lengths &amp; photo
-        {props.dirty ? <span className="cs-chip is-draft">unsaved</span> : null}
+        {props.saving ? <span className="cs-chip is-draft">saving…</span> : props.dirty ? <span className="cs-chip is-draft">unsaved</span> : null}
+        {props.status === undefined ? null : <small className="cs-drawing-status">{props.status}</small>}
       </summary>
       <div className="cs-drawing-grid">
         <Field
@@ -247,7 +248,7 @@ export function DrawingForm(props: DrawingFormProps): JSX.Element {
           />
         )}
         <Field label="Designer" value={meta.designer ?? ''} placeholder="Designer" say="Who drew it." onChange={(v) => set('designer', v)} />
-        <label className="cs-field">
+        <label className="cs-field" title="Printed as typed; the house style is YYYY.MM.DD.">
           <span>Date</span>
           <span className="cs-inline">
             <input value={meta.date ?? ''} placeholder="YYYY.MM.DD" onChange={(e) => set('date', e.target.value)} />
@@ -255,18 +256,13 @@ export function DrawingForm(props: DrawingFormProps): JSX.Element {
               today
             </Button>
           </span>
-          <small>Printed as typed; the house style is YYYY.MM.DD.</small>
         </label>
-        <label className={parsed.problems.length > 0 ? 'cs-field is-bad' : 'cs-field'}>
+        <label className={parsed.problems.length > 0 ? 'cs-field is-bad' : 'cs-field'} title="One orderable length per line: -36 = 1830. Blank uses the trunk length from the design.">
           <span>Lengths (mm)</span>
           <textarea rows={4} value={lengthsText} placeholder={'-34 = 1220\n-36 = 1830\n-38 = 2440'} onChange={(e) => onLengths(e.target.value)} />
-          {parsed.problems.length > 0 ? (
-            <small className="cs-field-bad">{parsed.problems[0]}</small>
-          ) : (
-            <small>One orderable length per line: -36 = 1830. Blank uses the trunk length from the design.</small>
-          )}
+          {parsed.problems.length > 0 ? <small className="cs-field-bad">{parsed.problems[0]}</small> : null}
         </label>
-        <label className="cs-field">
+        <label className="cs-field" title="Added after the standard remarks, one per line.">
           <span>Extra remarks</span>
           <textarea
             rows={3}
@@ -276,7 +272,6 @@ export function DrawingForm(props: DrawingFormProps): JSX.Element {
               set('remarks', lines.every((l) => l.trim() === '') ? undefined : lines);
             }}
           />
-          <small>Added after the standard remarks, one per line.</small>
         </label>
         {overridable(props.design, props.db).map(({ id, hint }) => (
           <Field
@@ -288,14 +283,13 @@ export function DrawingForm(props: DrawingFormProps): JSX.Element {
             onChange={(v) => onMaterial(id, v)}
           />
         ))}
-        <label className="cs-field">
+        <label className="cs-field" title="Stocks with no hand-drawn art always use the generated one.">
           <span>Cable illustration</span>
           <Select aria-label="Cable illustration" value={meta.cutaway ?? 'art'}
             onValueChange={(value) => set('cutaway', value === 'drawn' ? 'drawn' : undefined)}
-            options={[{ value: 'art', label: 'Hand-drawn art (where there is some)' }, { value: 'drawn', label: 'Generated from the design spec' }]} />
-          <small>Stocks with no hand-drawn art always use the generated one.</small>
+            options={[{ value: 'art', label: 'Hand-drawn art' }, { value: 'drawn', label: 'Generated' }]} />
         </label>
-        <label className={photoProblem === undefined ? 'cs-field' : 'cs-field is-bad'}>
+        <label className={photoProblem === undefined ? 'cs-field' : 'cs-field is-bad'} title="Optional. Printed top-left. Uploading the same photo again reuses it.">
           <span>Product photo</span>
           <span className="cs-inline">
             <FileDrop aria-label="Upload product photo" accept="image/png,image/jpeg" onFiles={(files) => onPhotoFile(files[0])} onReject={(files) => onPhotoFile(files[0])}>Choose photo</FileDrop>
@@ -314,13 +308,7 @@ export function DrawingForm(props: DrawingFormProps): JSX.Element {
             <small className="cs-field-bad">{photoProblem}</small>
           ) : photoNote !== undefined ? (
             <small>{photoNote}</small>
-          ) : (
-            <small>
-              {props.photo === undefined
-                ? 'Optional. Printed top-left, as on the hand-drawn sheets. Uploading the same photo again reuses it — nothing is duplicated.'
-                : 'A photo is on the sheet.'}
-            </small>
-          )}
+          ) : null}
         </label>
       </div>
       {pickingPhoto && props.assets !== undefined ? (
@@ -334,16 +322,6 @@ export function DrawingForm(props: DrawingFormProps): JSX.Element {
           }}
         />
       ) : null}
-      <div className="cs-drawing-actions">
-        {props.onSave === undefined ? (
-          <small>This host cannot store drawing details — they shape the preview and the print only.</small>
-        ) : (
-          <Button disabled={!props.dirty || props.saving || parsed.problems.length > 0} onClick={props.onSave}>
-            {props.saving ? 'saving…' : 'Save drawing details'}
-          </Button>
-        )}
-        {props.status === undefined ? null : <small className="cs-drawing-status">{props.status}</small>}
-      </div>
     </details>
   );
 }

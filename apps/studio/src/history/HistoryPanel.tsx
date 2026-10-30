@@ -16,7 +16,8 @@ import { toast } from 'sonner';
 
 import { fetchHistoryEntry, fetchRecordHistory, historyTime, restoreRecord } from '../history.browser.ts';
 import { fieldDiff, preview, type FieldChange } from './diff.ts';
-import { historyTouchLabel } from './labels.ts';
+import { historyRaw, historySummary, historyTouchLabel, NO_NAMES, touchMeaning, type RecordNames } from './labels.ts';
+import { useRecordNames } from './names.ts';
 import type { HistoryCapabilities, HistoryEntry, HistoryEntryDetail, RecordDiff, RestoreAnswer } from './types.ts';
 
 const BUTTON =
@@ -27,6 +28,7 @@ const PRIMARY =
 /** One entry's head line: who, when, what it said, and what it touched. */
 export function EntrySummary(props: { entry: HistoryEntry; showTouches?: boolean }): JSX.Element {
   const { entry } = props;
+  const names = useRecordNames();
   const who = entry.by.email === undefined ? entry.by.name : `${entry.by.name} <${entry.by.email}>`;
   return (
     <div className="min-w-0">
@@ -37,18 +39,17 @@ export function EntrySummary(props: { entry: HistoryEntry; showTouches?: boolean
         <span className="text-faint" title={entry.at}>
           {historyTime(entry.at)}
         </span>
-        {entry.source !== 'studio' && entry.source !== 'git' ? <span className="rounded bg-raised px-1 font-mono text-2xs uppercase text-dim">{entry.source}</span> : null}
         {entry.version === undefined ? null : <span className="font-mono text-2xs text-faint">v{entry.version}</span>}
       </div>
-      <div className="truncate text-xs text-dim" title={entry.body === undefined ? entry.message : `${entry.message}\n\n${entry.body}`}>
-        {entry.message}
+      <div className="truncate text-xs text-dim" title={historyRaw(entry)}>
+        {historySummary(entry, names)}
       </div>
       {props.showTouches === false || entry.touches.length === 0 ? null : (
         <ul className="m-0 mt-0.5 flex list-none flex-wrap gap-1 p-0" data-testid="history-touches">
           {entry.touches.map((t, i) => (
             <li key={`${t.subject}:${t.part ?? ''}:${i}`} className="rounded border border-line px-1 text-2xs text-dim" title={t.fields === undefined ? t.label : `${t.label}: ${t.fields.join(', ')}`}>
               {t.op === 'delete' ? '− ' : ''}
-              {historyTouchLabel(t)}
+              {historyTouchLabel(t, names)}
               {t.fields === undefined || t.fields.length === 0 ? '' : ` · ${t.fields.join(', ')}`}
             </li>
           ))}
@@ -63,8 +64,43 @@ function changeClass(change: FieldChange): string {
   return change.op === 'added' ? 'text-ok' : change.op === 'removed' ? 'text-err' : 'text-warn';
 }
 
+/** A record added or removed whole: "Created" or "Deleted" and its key fields, not a JSON blob. */
+function WholeRecord({ change }: { change: FieldChange }): JSX.Element {
+  const value = change.op === 'added' ? change.after : change.before;
+  const fields =
+    typeof value === 'object' && value !== null && !Array.isArray(value)
+      ? Object.entries(value as Record<string, unknown>).filter(([k, v]) => k !== 'src' && k !== 'id' && (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') && String(v) !== '').slice(0, 6)
+      : [];
+  return (
+    <div className="text-xs" data-testid="history-whole">
+      <span className={change.op === 'added' ? 'text-ok' : 'text-err'}>{change.op === 'added' ? 'Created' : 'Deleted'}</span>
+      {fields.length === 0 ? null : (
+        <dl className="m-0 mt-0.5 grid grid-cols-[auto_1fr] gap-x-2 text-2xs">
+          {fields.map(([k, v]) => (
+            <div key={k} className="contents">
+              <dt className="text-faint">{k}</dt>
+              <dd className="m-0 truncate text-dim">{String(v)}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </div>
+  );
+}
+
+/** A value in a diff row: a scalar as itself, a structure (pin anchors, a view's geometry) counted; the raw JSON sits behind "Raw". */
+function brief(value: unknown, max?: number): string {
+  if (Array.isArray(value)) return `${value.length} ${value.length === 1 ? 'item' : 'items'}`;
+  if (typeof value === 'object' && value !== null) {
+    const n = Object.keys(value).length;
+    return `${n} ${n === 1 ? 'field' : 'fields'}`;
+  }
+  return preview(value, max);
+}
+const structured = (c: FieldChange): boolean => [c.before, c.after].some((v) => typeof v === 'object' && v !== null);
+
 /** The field-level diff of one part of one record. */
-export function RecordDiffView(props: { diff: RecordDiff }): JSX.Element {
+export function RecordDiffView(props: { diff: RecordDiff; names?: RecordNames }): JSX.Element {
   const { diff } = props;
   const changes = useMemo(
     () => (diff.before.known && diff.after.known ? fieldDiff(diff.before.value, diff.after.value) : []),
@@ -75,6 +111,7 @@ export function RecordDiffView(props: { diff: RecordDiff }): JSX.Element {
   else if (!diff.before.known && diff.after.known) body = <p className="m-0 text-xs text-faint">Its earlier state was not recorded, so there is nothing to compare against.</p>;
   else if (!diff.after.known) body = <p className="m-0 text-xs text-faint">This state was not recorded.</p>;
   else if (changes.length === 0) body = <p className="m-0 text-xs text-faint">No differences.</p>;
+  else if (changes.length === 1 && changes[0]!.path === '(whole record)' && changes[0]!.op !== 'changed') body = <WholeRecord change={changes[0]!} />;
   else {
     body = (
       <ul className="m-0 max-h-[320px] list-none overflow-y-auto p-0 font-mono text-2xs leading-[17px]" data-testid="history-diff">
@@ -83,12 +120,12 @@ export function RecordDiffView(props: { diff: RecordDiff }): JSX.Element {
             <span className="text-ink">{c.path}</span>{' '}
             {c.op === 'changed' ? (
               <>
-                <span className="text-err line-through decoration-1">{preview(c.before, 80)}</span> → <span className="text-ok">{preview(c.after, 80)}</span>
+                <span className="text-err line-through decoration-1">{brief(c.before, 80)}</span> → <span className="text-ok">{brief(c.after, 80)}</span>
               </>
             ) : c.op === 'added' ? (
-              <>+ {preview(c.after)}</>
+              <>+ {brief(c.after)}</>
             ) : c.op === 'removed' ? (
-              <>− {preview(c.before)}</>
+              <>− {brief(c.before)}</>
             ) : (
               <span className="text-dim">reordered</span>
             )}
@@ -96,11 +133,24 @@ export function RecordDiffView(props: { diff: RecordDiff }): JSX.Element {
         ))}
       </ul>
     );
+    if (changes.some(structured)) {
+      body = (
+        <>
+          {body}
+          <details className="text-2xs text-dim" data-testid="history-diff-raw">
+            <summary className="cursor-pointer text-faint">Raw</summary>
+            <pre className="m-0 mt-0.5 max-h-[200px] overflow-auto whitespace-pre-wrap break-all font-mono text-2xs">
+              {changes.filter(structured).map((c) => `${c.path}: ${c.op === 'removed' ? preview(c.before, 4000) : c.op === 'added' ? preview(c.after, 4000) : `${preview(c.before, 2000)} → ${preview(c.after, 2000)}`}`).join('\n')}
+            </pre>
+          </details>
+        </>
+      );
+    }
   }
   return (
     <div className="rounded border border-line bg-bg px-2 py-1" data-subject={diff.subject} data-part={diff.part}>
       <div className="mb-0.5 flex items-center gap-1.5 text-xs">
-        <span className="font-medium text-ink">{diff.label}</span>
+        <span className="font-medium text-ink">{historyTouchLabel({ subject: diff.subject, label: diff.label, kind: 'other', op: 'put', part: diff.part }, props.names ?? NO_NAMES)}</span>
         <span className="font-mono text-2xs uppercase text-dim">{diff.op === 'binary' ? 'changed' : diff.op}</span>
       </div>
       {body}
@@ -124,6 +174,7 @@ export function EntryDetail(props: {
   const [error, setError] = useState<string>();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  const names = useRecordNames();
 
   const load = useCallback(async () => {
     const out = await fetchHistoryEntry(props.id, props.subject);
@@ -157,13 +208,22 @@ export function EntryDetail(props: {
   if (error !== undefined) return <p className="m-0 text-xs text-err">{error}</p>;
   if (detail === undefined) return <p className="m-0 text-xs text-faint">Loading…</p>;
   const canRestore = props.subject !== undefined && detail.capabilities.restore && detail.current !== undefined;
+  const shown = detail.records.filter((r) => touchMeaning({ subject: r.subject, label: r.label, kind: 'other', op: 'put' }).hidden !== true);
+  // files (artwork, a board file, attachments) have no fields: one line for all of them, not a card each
+  const files = shown.filter((r) => r.op === 'binary');
+  const fileOwners = [...new Set(files.map((r) => touchMeaning({ subject: r.subject, label: r.label, kind: 'other', op: 'put' }, names)).flatMap((m) => (m.boardFile === true ? ['board file'] : m.file !== true && m.name !== undefined ? [`${m.type.toLowerCase()} ${m.name}`] : [])))];
   return (
     <div className="space-y-1.5" data-testid="history-entry">
-      {detail.entry.body === undefined ? null : <pre className="m-0 max-h-[120px] overflow-auto whitespace-pre-wrap text-2xs text-dim">{detail.entry.body}</pre>}
       {detail.records.length === 0 ? <p className="m-0 text-xs text-faint">{props.subject === undefined ? 'Nothing to compare in this change.' : 'This change did not change this record.'}</p> : null}
-      {detail.records.map((r, i) => (
-        <RecordDiffView key={`${r.subject}:${r.part}:${i}`} diff={r} />
+      {shown.filter((r) => r.op !== 'binary').map((r, i) => (
+        <RecordDiffView key={`${r.subject}:${r.part}:${i}`} diff={r} names={names} />
       ))}
+      {files.length === 0 ? null : (
+        <p className="m-0 text-xs text-faint" data-testid="history-files" title="Files have no fields to compare.">
+          {files.length === 1 ? '1 file changed' : `${files.length} files changed`}
+          {fileOwners.length === 0 ? '' : ` · ${fileOwners.join(', ')}`}
+        </p>
+      )}
       {canRestore ? (
         confirming ? (
           <div className="flex flex-wrap items-center gap-1.5 rounded border border-warn bg-bg px-2 py-1.5 text-xs">
@@ -226,7 +286,7 @@ export function RecordHistory(props: { subject: string; label: string; restoreBl
     <div className="space-y-1" data-testid="record-history">
       {error !== undefined ? <p className="m-0 text-xs text-err">{error}</p> : null}
       {capabilities === undefined ? null : (
-        <p className="m-0 text-2xs text-faint" data-testid="history-capabilities" data-backend={capabilities.backend}>
+        <p className="sr-only" data-testid="history-capabilities" data-backend={capabilities.backend}>
           {capabilities.note}
         </p>
       )}

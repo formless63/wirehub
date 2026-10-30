@@ -33,7 +33,7 @@ import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { installPackLayer, readInstalledPacks, readPackManifest } from '@wirehub/catalog';
+import { installPackLayer, readInstalledPacks, readPackManifest, readReleasedPacks } from '@wirehub/catalog';
 import type { ModuleRegistry, WireHubModule } from '@wirehub/modules';
 
 import { writeFileAtomic } from './atomic-write.ts';
@@ -196,7 +196,8 @@ function view(deps: SetupDeps, modules: ModuleRegistry | undefined): unknown {
   const state = readSetupState(deps);
   const enabled = state?.modules ?? [];
   // packs installed as layers, plus any a hub from before merged into its catalog
-  const installed = new Set([...readInstalledPacks(packsDirOf(deps)).packs, ...readInstalledPacks(deps.dataDir).packs].map((p) => p.id));
+  // …and the packs released to the hub: their records are the hub's own, never installed again
+  const installed = new Set([...readInstalledPacks(packsDirOf(deps)).packs, ...readInstalledPacks(deps.dataDir).packs, ...readReleasedPacks(deps.dataDir)].map((p) => p.id));
   const completed = state?.completed === true;
   return {
     needed: deps.prompt && !completed,
@@ -268,7 +269,13 @@ export async function handleSetupRequest(
     }
   }
   const installed: { module: string; pack: string; added: number; alreadyInstalled: boolean }[] = [];
+  const released = new Set(readReleasedPacks(deps.dataDir).map((p) => p.id));
   for (const plan of plans) {
+    // a pack released to the hub stays the hub's own: enabling its module again installs nothing over it
+    if (released.has(plan.pack)) {
+      installed.push({ module: plan.module, pack: plan.pack, added: 0, alreadyInstalled: true });
+      continue;
+    }
     try {
       const result = installPackLayer(deps.dataDir, packsDirOf(deps), plan.dir);
       installed.push({

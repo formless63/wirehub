@@ -113,6 +113,8 @@ export const PACK_MANIFEST = 'wirehub-pack.json';
 /** One installed pack, as `packs.json` records it. */
 export interface InstalledPack {
   id: string;
+  /** Human name retained from the manifest for the installed-packs screen. */
+  name?: string;
   version: string;
   license: string;
   /** the record files and ids the pack added (`connectors.json` → ids, `vocab/signals.json` → entry ids, `designs/x.json` → []) */
@@ -301,6 +303,35 @@ export const manifestOffers = (manifest: PackManifest): Pick<InstalledPack, 'par
 export interface InstalledPacks {
   src: string;
   packs: InstalledPack[];
+  /**
+   * Packs **released to this hub** (`docs/catalog-store.md` §3, "Release to this hub"): their
+   * records stayed, under the same ids, and are the hub's own now. Kept in the catalog's own
+   * `packs.json` as history; nothing reads them for ownership, and a pack with one of these ids
+   * is not installed or updated again.
+   */
+  released?: ReleasedPack[];
+}
+
+/** A pack released to this hub: what it was, when and by whom, and the records and files it handed over (provenance). */
+export interface ReleasedPack {
+  id: string;
+  name?: string;
+  version: string;
+  license: string;
+  releasedAt: string;
+  releasedBy?: string;
+  /** the record files and ids the pack had added (its `added` as it was): where each released record came from */
+  records: Record<string, string[]>;
+  /** how many records, vocabulary entries and designs it handed over */
+  count: number;
+  /** the auxiliary files, images and model links it owned, by path (`drawings/x.json`, `models.json#<key>`, `art/a.png`) */
+  files?: string[];
+  origin?: InstalledPack['origin'];
+}
+
+/** The packs released to this hub, recorded in the catalog's own `packs.json`. */
+export function readReleasedPacks(catalogDir: string): ReleasedPack[] {
+  return readInstalledPacks(catalogDir).released ?? [];
 }
 
 export const PACKS_FILE = 'packs.json';
@@ -310,11 +341,14 @@ export const PACK_HOST_CONTROL_FILES: readonly string[] = [
   'packs.json', 'setup.json', 'proposals.json',
   'settings/code-modules.json', 'settings/stores.json', 'settings/sign-in.json',
   'settings/notifications.json', 'settings/integrations.json', 'settings/jobs.json',
-  'settings/webhooks.json', 'settings/modules.json',
+  'settings/webhooks.json', 'settings/modules.json', 'settings/commissioning.json',
 ];
 
+/** Records a hub only ever adds to through its own route (firmware commissioning): never a pack's to supply. */
+const PACK_HOST_CONTROL_DIRS: readonly string[] = ['firmware/commissions/'];
+
 export function isPackHostControlPath(relative: string): boolean {
-  return PACK_HOST_CONTROL_FILES.includes(relative);
+  return PACK_HOST_CONTROL_FILES.includes(relative) || PACK_HOST_CONTROL_DIRS.some((dir) => relative.startsWith(dir));
 }
 
 export const canonical = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`;
@@ -482,7 +516,7 @@ export function keyedRecords(file: string, value: Json): { id: string; section: 
 }
 
 /** The record files of a catalog (merged in place by id; the pad table by board); every other JSON file a pack ships is auxiliary and layered as a whole. */
-export const RECORD_FILES: readonly string[] = ['bodies', 'interfaces', 'connectors', 'wires', 'components', 'mechanicals', 'kits', 'pcbas', 'devices', 'conditioning-recipes', 'hazards', 'products', 'validation-rules', 'bench-rules'].map((n) => `${n}.json`);
+export const RECORD_FILES: readonly string[] = ['bodies', 'interfaces', 'connectors', 'wires', 'components', 'mechanicals', 'kits', 'pcbas', 'devices', 'conditioning-recipes', 'hazards', 'products', 'validation-rules', 'bench-rules', 'processes'].map((n) => `${n}.json`);
 const RECORD_FILE_NAMES = new Set<string>([...RECORD_FILES, ...Object.keys(KEYED_FILES)]);
 
 /**
@@ -593,7 +627,7 @@ export function packAssetFiles(dir: string): string[] {
  * that carries code, the module with the sha256 of its entries.
  */
 export function installedRecordOf(manifest: PackManifest, added: Record<string, string[]>, assets: Record<string, string>, packDir: string): InstalledPack {
-  const record: InstalledPack = { id: manifest.id, version: manifest.version, license: manifest.license, added, ...(Object.keys(assets).length === 0 ? {} : { assets }), ...manifestOffers(manifest) };
+  const record: InstalledPack = { id: manifest.id, name: manifest.name, version: manifest.version, license: manifest.license, added, ...(Object.keys(assets).length === 0 ? {} : { assets }), ...manifestOffers(manifest) };
   const m = manifest.module;
   if (m === undefined) return record;
   const sha = (relative: string): string => sha256Hex(readFileSync(join(packDir, relative)));

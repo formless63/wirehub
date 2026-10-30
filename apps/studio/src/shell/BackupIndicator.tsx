@@ -6,6 +6,7 @@
  */
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from '@tanstack/react-router';
 import { Popover } from 'radix-ui';
 import { useState, type JSX, type ReactNode } from 'react';
 
@@ -58,14 +59,14 @@ export function BackupDetails({ status, now }: { status: BackupStatus; now: Date
         {status.enabled && status.state !== 'database' ? <Row label="Waiting">{status.pendingCommits} commit{status.pendingCommits === 1 ? '' : 's'}</Row> : null}
         {status.lastPush === null ? null : (
           <Row label="Backed up">
-            {ago(status.lastPush.at, now)} · <span className="font-mono">{status.lastPush.sha.slice(0, 8)}</span>
+            {ago(status.lastPush.at, now)}
           </Row>
         )}
         {status.lastCommit === null ? null : (
           <Row label="Last save">
             <span className="block">{status.lastCommit.subject.replace(/^studio: /, '')}</span>
             <span className="block text-dim">
-              {status.lastCommit.author} · {ago(status.lastCommit.at, now)} · <span className="font-mono">{status.lastCommit.sha.slice(0, 8)}</span>
+              {status.lastCommit.author} · {ago(status.lastCommit.at, now)}
             </span>
           </Row>
         )}
@@ -90,9 +91,17 @@ export function BackupDetails({ status, now }: { status: BackupStatus; now: Date
   );
 }
 
+/** A record or design edit page: a library record, a design, a product, a project or a firmware project (not a list). */
+const EDIT_PAGE = /^\/(library\/[^/]+|cables|products|projects|firmware)\/[^/]+/;
+
 export function BackupIndicator(props: { now?: () => Date; compact?: boolean }): JSX.Element | null {
   const query = useQuery({ queryKey: backupKey, queryFn: () => loadBackup(), refetchInterval: 15_000 });
   const status = query.data;
+  // "Saved 6 h ago" means something only beside a record being edited: elsewhere the dot (and its tooltip) is enough
+  // (a test may render it alone, outside a router)
+  const router = useRouter({ warn: false }) as { state?: { location?: { pathname?: string } } } | undefined;
+  const pathname = router?.state?.location?.pathname ?? (typeof window === 'undefined' ? '/' : window.location.pathname);
+  const editing = EDIT_PAGE.test(pathname);
   if (status === undefined) return null;
   const now = (props.now ?? (() => new Date()))();
   const { text, tone } = backupLabel(status, now);
@@ -111,7 +120,7 @@ export function BackupIndicator(props: { now?: () => Date; compact?: boolean }):
         >
           <span aria-hidden="true" className={`h-[7px] w-[7px] shrink-0 rounded-full ${DOT[tone]}`} />
           {/* a cable's title needs the room first */}
-          <span className={props.compact === true ? 'hidden' : 'max-lg:hidden'}>{text}</span>
+          <span className={props.compact === true || (status.state === 'database' && !editing) ? 'hidden' : 'max-lg:hidden'}>{text}</span>
         </button>
       </Popover.Trigger>
       <Popover.Portal>

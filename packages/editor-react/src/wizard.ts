@@ -52,18 +52,22 @@ import {
   findConnector,
   findPcba,
   findWire,
+  isFoilPath,
   isGroundSignal,
   kindOfSignal,
   laneOfPadRole,
   migrateShieldBonds,
+  readConductor,
   resolveElementPath,
   readSignalLabels,
   returnOf,
   signalIds,
   signalOf,
   signalOfLane,
+  stockScreens,
   validateDesign,
   wireElementName,
+  withoutColourWords,
   vocabEntry,
   type BoundPin,
   type Link as PinLink,
@@ -82,6 +86,8 @@ import {
 } from '@wirehub/model';
 
 import { isDesignId, suggestDesignId } from './persistence.ts';
+
+export { withoutColourWords };
 
 /* ------------------------------------------------------------------ *
  * Roles — what a wire, pin or pad is for
@@ -108,10 +114,18 @@ export type GroundClass = string;
 
 const KIND_ROLE = 'kind:';
 
+/**
+ * The role of a conductor whose own words the vocabulary cannot read ("Video Sync" on a hub
+ * with no plain "sync" entry) and whose colour code alone would make it a supply or ground,
+ * or says nothing. The wizard never lands it by itself: it asks.
+ */
+export const UNREAD_ROLE = 'unread:';
+
 /** How a role reads on screen: the signal's label, in plain words. */
 export function roleLabel(db: Db, role: Role): string {
   if (role === GROUND_ROLE) return 'ground';
   if (role.startsWith(KIND_ROLE)) return `${role.slice(KIND_ROLE.length)} (any)`;
+  if (role === UNREAD_ROLE) return 'unread';
   const entry = vocabEntry<SignalEntry>(db.vocab, 'signals', role);
   return entry?.label ?? role;
 }
@@ -197,6 +211,30 @@ export function roleOfTags(db: Db, tags: TerminalTags): Reading | undefined {
   return readingsOfTags(db, tags)[0];
 }
 
+/** What kind of thing a role is: `ground`, a kind-level role's kind, else its signal's kind. */
+function roleKind(db: Db, role: Role): string | undefined {
+  if (role === GROUND_ROLE) return 'ground';
+  if (role.startsWith(KIND_ROLE)) return role.slice(KIND_ROLE.length);
+  return kindOfSignal(db, role);
+}
+
+/** Supply and ground terminals: only a supply or ground conductor may land there. */
+const RAIL_KINDS = new Set(['power', 'ground']);
+
+/**
+ * Would landing a core of `role` on `terminal` put a signal on a supply or ground rail (or a supply on a
+ * signal pin)? The wizard never does that on its own, whatever a tag or a pairing says.
+ */
+export function wrongRail(db: Db, role: Role, terminal: EndTerminal): boolean {
+  const kinds = terminal.roles.map((r) => roleKind(db, r));
+  if (kinds.length === 0) return false;
+  const lineKind = roleKind(db, role);
+  const lineRail = lineKind !== undefined && RAIL_KINDS.has(lineKind);
+  const pinRail = kinds.every((k) => k !== undefined && RAIL_KINDS.has(k));
+  const pinSignal = kinds.every((k) => k === undefined || !RAIL_KINDS.has(k));
+  return (!lineRail && pinRail) || (lineKind === 'power' && pinSignal);
+}
+
 /** Does terminal `terminal` take a core of role `role`? A kind-level role takes any signal of that kind. */
 function takes(db: Db, terminal: EndTerminal, role: Role): boolean {
   if (terminal.roles.includes(role)) return true;
@@ -239,10 +277,14 @@ export interface EndTerminal {
   cableSide: boolean;
   /** for a board's connector-pin pads: the group they belong to (`j`, `jp`, …) */
   plugPrefix?: string;
+  /** a connector-pin pad the trunk may land on because the board has no trunk pads (`pcbaTerminals`) */
+  padLanding?: boolean;
   /** the vocab signal id the pin carries, when its tags, words or interface name one */
   signal?: string;
   /** the pin's direction as its interface gives it, for pairing a transmit with a receive */
   dir?: PinDir;
+  /** a board pad's pad role (vocab `pad-roles`), as tagged */
+  padRole?: string;
 }
 
 /**
@@ -262,7 +304,7 @@ function normalise(text: string): string {
   return text.toLowerCase().replace(/[_]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-function terminalOf(id: string, label: string, readings: Reading[], cableSide: boolean, extra: { plugPrefix?: string; signal?: string; dir?: PinDir } = {}): EndTerminal {
+function terminalOf(id: string, label: string, readings: Reading[], cableSide: boolean, extra: { plugPrefix?: string; signal?: string; dir?: PinDir; padRole?: string } = {}): EndTerminal {
   const first = readings[0];
   return {
     id,
@@ -305,12 +347,30 @@ export function connectorTerminals(connector: ConnectorDefinition, db: Db): EndT
   });
 }
 
-/** A board's terminals as the wizard reads them — tags first, as `connectorTerminals`. */
+/**
+ * A board's terminals as the wizard reads them — tags first, as `connectorTerminals`.
+ *
+ * A board with no trunk pads at all — every terminal a pad of one of its own
+ * connectors, as a board read from its KiCad file is — lands the trunk on
+ * those pads: their labels are the board's net names, so a
+ * `GND` pad is a ground landing and a `VBUS` pad a power one, as the
+ * vocabulary reads them. A plug chosen for a pad group still takes those pads
+ * (`resolveEnds`).
+ */
 export function pcbaTerminals(pcba: PcbaDefinition, db: Db): EndTerminal[] {
+  const read = pcbaTerminalsAsDeclared(pcba, db);
+  if (read.some((t) => t.cableSide)) return read;
+  return read.map((t) => (t.plugPrefix !== undefined && t.role !== undefined ? { ...t, cableSide: true, padLanding: true } : t));
+}
+
+function pcbaTerminalsAsDeclared(pcba: PcbaDefinition, db: Db): EndTerminal[] {
   const integrated = new Set((pcba.integratedConnectors ?? []).map((entry) => entry.terminalPrefix));
   return pcba.terminals.map((terminal) => {
     const tags = signalOf(db, 'pcba', pcba.id, terminal.id);
-    const readings = tags !== undefined ? readingsOfTags(db, tags) : readingsOfLabels(db, [terminal.label, terminal.id]);
+    // a role the vocabulary has no pad role for (`sync`) reads as words, with the label:
+    // an unread terminal must not leave its core to land wherever else
+    const tagged = tags !== undefined ? readingsOfTags(db, tags) : [];
+    const readings = tagged.length > 0 ? tagged : readingsOfLabels(db, [tags?.role, terminal.label, terminal.id]);
     const dot = terminal.id.indexOf('.');
     const prefix = dot === -1 ? undefined : terminal.id.slice(0, dot);
     const cableSide = dot === -1 && isTrunkPad(terminal.note);
@@ -319,29 +379,12 @@ export function pcbaTerminals(pcba: PcbaDefinition, db: Db): EndTerminal[] {
       terminal.label ?? terminal.id,
       readings,
       cableSide,
-      prefix === undefined || integrated.has(prefix) ? {} : { plugPrefix: prefix },
+      {
+        ...(prefix === undefined || integrated.has(prefix) ? {} : { plugPrefix: prefix }),
+        ...(tags?.role === undefined ? {} : { padRole: tags.role }),
+      },
     );
   });
-}
-
-/**
- * A wire label with its colour words taken out: parenthesised colours
- * ("Pair 1 (blue)") go, and a label made only of colours ("white/blue")
- * is nothing. `undefined` when nothing but colour is left.
- */
-export function withoutColourWords(db: Db, label: string): string | undefined {
-  const colours = new Set<string>();
-  for (const entry of (db.vocab?.['colours']?.entries ?? []) as { id: string; label?: string; aliases?: string[] }[]) {
-    for (const text of [entry.id, entry.label, ...(entry.aliases ?? [])]) {
-      if (typeof text === 'string') colours.add(text.trim().toLowerCase());
-    }
-  }
-  const isColour = (text: string): boolean => {
-    const parts = text.toLowerCase().split(/[\s/,&+-]+/).filter((part) => part !== '');
-    return parts.length > 0 && parts.every((part) => colours.has(part) || part === 'stripe' || part === 'striped');
-  };
-  const rest = label.replace(/\(([^)]*)\)/g, (whole, inner: string) => (isColour(inner) ? ' ' : whole)).replace(/\s+/g, ' ').trim();
-  return rest === '' || isColour(rest) ? undefined : rest;
 }
 
 /** One electrical element of a wire stock, with the signal it carries. */
@@ -384,6 +427,19 @@ export function wireLines(wire: WireDefinition, db: Db): WireLine[] {
     return words === undefined ? undefined : roleOfLabels(db, [words])?.role;
   };
 
+  // a tag a colour code gives (yellow is a supply in one code, a lane with no signal in another) never
+  // beats the core's own words naming a signal of another kind: a core labelled "Video Sync" is not a
+  // +5 V core, nor left unnamed for a pairing to hand a supply line
+  const overTag = (tag: Role | undefined, words: Role | undefined): Role | undefined =>
+    words !== undefined && (tag === undefined || roleKind(db, tag) !== roleKind(db, words)) ? words : tag;
+
+  // a conductor whose own words the vocabulary cannot read is never a supply or ground by its
+  // colour code alone, nor left in the pool a pairing may hand a rail
+  const unlessUnread = (path: string, role: Role | undefined): Role | undefined => {
+    if (role !== undefined && !RAIL_KINDS.has(roleKind(db, role) ?? '')) return role;
+    return readConductor(db, wire, path)?.basis === 'unread' ? UNREAD_ROLE : role;
+  };
+
   const walk = (element: Element, path: string, coreRole: Role | undefined): void => {
     if (element.kind === 'group') {
       // only a *core* group lends its role to what it wraps: the root `cable`
@@ -399,7 +455,7 @@ export function wireLines(wire: WireDefinition, db: Db): WireLine[] {
         : inner === undefined
           ? coreRole
           : innerPath !== undefined && isTagged(innerPath)
-            ? tagged(innerPath)
+            ? unlessUnread(innerPath, overTag(tagged(innerPath), ofLabel(inner.label) ?? ofLabel(element.label)))
             : (ofLabel(inner.label) ?? ofLabel(element.label));
       for (const child of element.children) {
         walk(child, path === '' ? child.id : `${path}.${child.id}`, role);
@@ -411,9 +467,12 @@ export function wireLines(wire: WireDefinition, db: Db): WireLine[] {
       const role =
         element.bare === true
           ? GROUND_ROLE
-          : isTagged(path)
-            ? tagged(path)
-            : (ofLabel(element.label) ?? coreRole);
+          : unlessUnread(
+              path,
+              isTagged(path)
+                ? overTag(tagged(path), ofLabel(element.label) ?? (coreRole === UNREAD_ROLE ? undefined : coreRole))
+                : (ofLabel(element.label) ?? (coreRole === UNREAD_ROLE ? undefined : coreRole)),
+            );
       if (role === undefined) return;
       lines.push({
         path,
@@ -524,7 +583,7 @@ export const STEP_TITLES: Readonly<Record<WizardStep, string>> = {
 };
 
 export const STEP_SAY: Readonly<Record<WizardStep, string>> = {
-  name: 'A name a builder would read at the top of the build sheet, and a reference for where the information comes from.',
+  name: 'A name a builder reads at the top of the build sheet.',
   source: 'Pick the plug that goes into the source device, or the source-side board the design is soldered to.',
   wire: 'The stock the trunk is cut from, and how long to cut it.',
   destination: 'The plug or board at the destination end.',
@@ -650,9 +709,7 @@ export function stepBlockers(state: WizardState): string[] {
       } else if (state.taken.includes(id)) {
         out.push(`A design called '${id}' already exists. Choose another id.`);
       }
-      if (state.src.trim() === '') {
-        out.push('Give a reference — say where this information comes from ("own design" is fine).');
-      }
+      // no reference yet is fine: the saved draft carries a `missing-src` finding
       return out;
     }
     case 'source':
@@ -777,11 +834,29 @@ export interface OpenChoice {
   end: EndSide;
   /** the sentence the step asks */
   question: string;
-  /** one line of context under it */
+  /** what the question is about, by name (`Video Sync centre conductor`, `Braid bond`) */
+  subject: string;
+  /** a few words on why it is asked (`no signal match`) */
+  chip: string;
+  /** the full reason, for a tooltip */
   say: string;
   options: { value: string; label: string }[];
   /** true when there is nothing to land on at all and the options are near misses */
   weak: boolean;
+  /** the option shown picked until the builder says otherwise (the plain pad among its variants) */
+  suggested?: string;
+}
+
+/**
+ * Among several landings for one signal, the board's plain pad for it: the one whose pad role
+ * every other candidate's extends (`sync` beside `sync-ttl`, `sync-in`). Never for a supply
+ * or ground line, and never when the roles do not read that way: then the builder decides.
+ */
+function plainLanding(db: Db, role: Role, candidates: readonly EndTerminal[]): EndTerminal | undefined {
+  const kind = roleKind(db, role);
+  if (kind === undefined || RAIL_KINDS.has(kind) || role === GROUND_ROLE || candidates.length < 2) return undefined;
+  const plain = candidates.filter((c) => c.padRole !== undefined && candidates.every((o) => o === c || (o.padRole !== undefined && o.padRole.startsWith(`${c.padRole}-`))));
+  return plain.length === 1 ? plain[0] : undefined;
 }
 
 /** Something the wizard left alone, and why. */
@@ -790,10 +865,28 @@ export interface Unconnected {
   why: string;
 }
 
+/** One end of a planned joint, by name; `hint` carries the instance and terminal ids. */
+export interface PlanLanding {
+  name: string;
+  hint: string;
+}
+
+/** One row of the review's pin table: a conductor (or a plug pin) and where each end lands. */
+export interface PlanRow {
+  key: string;
+  what: string;
+  whatHint?: string;
+  signal?: string;
+  from?: PlanLanding;
+  to?: PlanLanding;
+}
+
 export interface CablePlan {
   design: CableDesign;
   /** one plain sentence per generated joint, in the order they were made */
   lines: string[];
+  /** the same joints as a pin table, one row per conductor or plug pin */
+  rows: PlanRow[];
   unconnected: Unconnected[];
   choices: OpenChoice[];
   issues: Issue[];
@@ -844,6 +937,9 @@ function resolveEnds(state: WizardState): ResolvedEnd[] {
       if (connector === undefined) continue;
       plugs.push({ prefix, instance: nextId('connector'), def, connector });
     }
+    // a pad group a plug is soldered onto is the plug's, not a trunk landing
+    const plugged = new Set(plugs.map((p) => p.prefix));
+    const landings = plugged.size === 0 ? terminals : terminals.map((t) => (t.padLanding === true && t.plugPrefix !== undefined && plugged.has(t.plugPrefix) ? { ...t, cableSide: false } : t));
 
     out.push({
       side,
@@ -852,7 +948,7 @@ function resolveEnds(state: WizardState): ResolvedEnd[] {
       kind: choice.kind,
       def: choice.def,
       label: endLabel(state.db, choice),
-      terminals,
+      terminals: landings,
       plugs,
     });
   }
@@ -872,6 +968,21 @@ export function plugPrefixes(terminals: EndTerminal[]): string[] {
 
 function trunkCandidates(db: Db, end: ResolvedEnd, role: Role): EndTerminal[] {
   return end.terminals.filter((terminal) => terminal.cableSide && terminal.role !== GROUND_ROLE && takes(db, terminal, role));
+}
+
+/**
+ * Where a core with no exact landing could go, offered as a choice and never taken: the
+ * landings of its near signals, and a terminal that names only its kind (a pad whose role is
+ * `power` and no voltage, for the +5 V core). The rail guard still filters them.
+ */
+function nearCandidates(db: Db, end: ResolvedEnd, role: Role): EndTerminal[] {
+  const out = nearRoles(db, role).flatMap((near) => trunkCandidates(db, end, near));
+  const kind = roleKind(db, role);
+  if (kind !== undefined && kind !== 'ground' && kind !== 'none' && !role.startsWith(KIND_ROLE)) {
+    const kindOnly = `${KIND_ROLE}${kind}`;
+    out.push(...end.terminals.filter((terminal) => terminal.cableSide && terminal.role !== GROUND_ROLE && terminal.roles.includes(kindOnly)));
+  }
+  return out.filter((terminal, at) => out.findIndex((t) => t.id === terminal.id) === at);
 }
 
 /**
@@ -954,20 +1065,25 @@ function trunkPlan(state: WizardState, ends: ResolvedEnd[], wire: WireDefinition
   const labelOf = (path: string): string => {
     return resolveElementPath(wire.structure, path)?.label ?? path;
   };
+  // what a person calls an element left alone: its label, else its place in the stock (`pair 1 · blue`)
+  const nameOf = (path: string): string => resolveElementPath(wire.structure, path)?.label ?? wireElementName(wire, path);
   const free = shape.conductors.filter((path) => !namedPaths.has(path));
 
   if (state.connect === 'colour' || ends.length < 2 || free.length === 0) {
     return {
       lines: named,
       notes: [],
-      left: state.connect === 'colour' ? free.map((path) => ({ what: labelOf(path), why: 'neither the stock’s colour code nor its label says what it carries.' })) : [],
+      left: state.connect === 'colour' ? free.map((path) => ({ what: nameOf(path), why: 'neither the stock’s colour code nor its label says what it carries.' })) : [],
     };
   }
 
   const [source, destination] = ends as [ResolvedEnd, ResolvedEnd];
   const paired = pairPins(state.db, boundPinsOf(state.db, source), boundPinsOf(state.db, destination));
   const taken = new Set(named.filter((line) => line.role !== GROUND_ROLE).map((line) => line.role));
-  let links = paired.links.filter((link) => (link.signal === undefined || !taken.has(link.signal)) && (link.toSignal === undefined || !taken.has(link.toSignal)));
+  // a line the stock already names by kind only (a `power` lane) carries every signal of that kind
+  const isTaken = (signal: string | undefined): boolean =>
+    signal !== undefined && (taken.has(signal) || taken.has(`${KIND_ROLE}${kindOfSignal(state.db, signal) ?? ''}`));
+  let links = paired.links.filter((link) => !isTaken(link.signal) && !isTaken(link.toSignal));
   const needGround = paired.grounds.source.length > 0 && paired.grounds.destination.length > 0 && links.length > 0
     && !named.some((line) => line.role === GROUND_ROLE && line.kind === 'conductor' && !line.drain);
 
@@ -988,21 +1104,44 @@ function trunkPlan(state: WizardState, ends: ResolvedEnd[], wire: WireDefinition
     pool.splice(pool.indexOf(path), 1);
     return path;
   };
+  // what a free conductor reads as, so a pairing never hands a line to a conductor that says it carries
+  // something else: a core whose words or colour code name a signal never takes a supply or ground line,
+  // and one that reads as a rail never takes a signal line. Fail closed: no fit, no conductor.
+  const hintOfPath = new Map(free.map((path) => {
+    const reading = readConductor(state.db, wire, path);
+    return [path, reading?.basis === 'unread' ? 'unread' : reading?.hint] as const;
+  }));
+  const fits = (path: string, link: PinLink): boolean => {
+    const hint = hintOfPath.get(path);
+    if (hint === undefined) return true;
+    if (hint === 'unread') return false;
+    const signal = link.signal ?? link.toSignal;
+    const linkKind = signal === undefined ? undefined : roleKind(state.db, signal);
+    const linkRail = signal !== undefined && isGroundSignal(state.db.vocab, signal) ? 'ground' : linkKind;
+    if (hint === 'power' || hint === 'ground') return linkRail === hint;
+    return linkRail !== 'power' && linkRail !== 'ground';
+  };
+  const groundFits = (path: string): boolean => {
+    const hint = hintOfPath.get(path);
+    return hint === undefined || hint === 'ground';
+  };
   const conductorOf = new Map<number, string>();
   const pairsFree = shape.pairs.filter(([a, b]) => pool.includes(a) && pool.includes(b));
   for (const [i, j] of diffPairs(state.db, links)) {
-    const pair = pairsFree.shift();
-    if (pair === undefined) break;
+    const pair = pairsFree.find(([a, b]) => fits(a, links[i]!) && fits(b, links[j]!));
+    if (pair === undefined) continue;
+    pairsFree.splice(pairsFree.indexOf(pair), 1);
     conductorOf.set(i, takeFrom(pair[0]));
     conductorOf.set(j, takeFrom(pair[1]));
   }
   const inFreePair = new Set(pairsFree.flat());
-  links.forEach((_, i) => {
+  links.forEach((link, i) => {
     if (conductorOf.has(i)) return;
-    const path = pool.find((p) => !inFreePair.has(p)) ?? pool[0];
+    const fitting = pool.filter((p) => fits(p, link));
+    const path = fitting.find((p) => !inFreePair.has(p)) ?? fitting[0];
     if (path !== undefined) conductorOf.set(i, takeFrom(path));
   });
-  const groundPath = needGround ? pool[0] : undefined;
+  const groundPath = needGround ? pool.find(groundFits) : undefined;
   if (groundPath !== undefined) takeFrom(groundPath);
 
   const assigned: WireLine[] = [];
@@ -1028,8 +1167,9 @@ function trunkPlan(state: WizardState, ends: ResolvedEnd[], wire: WireDefinition
   // nothing paired at all is not a spare: the cores stay floating and the checks say so
   const anyJoined = assigned.length > 0 || named.length > 0;
   for (const path of pool) {
-    if (anyJoined) notes.push(`${SEGMENT_ID}:${path}@a is a spare: not connected at either end.`);
-    left.push({ what: labelOf(path), why: anyJoined ? 'a spare: no line of this cable needs it.' : 'nothing the two ends carry matches, so no pin could be paired with it.' });
+    // the bracket is the reference the checks read; people read the name (`humanizeNote`)
+    if (anyJoined) notes.push(`${upperFirst(nameOf(path))} is a spare: not connected at either end. [${SEGMENT_ID}:${path}@a]`);
+    left.push({ what: nameOf(path), why: anyJoined ? 'a spare: no line of this cable needs it.' : 'nothing the two ends carry matches, so no pin could be paired with it.' });
   }
 
   // lay order: the cores as the stock has them, then the braids, then the drain
@@ -1078,13 +1218,15 @@ export function openChoices(state: WizardState): OpenChoice[] {
         id: choiceIdOf(end.side, 'ground'),
         end: end.side,
         question: `Where does the braid bond at the ${where}?`,
+        subject: 'Braid bond',
+        chip: general.length === 0 ? 'no plain ground' : `${general.length} ground landings`,
         say:
           general.length === 0
             ? `${end.label} has no plain ground landing, so ${names} could go to any of its returns.`
             : `${end.label} offers ${general.length} ground landings for ${names}. Pick the one they are twisted onto.`,
         options: (general.length === 0 ? grounds : general).map((terminal) => ({
           value: terminal.id,
-          label: `${terminal.id} — ${terminal.label}`,
+          label: terminalName(terminal),
         })),
         weak: general.length === 0,
       });
@@ -1095,6 +1237,22 @@ export function openChoices(state: WizardState): OpenChoice[] {
       if (line.role === 'ground') continue;
       // a conductor paired pin to pin by signal has nothing to ask
       if (line.lands?.[end.side] !== undefined) continue;
+      if (line.role === UNREAD_ROLE) {
+        // anything but a supply or ground: the builder says which
+        const options = end.terminals.filter((terminal) => terminal.cableSide && terminal.role !== GROUND_ROLE && !wrongRail(state.db, line.role, terminal));
+        if (options.length === 0) continue;
+        out.push({
+          id: choiceIdOf(end.side, line.path),
+          end: end.side,
+          question: `Where does ${line.label} land at the ${where}?`,
+          subject: line.label,
+          chip: 'no signal match',
+          say: `Its label does not name a signal the vocabulary knows, so the wizard does not guess — and its colour code does not make it a supply or ground. Pick its landing, or leave it unconnected.`,
+          options: options.map((terminal) => ({ value: terminal.id, label: terminalName(terminal) })),
+          weak: true,
+        });
+        continue;
+      }
       const exact = trunkCandidates(state.db, end, line.role);
       if (exact.length === 1) continue;
       // a lone stand-in landing (a mono pin feeding both audio cores) is the
@@ -1102,32 +1260,71 @@ export function openChoices(state: WizardState): OpenChoice[] {
       if (exact.length === 0 && standInFor(state.db, end, line.role) !== undefined) continue;
       const near =
         exact.length === 0
-          ? nearRoles(state.db, line.role).flatMap((role) => trunkCandidates(state.db, end, role))
+          ? nearCandidates(state.db, end, line.role)
           : [];
-      const options = exact.length > 1 ? exact : near;
+      // nothing reads as this signal or near it: a pad whose words say nothing the vocabulary reads
+      // (`S` with a role and no signal) is where it may go — asked, never taken
+      const unread = exact.length === 0 && near.length === 0
+        ? end.terminals.filter((terminal) => terminal.cableSide && terminal.roles.length === 0)
+        : [];
+      const options = (exact.length > 1 ? exact : near.length > 0 ? near : unread).filter((terminal) => !wrongRail(state.db, line.role, terminal));
       if (options.length === 0) continue;
+      const plain = exact.length > 1 && options.length === exact.length ? plainLanding(state.db, line.role, options) : undefined;
       out.push({
         id: choiceIdOf(end.side, line.path),
         end: end.side,
         question: `Where does the ${roleLabel(state.db, line.role)} core land at the ${where}?`,
+        subject: line.label === line.path ? `${roleLabel(state.db, line.role)} core` : line.label,
+        chip: exact.length > 1 ? `${exact.length} landings` : 'closest matches',
         say:
           exact.length > 1
             ? `${end.label} has ${exact.length} landings for ${roleLabel(state.db, line.role)}. Only you know which one this build uses.`
             : `Nothing on ${end.label} is labelled ${roleLabel(state.db, line.role)}. These are the closest — leave it unconnected if none is right.`,
         options: options.map((terminal) => ({
           value: terminal.id,
-          label: `${terminal.id} — ${terminal.label}`,
+          label: terminalName(terminal),
         })),
         weak: exact.length === 0,
+        ...(plain === undefined ? {} : { suggested: plain.id }),
       });
     }
   }
   return out;
 }
 
+/**
+ * A terminal as a builder names it: a short id (a pin number) with its label, else the label alone.
+ * The instance and full id go in a tooltip.
+ */
+export function terminalName(terminal: { id: string; label?: string }): string {
+  const label = (terminal.label ?? '').trim();
+  if (label === '' || label === terminal.id) return terminal.id;
+  return terminal.id.length <= 3 ? `${terminal.id} ${label}` : label;
+}
+
+function plugRow(
+  plug: ResolvedEnd['plugs'][number],
+  pin: EndTerminal,
+  end: ResolvedEnd,
+  pad: EndTerminal,
+): PlanRow {
+  return {
+    key: `p:${plug.instance}:${pin.id}`,
+    what: `${plug.connector.label} pin ${pin.id}`,
+    whatHint: `${plug.instance} pin ${pin.id}`,
+    ...(pin.label === pin.id ? {} : { signal: pin.label }),
+    from: { name: terminalName(pin), hint: `${plug.instance} ${pin.id}` },
+    to: { name: terminalName(pad), hint: `${end.label} · ${end.instance} ${pad.id}` },
+  };
+}
+
 /** The design note the validator matches, copied verbatim from the catalog. */
 export function drainNote(segment: string): string {
-  return `Drain policy: the drain is terminated at the source end only — ${segment} drain @b is deliberately cut at the destination and left unconnected.`;
+  return `Drain policy: the drain is terminated at the source end only and cut at the destination. [${segment} drain @b]`;
+}
+
+function upperFirst(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 /** The note a stand-in landing leaves on the design: which landing takes which cores. */
@@ -1154,6 +1351,7 @@ export function planCable(state: WizardState): CablePlan {
   const ends = resolveEnds(state);
   const joints: Joint[] = [];
   const lines: string[] = [];
+  const rows: PlanRow[] = [];
   const unconnected: Unconnected[] = [];
   const notes: string[] = [];
   const choices = openChoices(state);
@@ -1217,6 +1415,7 @@ export function planCable(state: WizardState): CablePlan {
             undefined,
             `${plug.connector.label} pin ${byNumber.id} (${byNumber.label}) onto ${end.instance} pad ${pad.id}`,
           );
+          rows.push(plugRow(plug, byNumber, end, pad));
           continue;
         }
         const byRole =
@@ -1233,10 +1432,11 @@ export function planCable(state: WizardState): CablePlan {
             undefined,
             `${plug.connector.label} pin ${pin.id} (${pin.label}) onto ${end.instance} pad ${pad.id}`,
           );
+          rows.push(plugRow(plug, pin, end, pad));
           continue;
         }
         unconnected.push({
-          what: `${end.instance} pad ${pad.id} (${pad.label})`,
+          what: `${end.label} pad ${terminalName(pad)}`,
           why:
             byRole.length === 0
               ? `no pin on the ${plug.connector.label} matches it, so the wizard left it for you.`
@@ -1250,6 +1450,9 @@ export function planCable(state: WizardState): CablePlan {
   if (wire !== undefined && state.connect !== 'open') {
     const trunk = trunkPlan(state, ends, wire);
     const allLines = trunk.lines;
+    // a foil + drain stock has no copper to land: the foil is trimmed and goes where its drain goes
+    const hasDrainLine = allLines.some((line) => line.drain);
+    const foilFollowsDrain = hasDrainLine && stockScreens(wire).copper.length === 0;
     notes.push(...trunk.notes);
     unconnected.push(...trunk.left);
     for (const end of ends) {
@@ -1259,9 +1462,12 @@ export function planCable(state: WizardState): CablePlan {
       for (const line of allLines) {
         // the drain is landed at the source end only — the documented practice
         if (line.drain && end.wireEnd === 'b') continue;
+        if (foilFollowsDrain && end.wireEnd === 'b' && isFoilPath(wire, line.path)) continue;
 
         const ref: TerminalRef = { instance: segmentId, terminal: line.path, end: end.wireEnd };
-        const pick = state.picks[choiceIdOf(end.side, line.role === GROUND_ROLE ? 'ground' : line.path)];
+        const choiceId = choiceIdOf(end.side, line.role === GROUND_ROLE ? 'ground' : line.path);
+        // an unanswered choice takes its suggestion (the plain pad); '' is the builder's "leave unconnected"
+        const pick = state.picks[choiceId] ?? choices.find((choice) => choice.id === choiceId)?.suggested;
 
         let target: EndTerminal | undefined;
         let why: string | undefined;
@@ -1269,6 +1475,10 @@ export function planCable(state: WizardState): CablePlan {
         const landsOn = line.lands?.[end.side];
         if (landsOn !== undefined) {
           target = end.terminals.find((terminal) => terminal.id === landsOn);
+        } else if (line.role === UNREAD_ROLE) {
+          // words the vocabulary cannot read: never a guess, only the builder's pick
+          if (pick !== undefined && pick !== '') target = end.terminals.find((terminal) => terminal.id === pick);
+          else why = 'its label names no known signal.';
         } else if (line.role === GROUND_ROLE) {
           const classed = groundCandidates(end, line.ground);
           if (classed.length === 1) target = classed[0];
@@ -1303,6 +1513,12 @@ export function planCable(state: WizardState): CablePlan {
           }
         }
 
+        // the last guard: a signal never lands on a supply or ground rail, nor a supply on a signal pin
+        if (target !== undefined && line.role !== GROUND_ROLE && wrongRail(state.db, line.role, target)) {
+          why = `${end.instance} ${target.id} (${target.label}) is a ${target.roles.map((r) => roleLabel(state.db, r)).join(' / ')} terminal: the wizard does not land ${roleLabel(state.db, line.role)} there.`;
+          target = undefined;
+        }
+
         if (target === undefined) {
           unconnected.push({
             what: `${line.label === line.path ? wireElementName(wire, line.path) : line.label} at the ${where}`,
@@ -1314,7 +1530,7 @@ export function planCable(state: WizardState): CablePlan {
         const note =
           line.drain
             ? 'drain terminated at the source end only'
-            : line.role === GROUND_ROLE && line.kind === 'shield' && end.side === 'source'
+            : line.role === GROUND_ROLE && line.kind === 'shield' && end.side === 'source' && !isFoilPath(wire, line.path)
               ? 'braid trimmed and twisted together with the drain onto the ground landing'
               : undefined;
         solder(
@@ -1323,6 +1539,21 @@ export function planCable(state: WizardState): CablePlan {
           note,
           `${line.label} (${line.path}) at the ${where} → ${end.instance} ${target.id} (${target.label})`,
         );
+        const landing: PlanLanding = { name: terminalName(target), hint: `${end.label} · ${end.instance} ${target.id}` };
+        // the foil is never indicated: the drain stands for it
+        if (hasDrainLine && isFoilPath(wire, line.path)) continue;
+        let row = rows.find((r) => r.key === `w:${line.path}`);
+        if (row === undefined) {
+          row = {
+            key: `w:${line.path}`,
+            what: line.label === line.path ? wireElementName(wire, line.path) : line.label,
+            whatHint: line.path,
+            ...(line.role === UNREAD_ROLE ? {} : { signal: roleLabel(state.db, line.role) }),
+          };
+          rows.push(row);
+        }
+        if (end.side === 'source') row.from = landing;
+        else row.to = landing;
       }
       for (const { landing, roles } of stoodIn.values()) {
         const note = standInNote(state.db, end, landing, roles);
@@ -1352,6 +1583,7 @@ export function planCable(state: WizardState): CablePlan {
   return {
     design: bonded,
     lines,
+    rows,
     unconnected,
     choices,
     issues,

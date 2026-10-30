@@ -160,7 +160,7 @@ export function deliveryOf(job: JobRun): DeliveryRecord | undefined {
   let state: DeliveryState;
   if (job.status === 'queued') state = 'queued';
   else if (job.status === 'running') state = 'running';
-  else if (job.status === 'failed' || job.status === 'cancelled') state = 'failed';
+  else if (job.status === 'failed' || job.status === 'cancelled' || job.status === 'interrupted') state = 'failed';
   else state = (result['state'] as DeliveryState | undefined) ?? 'delivered';
   return {
     id: job.id,

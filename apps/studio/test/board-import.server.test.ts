@@ -30,11 +30,13 @@ const quiet = (): void => {};
 export const EXPECTED_LOG = [
   'kicad-board: done',
   expect.stringMatching(/^kicad-board proposal: \{"definitions":\{"pcbas":\[\{"id":"synthetic-adapter-rev-2","label":"Synthetic adapter"\}\]\},"depictions":\["synthetic-adapter-rev-2"\],"designs":\[\],"existing":\[\],"existingDesigns":\[\],"notes":/),
+  // the native board file is kept at import (content-addressed), for board outputs and enclosures
+  expect.stringMatching(/^kicad-board plan: new data\/model-sources\/[0-9a-f]{64}\.kicad_pcb\.txt$/),
   'kicad-board plan: changed data/pcbas.json',
   'kicad-board plan: new depictions/synthetic-adapter-rev-2/board-bottom.svg svg=true',
   'kicad-board plan: new depictions/synthetic-adapter-rev-2/board-top.svg svg=true',
   'kicad-board plan: new depictions/synthetic-adapter-rev-2/meta.json',
-  'kicad-board publish: 200 applied 4',
+  'kicad-board publish: 200 applied 5',
   'board: 200 terminals j1.1,j1.2,j1.3,A,B,GND,OUT,5V; links j1.1-A,j1.2-B,j1.3-GND,j1.1-j1.2(R1 120 Ω),j1.2-OUT(R2 1 kΩ → C1 100 nF)',
   'art after kicad: kicad',
   expect.stringMatching(/^gerbers preview: 200 \{"definitions":\{\},"depictions":\["synthetic-adapter-rev-2"\],/),
@@ -106,6 +108,50 @@ describe('board import on the file backend', () => {
     const again = await handleWorkbenchRequest({ method: 'POST', path: '/api/modules/board-import/_import/kicad-board', body: { ...body, options: { id: 'sync-adapter', partNumber: 'PCA-SYNC-1', art: 'no' } } }, deps);
     expect(again.status).toBe(409);
   });
+
+  it('keeps art anchors through an update that renames and removes terminals', async () => {
+    const { defaultWorkbenchDeps } = await import('../server/default-deps.ts');
+    const { handleWorkbenchRequest } = await import('../server/api.ts');
+    const { boardImportRegistry } = await import('./board-import-scenario.ts');
+    const { createJobService, inlineJobRunner, memoryJobStore } = await import('../server/jobs/service.ts');
+    const { baseJobHandlers } = await import('../server/jobs/handlers.ts');
+    const { BOARD_SET_FORMAT, writeZip } = await import('@wirehub/module-board-import');
+    const { gerberFiles, kicadPcb } = await import('@wirehub/module-board-import/test/synthetic.ts');
+    const deps = defaultWorkbenchDeps({ modules: boardImportRegistry });
+    const store = memoryJobStore();
+    deps.jobs = createJobService({ store, runner: inlineJobRunner(store, () => baseJobHandlers({ deps }), quiet), kinds: ['import'] });
+    const b64 = (v: string | Uint8Array): string => Buffer.from(v).toString('base64');
+    const run = async (importer: string, fileName: string, base64: string, options: Record<string, string>): Promise<{ skipped?: string[] }> => {
+      const started = await handleWorkbenchRequest({ method: 'POST', path: `/api/modules/board-import/_import/${importer}`, body: { fileName, base64, job: true, options } }, deps);
+      expect(started.status, JSON.stringify(started.body)).toBe(202);
+      const done = await deps.jobs!.wait((started.body as { job: { id: string } }).job.id, 60_000);
+      expect(done.status, done.error).toBe('done');
+      expect((await handleWorkbenchRequest({ method: 'POST', path: `/api/jobs/${done.id}/publish` }, deps)).status).toBe(200);
+      return (done.result as { proposal: { skipped?: string[] } }).proposal;
+    };
+    const set = (text: string): string => b64(JSON.stringify({ format: BOARD_SET_FORMAT, version: 1, board: { fileName: 'synthetic-adapter.kicad_pcb', base64: b64(text) } }));
+    // TP1 renamed (A → <name>, same pad), TP6 (5V) taken off the board
+    const edited = (name: string): string => {
+      const lines = kicadPcb().replaceAll('"Value" "A"', `"Value" "${name}"`).replaceAll('"/A"', `"/${name}"`).split('\n');
+      const at = lines.findIndex((l) => l.includes('"Reference" "TP6"'));
+      const end = lines.findIndex((l, i) => i > at && l === '\t)');
+      return [...lines.slice(0, at - 1), ...lines.slice(end + 1)].join('\n');
+    };
+    const anchors = async (): Promise<string[]> => Object.keys(JSON.parse(readFileSync(join(work, 'catalog', 'depictions', 'upd-adapter', 'meta.json'), 'utf8')).pinAnchors).sort();
+    await run('board-set', 'a.board-set.json', set(kicadPcb()), { id: 'upd-adapter', label: 'Update adapter', partNumber: 'PCA-UPD-1' });
+    expect(await anchors()).toContain('A');
+
+    // kicad-tier art is redrawn from the file: checked against the updated terminals, not the old ones
+    expect((await run('board-set', 'b.board-set.json', set(edited('DATA_A')), { update: 'upd-adapter' })).skipped).toBeUndefined();
+    expect(await anchors()).toEqual(expect.arrayContaining(['DATA_A', 'B', 'GND', 'j1.1']));
+    expect(await anchors()).not.toContain('5V');
+
+    // Gerber art is kept: its anchors follow the rename
+    await run('gerbers', 'fab.zip', b64(writeZip(gerberFiles().map((f) => ({ path: f.path, bytes: new TextEncoder().encode(f.text) })))), { board: 'upd-adapter' });
+    const before = await anchors();
+    expect((await run('board-set', 'c.board-set.json', set(edited('LINE_A')), { update: 'upd-adapter' })).skipped).toBeUndefined();
+    expect(await anchors()).toEqual(before.map((id) => (id === 'DATA_A' ? 'LINE_A' : id)).sort());
+  }, 120_000);
 
   it('refuses malformed import options', async () => {
     const { defaultWorkbenchDeps } = await import('../server/default-deps.ts');

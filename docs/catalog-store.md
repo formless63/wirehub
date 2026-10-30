@@ -6,7 +6,7 @@ manifest (`wirehub-pack.json`, `PackManifest`), a read-only layer over a catalog
 URL (`installPackLayer`, Library → Modules → Install pack…; first-run setup uses the same for the
 bundled domain modules — `docs/modules.md`), per-record `license` / `provenance` / `derivedFrom`
 fields, and the **pack lifecycle**: update with a record-level diff, disable, read-only marking
-with fork to edit (§3), the **signed store index** with store browsing in the Library (§4:
+with fork to edit, and release to the hub (§3), the **signed store index** with store browsing in the Library (§4:
 `scripts/store-index.mjs`, `WIREHUB_STORE_INDEXES`, Library → Browse store), and **phase 5**:
 signed pack manifests (`wirehub-pack.sig`), publisher keys in the index, review status per
 version, yanked versions and revoked keys (§4, "As built (phase 5)"). Tracked in beads.
@@ -110,7 +110,7 @@ Packs are organised by domain, small enough to review, and may depend on one ano
 | `power-dc` | barrel jacks (5.5 × 2.1 / 2.5), IEC 60320 C13/C14/C5/C7, Anderson Powerpole, XT60, DC stocks by gauge | IEC 60320, manufacturer datasheets, AWG tables (ASTM B258) |
 | `test-measurement` | BNC/SMA/N-type RF connectors, banana plugs, coax stocks (RG-58, RG-174, RG-316) | MIL-STD-348, MIL-DTL-17, vendor datasheets |
 | `kicad-3d` | links from catalog bodies to KiCad 3D models (no model files in the pack) | KiCad 3D library (see §5) |
-| *(3D, built in)* | **parametric** model links: a `models.json` link with `sourceKind: "parametric"` and a `parametric` spec (shape + millimetre dimensions, `@wirehub/model` parametric.ts) has no stored bytes; the viewer draws it the same way every time (`d-sub`, `xlr`, `rj45`, `jst-xh`, `terminal-block`). The base links its four starter connectors and bodies; the pro-audio and networking packs link XLR and RJ45. About 12 KB of JSON in all. | the link's `src` (a standard's figures, or flagged inferred) |
+| *(3D, built in)* | **parametric** model links: a `models.json` link with `sourceKind: "parametric"` and a `parametric` spec (shape + millimetre dimensions, `@wirehub/model` parametric.ts) has no stored bytes; the viewer draws it the same way every time (`d-sub`, `xlr`, `rj45`, `jst-xh`, `terminal-block`, `obd2`, `sealed-rectangular`, and the hardware shapes `screw`, `standoff`, `foot`). The base links its four starter connectors and bodies; the pro-audio and networking packs link XLR and RJ45. About 12 KB of JSON in all. | the link's `src` (a standard's figures, or flagged inferred) |
 | `vocab-*` | vocabulary extensions: signals and levels for a domain (`vocab-fieldbus`, `vocab-audio`) | the standards above |
 
 Shops may publish their own packs (`vendor-…`, `community-…`); a manufacturer may publish
@@ -242,11 +242,14 @@ forever (a design built on 1.2.0 can always be re-validated against 1.2.0).
 
 ## 3. Installing and updating
 
-Installed pack records are **read-only** in the deployment and marked with their origin
-(`packs.json` names the pack and version per record id; the pack's files are a layer under the
-catalog in the file backend). A shop that needs a change to a pack record **forks** it: the
-Library makes a local copy with a new id and `derivedFrom: { pack, id, version }`, and designs
-move to the copy only when someone chooses to.
+A pack's life on a hub is **install → update → release** (or disable). Installed pack records
+are **read-only** in the deployment and marked with their origin (`packs.json` names the pack and
+version per record id; the pack's files are a layer under the catalog in the file backend). A
+shop that needs a change to one pack record **forks** it: the Library makes a local copy with a
+new id and `derivedFrom: { pack, id, version }`, and designs move to the copy only when someone
+chooses to. A shop that has made a pack its own — its whole catalog imported as a private pack,
+say, and now worked on in the app — **releases** it to the hub: every record keeps its id and
+content and becomes the hub's own, editable in place (below, "Release to this hub").
 
 **Implemented today.** First-run setup installs a pack as a **layer**:
 `installPackLayer(catalogDir, packsDir, packDir)` (`packages/catalog/src/packs.ts`) checks the
@@ -325,6 +328,49 @@ directory, and the Postgres backend runs it over a scratch copy it commits as **
   `/api/designs/:id`) answer 409 the same way, pointing at an entry of your own or at
   `POST /api/designs/:id/duplicate`. The Library list marks such rows with a **Pack** flag, and
   `GET /api/me` carries the person's `role`: viewers do not see "Install pack…", update or disable.
+- **Release to this hub.** `POST /api/packs/:id/release` (owners only: an editor gets 403, and no
+  API token may write `/api/packs`). Without `{ "apply": true }` it answers the preview, writing
+  nothing: `{ preview: true, applicable, plan }`, where `plan` is `{ pack, records, counts, files,
+  blockers, ok }` — every record, vocabulary entry and design the pack owns (`records`, counted per
+  kind in `counts`), and its other files (`files`: drawing facts and photo pointers, settings and
+  policy files, images, PDFs, fonts, model links as `models.json#<key>`). With `apply` it releases
+  the pack as one change set and answers `{ released: true, id, version, records, files, plan }`.
+  Afterwards:
+  - **Every record keeps its id and content** and is the hub's own: `PUT`, `DELETE` and rename on
+    definitions, designs and vocabulary entries work as for any local record, and the Library's
+    "From pack X — read-only" note, **Fork to edit** and the **Pack** flag are gone. No record and no
+    design reference changes, so designs that use them are untouched.
+  - **Provenance** stays in the catalog's own `packs.json`, under `released`: `{ id, name, version,
+    license, releasedAt, releasedBy, records, count, files, origin }`, where `records` is the pack's
+    `added` map as it was (file → ids), i.e. which pack and version each released record came from.
+    The records themselves are not rewritten (no `derivedFrom` is added), so a released record's
+    content and ETag are what they were; `derivedFrom` stays the mark of a *fork* (a copy under a new id).
+  - **Auxiliary files** (drawing facts and photo pointers, `drawing-art.json`, the pad table, policy
+    and settings files, images, PDFs, fonts, model links) become the hub's own too: where the app
+    edits a kind, it edits them like its own; a kind the app has no editor for stays as it is and
+    blocks nothing. On the file backend the pack's layer is merged into the catalog's own files the
+    way the layered read merges them (the catalog's own records first, so a local edit made before
+    the release stays), its images go where a merged install puts them, and the layer is removed; with
+    no pack left, the derived tag tables beside the packs go too and are rebuilt in the catalog. On
+    Postgres the records are already ordinary rows, so the change set touches only `packs.json`; the
+    pack's images stay in the blob store.
+  - **The packs list** (`GET /api/packs`) shows it with `released: { at, by }`; "Update" and
+    "Disable" no longer apply (`/api/packs/:id/update`, `DELETE /api/packs/:id` and a second release
+    answer 409).
+  - **Installing or updating the same pack id again is refused** (409, nothing written, the body names
+    the release): a pack never overwrites the hub's own records. Edit them here, or ship the newer
+    version under another pack id; first-run setup skips a released pack of a module it is asked to
+    enable. This is the simple, safe choice; a re-adoption with a per-record diff may come later.
+  - A pack that **carries a code module** cannot be released (its code only runs as part of an
+    installed pack): the preview lists that under `blockers` and applying answers 409.
+  - The release raises `pack.installed` with `summary.action: "released"` (`docs/webhooks.md`) and,
+    on Postgres, `catalog.changed` for its change set, like the other pack operations; it is
+    recorded in the change history as they are.
+
+  In the app: **Extensions › Installed › Catalog packs**, "Release to this hub…" (owners). A refused
+  edit of a pack record — in the Library, or from inside a design (editing a connector or saving a
+  pack's design) — says which pack the record comes from and that an owner can release the pack
+  there, or that it can be forked.
 - **Install pack… (from a file or URL).** `POST /api/packs/install` takes a zip of the pack
   directory, a JSON bundle (`{ "manifest": …, "files": { "connectors.json": […] } }`) or an
   https URL, verifies it as `scripts/verify-pack.mjs` does (manifest, `src` on every record, the

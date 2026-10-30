@@ -322,9 +322,13 @@ function pinSvg(pin: FacePin, fill: string): string {
   return `<rect x="${n(pin.x - pin.w / 2 + 0.5)}" y="${n(pin.y - pin.h / 2 + 0.5)}" width="${n(pin.w - 1)}" height="${n(pin.h - 1)}" fill="${fill}" stroke="#000" stroke-width="1"/>`;
 }
 
-/** Room under a face for its designator, subtitle and any approximation note. */
+/**
+ * Room under a face for its designator, subtitle and any approximation note —
+ * and the air the wire table's first row needs below them, so a long pin
+ * label under the face never runs into its "Solder Side" caption.
+ */
 function faceFooter(art: FaceArt): number {
-  return art.approximate === undefined ? 28 : 45;
+  return art.approximate === undefined ? 33 : 45;
 }
 
 function faceSvg(placed: Placed): string {
@@ -723,8 +727,9 @@ function cableAndFaces(drawing: Drawing, bomBottom: number): { svg: string; lowe
   for (const y of [CABLE_Y - CABLE_HALF, CABLE_Y + CABLE_HALF]) out.push(line(startAt(y), y, endAt(y), y, 1));
   const startX = startAt(CABLE_Y);
   const endX = endAt(CABLE_Y);
-  if (a === undefined && breakA === undefined && !drawing.stripped.a) out.push(text(52, CABLE_Y + 4, 'NC', 10, { anchor: 'end' }));
-  if (b === undefined && breakB === undefined && !drawing.stripped.b) out.push(text(740, CABLE_Y + 4, 'NC', 10));
+  // an end landing on board pads names the board; only a truly open end reads NC
+  if (a === undefined && breakA === undefined && !drawing.stripped.a) out.push(text(52, CABLE_Y + 4, drawing.boardEnds.a ?? 'NC', 10, { anchor: 'end' }));
+  if (b === undefined && breakB === undefined && !drawing.stripped.b) out.push(text(740, CABLE_Y + 4, drawing.boardEnds.b ?? 'NC', 10));
   if (breakA !== undefined) out.push(breakA.svg);
   if (breakB !== undefined) out.push(breakB.svg);
 

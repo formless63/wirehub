@@ -10,7 +10,7 @@
 
 import { deriveLabels, labelsHtml } from '../exports/labels.ts';
 import { resolveTestParameters, type TestParameters } from '../exports/test-params.ts';
-import { findWire, isFullyBonded, placedDesign, resolveTerminal, terminalKey, validateDesign, type CableDesign, type Db, endName } from '@wirehub/model';
+import { findWire, placedDesign, stockScreens, resolveTerminal, terminalKey, validateDesign, type CableDesign, type Db, endName } from '@wirehub/model';
 import { catalogDepictions, type DepictionSource } from '@wirehub/layout';
 
 import { deriveDrawing, type DrawingFace } from '../drawing/model.ts';
@@ -100,7 +100,7 @@ export function subassembliesHtml(design: CableDesign, db: Db): string {
           return `${mine!.terminal} · ${portText} → ${toText}`;
         })
         .sort(compareStrings);
-      return `<tr><td><span class="cs-check"></span></td><td>${escapeHtml(sub.label ?? sub.id)}</td><td class="cs-sku">${escapeHtml(placed?.productRef ?? 'UNMAPPED')}</td><td>${escapeHtml(placed?.label ?? sub.def)}<span class="cs-meta"> build to ${escapeHtml(sheet)}</span>${
+      return `<tr><td><span class="cs-check"></span></td><td>${escapeHtml(sub.label ?? sub.id)}</td>${placed?.productRef === undefined ? '<td class="cs-sku" title="No part number">—</td>' : `<td class="cs-sku">${escapeHtml(placed.productRef)}</td>`}<td>${escapeHtml(placed?.label ?? sub.def)}<span class="cs-meta"> build to ${escapeHtml(sheet)}</span>${
         landings.length === 0 ? '' : `<ul class="cs-notes">${landings.map((l) => `<li><span>${escapeHtml(l)}</span></li>`).join('')}</ul>`
       }</td><td>${escapeHtml(sub.role ?? '')}</td></tr>`;
     })
@@ -113,9 +113,10 @@ function pullList(bom: BomSheet): string {
   if (rows.length === 0) return '';
   const body = rows
     .map((l) => {
-      const part = l.sku ?? 'UNMAPPED';
+      // no part number yet: a dash, the reason on hover — never a shouted placeholder
+      const part = l.sku === undefined || l.sku === '' ? '—' : l.sku;
       const extra = [l.board?.build, l.board?.jumpers].filter((s): s is string => s !== undefined).join(' · ');
-      return `<tr><td><span class="cs-check"></span></td><td class="cs-num">${escapeHtml(l.quantity)}</td><td class="cs-sku">${escapeHtml(part)}</td><td>${escapeHtml(l.label)}${
+      return `<tr><td><span class="cs-check"></span></td><td class="cs-num">${escapeHtml(l.quantity)}</td><td class="cs-sku"${part === '—' ? ` title="${escapeHtml(l.reason ?? 'No part number')}"` : ''}>${escapeHtml(part)}</td><td>${escapeHtml(l.label)}${
         extra === '' ? '' : `<span class="cs-jumpers">${escapeHtml(extra)}</span>`
       }</td><td>${escapeHtml(l.location)}</td></tr>`;
     })
@@ -473,9 +474,10 @@ function testPage(n: number, spec: TestSpec, db?: Db): string {
     const unusedText = (() => {
       const groups = new Map<string, string[]>();
       for (const o of unused) {
-        const m = /^([^.\s]+)\.(?:(\w+)\.)?([^\s]+)/.exec(o.text);
-        const key = m === null ? o.text : m[2] === undefined ? m[1] ?? '' : `${m[1]} ${m[2].toUpperCase()}`;
-        groups.set(key, [...(groups.get(key) ?? []), m?.[3] ?? '']);
+        // the key is `j1:4`: group by the part, printed as its designator
+        const at = o.key.indexOf(':');
+        const part = (at === -1 ? o.key : o.key.slice(0, at)).toUpperCase();
+        groups.set(part, [...(groups.get(part) ?? []), at === -1 ? '' : o.key.slice(at + 1)]);
       }
       return [...groups.entries()].map(([k, pins]) => `${k} ${pins.join(', ')}`).join('; ');
     })();
@@ -525,7 +527,7 @@ export function benchSheetBody(design: CableDesign, db: Db, options: BenchSheetO
       const wire = findWire(db, segment.def);
       if (wire === undefined) return '';
       const title = `Prep — ${segment.id === trunkId ? 'trunk' : (segment.role ?? segment.id).replace(/\s*\(.*$/, '')} (${wire.label.replace(/\s*\([^)]*\)\s*$/, '')})`;
-      return block(title, stepsHtml(prepSteps(wire, isFullyBonded(wire), db)));
+      return block(title, stepsHtml(prepSteps(wire, stockScreens(wire).mass, db)));
     })
     .join('');
   const kit = [
@@ -563,5 +565,15 @@ export function benchSheetBody(design: CableDesign, db: Db, options: BenchSheetO
     out.push(`<section class="cs-page" data-stage="${escapeHtml(page.title)}">${i === 0 ? headerHtml(header) : ''}${page.html}</section>`);
   });
   out.push(footHtml(header), '</div>');
-  return out.join('');
+  return onceEachSource(out.join(''));
+}
+
+/** A step's source note printed once per sheet: the same note under every step is noise. */
+function onceEachSource(html: string): string {
+  const seen = new Set<string>();
+  return html.replace(/<span class="cs-src">([^<]*)<\/span>/g, (whole, text: string) => {
+    if (seen.has(text)) return '';
+    seen.add(text);
+    return whole;
+  });
 }

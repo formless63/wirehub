@@ -9,6 +9,7 @@ import {
   netForTerminal,
   parseTerminalKey,
   terminalKey,
+  terminalName,
   trace,
   type CableDesign,
   type CompatibilityCode,
@@ -23,19 +24,39 @@ import { classes, useEditorApi } from '../context.ts';
 import type { EditorState } from '../store.ts';
 import { floatingEndNote } from './Notes.tsx';
 
-function TerminalButton({ terminalKey: key }: { terminalKey: string }): JSX.Element {
+function TerminalButton({ terminalKey: key, name }: { terminalKey: string; name?: string }): JSX.Element {
   const { dispatch } = useEditorApi();
   return (
     <button
       type="button"
       className="cs-link cs-term"
+      title={key}
       onClick={() =>
         dispatch({ type: 'select', selection: { kind: 'terminal', ref: parseTerminalKey(key) } })
       }
     >
-      {key}
+      {name ?? key}
     </button>
   );
+}
+
+/**
+ * A net as a person names it: the label most of its connector pins and board pads share (`GND`,
+ * `Sync`), else its derived id.
+ */
+function netName(net: Net): string {
+  const counts = new Map<string, number>();
+  for (const t of net.terminals) {
+    if (t.instanceKind === 'segment' || t.label === undefined || t.label.trim() === '' || t.label === t.terminal) continue;
+    counts.set(t.label, (counts.get(t.label) ?? 0) + 1);
+  }
+  let best: string | undefined;
+  // most shared wins; a tie goes to the shorter name (`GND` over `Signal ground`)
+  for (const [label, n] of counts) {
+    const top = best === undefined ? 0 : (counts.get(best) ?? 0);
+    if (best === undefined || n > top || (n === top && label.length < best.length)) best = label;
+  }
+  return best ?? net.id;
 }
 
 /** The nets `core` derives from the joints — the editor never authors these. */
@@ -60,12 +81,12 @@ export function NetsPanel({ state }: { state: EditorState }): JSX.Element {
             key={net.id}
             className={classes('cs-net', selectedNet?.id === net.id && 'is-selected')}
           >
-            <h3>
-              {net.id} <span className="cs-count">{net.terminals.length}</span>
+            <h3 title={net.id}>
+              {netName(net)} <span className="cs-count">{net.terminals.length}</span>
             </h3>
             <div className="cs-net-terms">
               {net.terminals.map((terminal) => (
-                <TerminalButton key={terminal.key} terminalKey={terminal.key} />
+                <TerminalButton key={terminal.key} terminalKey={terminal.key} name={terminalName(state.design, state.db, parseTerminalKey(terminal.key))} />
               ))}
             </div>
           </div>
@@ -82,8 +103,7 @@ function IssueRow({ issue, notes }: { issue: Issue; notes?: readonly string[] })
   const { dispatch } = useEditorApi();
   const fix = notes !== undefined && issue.where !== undefined && NOTE_FIXABLE.has(issue.code);
   return (
-    <div className={classes('cs-issue', `is-${issue.severity}`, fix && 'has-fix')}>
-      <span className="cs-issue-code">{issue.code}</span>
+    <div className={classes('cs-issue', `is-${issue.severity}`, fix && 'has-fix')} title={issue.code}>
       <span className="cs-issue-message">{issue.message}</span>
       {issue.where === undefined || fix || issue.whereLabel !== undefined ? null : <span className="cs-issue-where">{issue.where}</span>}
       {!fix ? null : (
@@ -147,8 +167,7 @@ function ArtworkDiagnostics({
         Schematic artwork {problems.length === 0 ? null : <span className="cs-count">{problems.length}</span>}
       </h3>
       {problems.map((d) => (
-        <div key={`${d.instance}:${d.status}`} className="cs-issue is-warning">
-          <span className="cs-issue-code">{d.status}</span>
+        <div key={`${d.instance}:${d.status}`} className="cs-issue is-warning" title={d.status}>
           <span className="cs-issue-message">{diagnosticText(d)}</span>
         </div>
       ))}

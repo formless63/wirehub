@@ -46,6 +46,8 @@ export const REFERENCE = [
   { slug: 'revisions', source: 'docs/revisions.md', title: 'Revisions' },
   { slug: 'part-numbers', source: 'docs/part-numbers.md', title: 'Part numbers' },
   { slug: 'validation-rules', source: 'docs/validation-rules.md', title: 'Validation rules' },
+  { slug: 'design-tags', source: 'docs/design-tags.md', title: 'Design tags' },
+  { slug: 'processes', source: 'docs/processes.md', title: 'Required processes' },
   { slug: 'webhooks', source: 'docs/webhooks.md', title: 'Webhooks' },
   { slug: 'interop', source: 'docs/interop.md', title: 'Interop and costing' },
   { slug: 'catalog-store', source: 'docs/catalog-store.md', title: 'Catalog store' },

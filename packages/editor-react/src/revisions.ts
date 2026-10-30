@@ -37,11 +37,21 @@ export interface RevisionsAdapter {
   nextNumber(kind: string, id: string): Promise<Outcome<{ suggestion: { pn: string; explanation?: string } }>>;
 }
 
-/** A compare side: a record as it is, or one of its revisions (`<kind>/<id>@<rev>`). */
+/**
+ * A compare side: a record as it is, one of its revisions (`<kind>/<id>@<rev>`), or the copy a
+ * saved design version froze (`<kind>/<id>@<design>:<rev>`).
+ */
 export interface CompareSide {
   kind: string;
   id: string;
   rev?: number;
+  /** the saved design version whose frozen copy this side is */
+  version?: { design: string; rev: number };
+}
+
+/** Reads the copy of a record a saved design version froze, with its 2D art as an image source. */
+export interface FrozenRecordsAdapter {
+  read(side: { kind: string; id: string; design: string; rev: number }): Promise<Outcome<{ record: unknown; art?: string }>>;
 }
 
 export function parseCompareSide(item: string | undefined): CompareSide | undefined {
@@ -52,7 +62,10 @@ export function parseCompareSide(item: string | undefined): CompareSide | undefi
   const rest = item.slice(slash + 1);
   const at = rest.lastIndexOf('@');
   if (at > 0 && /^\d+$/.test(rest.slice(at + 1))) return { kind, id: rest.slice(0, at), rev: Number(rest.slice(at + 1)) };
+  const frozen = at > 0 ? /^([^@:]+):(\d+)$/.exec(rest.slice(at + 1)) : null;
+  if (frozen !== null) return { kind, id: rest.slice(0, at), version: { design: frozen[1]!, rev: Number(frozen[2]) } };
   return { kind, id: rest };
 }
 
-export const compareSideId = (side: CompareSide): string => `${side.kind}/${side.id}${side.rev === undefined ? '' : `@${side.rev}`}`;
+export const compareSideId = (side: CompareSide): string =>
+  `${side.kind}/${side.id}${side.version !== undefined ? `@${side.version.design}:${side.version.rev}` : side.rev === undefined ? '' : `@${side.rev}`}`;

@@ -513,7 +513,7 @@ export function renderWireSpecSheet(wire: WireDefinition, options: WireSpecOptio
   sources.add(wire.src);
   if (wire.profile !== undefined) sources.add(wire.profile.src);
   for (const p of performance) sources.add(`Performance: ${p.src}`);
-  if (lay !== undefined) sources.add(lay.src);
+  if (lay !== undefined) if (lay.src) sources.add(lay.src);
   for (const set of wire.bonded ?? []) sources.add(set.src);
   const addSources = (element: Element): void => {
     if (element.src !== undefined && element.kind !== 'group') sources.add(element.src);

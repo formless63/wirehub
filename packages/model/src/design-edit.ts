@@ -241,6 +241,8 @@ export type InstancePatch = {
   coreLabels?: Record<string, string> | undefined;
   /** a sub-assembly's pinned saved version; `undefined` unpins it (it follows the working copy) */
   rev?: number | undefined;
+  /** a board occurrence's jumper / switch states by reference designator; an empty object clears them */
+  partStates?: Record<string, string> | undefined;
 };
 
 /** Empty label data is no label data: drop blank lines, blank texts and empty objects. */
@@ -251,6 +253,10 @@ function tidyLabels(field: keyof InstancePatch, value: unknown): unknown {
       const lines = ((value as { a?: string[]; b?: string[] })[end] ?? []).map((l) => l.trim()).filter((l) => l !== '');
       if (lines.length > 0) out[end] = lines;
     }
+    return Object.keys(out).length === 0 ? undefined : out;
+  }
+  if (field === 'partStates' && typeof value === 'object' && value !== null) {
+    const out = Object.fromEntries(Object.entries(value as Record<string, string>).filter(([, v]) => v.trim() !== ''));
     return Object.keys(out).length === 0 ? undefined : out;
   }
   if (field === 'coreLabels' && typeof value === 'object' && value !== null) {
@@ -294,7 +300,7 @@ export function updateInstance(
         i.id === id ? applyPatch(i, patch, ['note', 'location']) : i,
       ),
       pcbas: design.instances.pcbas.map((i) =>
-        i.id === id ? applyPatch(i, patch, ['note']) : i,
+        i.id === id ? applyPatch(i, patch, ['note', 'partStates']) : i,
       ),
       ...(design.instances.subassemblies === undefined
         ? {}

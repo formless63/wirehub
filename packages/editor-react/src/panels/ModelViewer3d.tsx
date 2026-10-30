@@ -12,9 +12,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { gateWheelZoom } from './wheel-gate.ts';
 
 import { applyMaterials, countTriangles, disposeObject, frameBox, makeLights, makeStudioEnvironment, type StudioEnvironment, modelAppearanceNote, modelSize, parseModel } from '../model-scene.ts';
 import type { ViewPreset } from '../models.ts';
+import { CoverTools3d, type ViewerCover } from './CoverTools3d.tsx';
 import { modelPreviewNote } from '../model-preview.ts';
 import { NO_WEBGL, readPalette, webglContext } from './viewer-dom.ts';
 
@@ -25,6 +27,8 @@ export interface ModelViewer3dProps {
   label: string;
   /** CSS height of the view */
   height?: number;
+  /** The record's shared cover, when the host offers one ("Use this view as cover"). */
+  cover?: ViewerCover;
 }
 
 interface Live {
@@ -116,6 +120,7 @@ export default function ModelViewer3d(props: ModelViewer3dProps): JSX.Element {
       const controls = new OrbitControls(camera, canvas);
       controls.enableDamping = false;
       controls.screenSpacePanning = true;
+      const ungateWheel = gateWheelZoom(controls, canvas);
       const render = (): void => renderer.render(scene, camera);
       controls.addEventListener('change', render);
       live.current = { renderer, scene, camera, controls, model, lights, box, render };
@@ -154,6 +159,7 @@ export default function ModelViewer3d(props: ModelViewer3dProps): JSX.Element {
         observer?.disconnect();
         themeWatch.disconnect();
         controls.removeEventListener('change', render);
+        ungateWheel();
         controls.dispose();
         disposeObject(model);
         scene.environment = null;
@@ -178,7 +184,6 @@ export default function ModelViewer3d(props: ModelViewer3dProps): JSX.Element {
   return (
     <div className="cs-model-view" ref={hostRef}>
       {sourceNote === undefined ? null : <p className="cs-model-info" role="note">{sourceNote}</p>}
-      {appearanceNote === undefined ? null : <p className="cs-model-info" role="note">{appearanceNote}</p>}
       {lightingNote === undefined ? null : <p className="cs-model-info" role="note">{lightingNote}</p>}
       <canvas
         ref={canvasRef}
@@ -204,7 +209,9 @@ export default function ModelViewer3d(props: ModelViewer3dProps): JSX.Element {
               {p.label}
             </button>
           ))}
-          {info === '' ? null : <span className="cs-model-info">{info}</span>}
+          {props.cover === undefined ? null : <CoverTools3d live={live} cover={props.cover} />}
+          {/* "geometry only" is the info line's tooltip, not a line of its own */}
+          {info === '' ? null : <span className="cs-model-info" {...(appearanceNote === undefined ? {} : { title: appearanceNote, 'data-appearance': 'geometry-only' })}>{info}</span>}
         </div>
       )}
     </div>

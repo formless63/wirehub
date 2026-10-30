@@ -12,6 +12,7 @@ import { memoryAssetStore } from '../server/assets.ts';
 import { formatDesignJson, type DesignStore } from '../server/designs.ts';
 import { memoryDrawingStore } from '../server/drawings.ts';
 import { withLoadedVersion } from './loaded-version.ts';
+import { makeJpeg } from './png-fixture.ts';
 
 const db = loadDb();
 const A = loadDesign('de9-terminal-board');
@@ -47,8 +48,8 @@ beforeEach(async () => {
 const call = async (method: string, path: string, body?: unknown) =>
   await handleWorkbenchRequest(await withLoadedVersion({ method, path, ...(body === undefined ? {} : { body }) }, deps), deps) as { status: number; body: any };
 
-const PHOTO = `data:image/jpeg;base64,${Buffer.from('the same photo, byte for byte').toString('base64')}`;
-const OTHER_PHOTO = `data:image/jpeg;base64,${Buffer.from('a different photo entirely').toString('base64')}`;
+const PHOTO = `data:image/jpeg;base64,${makeJpeg(4).toString('base64')}`;
+const OTHER_PHOTO = `data:image/jpeg;base64,${makeJpeg(5).toString('base64')}`;
 
 describe('GET /api/assets', () => {
   it('starts empty, and says so in words with no store at all', async () => {

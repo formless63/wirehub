@@ -70,7 +70,7 @@ describePg('pack lifecycle on Postgres', () => {
 
     bundled('1.0.0', v1);
     expect((await call('POST', '/api/setup', { modules: ['demo'] })).status).toBe(200);
-    expect((await call('GET', '/api/packs')).body.packs).toEqual([{ id: 'demo', version: '1.0.0', license: 'CC0-1.0', records: 4, module: 'demo' }]);
+    expect((await call('GET', '/api/packs')).body.packs).toEqual([{ id: 'demo', name: 'Demo', version: '1.0.0', license: 'CC0-1.0', records: 4, module: 'demo' }]);
 
     // read-only marking and fork, from the database
     expect((await call('GET', '/api/definitions/components')).body.packs).toEqual({ 'r-60': { pack: 'demo', version: '1.0.0' } });

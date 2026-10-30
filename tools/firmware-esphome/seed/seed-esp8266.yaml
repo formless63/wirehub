@@ -1,0 +1,30 @@
+# Build-time seed (synthetic): pre-fetches the ESP8266 platform, framework, toolchain and the
+# libraries common components need, so a compile runs with no network.
+esphome:
+  name: seed-esp8266
+esp8266:
+  board: d1_mini
+logger:
+api:
+ota:
+  - platform: esphome
+wifi:
+  ssid: seed
+  password: seedseedseed
+  ap:
+    ssid: seed-ap
+captive_portal:
+web_server:
+mdns:
+i2c:
+sensor:
+  - platform: uptime
+    name: Uptime
+switch:
+  - platform: gpio
+    pin: GPIO14
+    name: Relay
+binary_sensor:
+  - platform: gpio
+    pin: { number: GPIO12, mode: INPUT_PULLUP }
+    name: Button

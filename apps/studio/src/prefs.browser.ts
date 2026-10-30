@@ -21,8 +21,8 @@ const FLUSH_MS = 400;
 type Prefs = Record<string, unknown>;
 
 interface PrefsClient extends PrefsBackend {
-  /** adopt `user`'s local copy, then the hub's; resolves when the hub has answered (or could not) */
-  hydrate(user: string): Promise<void>;
+  /** adopt `user`'s local copy, then the hub's; resolves when the hub has answered (true) or could not (false) */
+  hydrate(user: string): Promise<boolean>;
   /** send what is waiting now */
   flush(): Promise<void>;
 }
@@ -92,7 +92,7 @@ export function createPrefsBackend(base = '/api', storage: () => Storage | undef
       readMirror();
       emit();
       const out = await request<{ prefs: Prefs }>(`${base}/me/prefs`);
-      if (!out.ok || typeof out.value.prefs !== 'object' || out.value.prefs === null) return;
+      if (!out.ok || typeof out.value.prefs !== 'object' || out.value.prefs === null) return false;
       const hub = out.value.prefs;
       // the hub wins, except for a change this browser made that has not gone up yet; a key only this browser has goes up
       const merged: Prefs = { ...hub };
@@ -106,6 +106,7 @@ export function createPrefsBackend(base = '/api', storage: () => Storage | undef
       mirror();
       emit();
       await flush();
+      return true;
     },
   };
 }
@@ -114,4 +115,4 @@ export function createPrefsBackend(base = '/api', storage: () => Storage | undef
 const client = createPrefsBackend();
 setPrefsBackend(client);
 
-export const hydratePrefs = (user: string): Promise<void> => client.hydrate(user);
+export const hydratePrefs = (user: string): Promise<boolean> => client.hydrate(user);

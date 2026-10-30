@@ -113,6 +113,17 @@ bash setup-env.sh</code></pre>
   </fieldset>
 
   <fieldset>
+    <legend>Native tools</legend>
+    <label class="choice"><input type="checkbox" name="tools.enabled"> Tool packs <span class="hint">the <code>tools</code> profile: KiCad, enclosure, firmware and slicer runs in throwaway containers; automatic downloads from your image registry</span></label>
+    <div class="when" data-when="tools.enabled">
+      <label>Image registry <input name="tools.registry" placeholder="registry.example.com/workshop"></label>
+      <p class="hint">Registry and namespace, without https://. Leave blank if the images are already installed.</p>
+      <label>Registry username <input name="tools.username" autocomplete="off" placeholder="Optional for private images"></label>
+      <label>Registry access token <input name="tools.token" type="password" autocomplete="off" placeholder="Read-only package token"></label>
+    </div>
+  </fieldset>
+
+  <fieldset>
     <legend>Sign-in and everything else</legend>
     <p class="hint">Sign-in is on: first-run setup makes your account, and you invite everyone else. GitHub, Google, single sign-on (OIDC), magic links over SMTP, allowed emails, alerts to a webhook, the git mirror and the job settings are set later in the app, under <strong>Settings</strong>; they apply at once, with no redeploy. Only what the install needs is set here.</p>
   </fieldset>

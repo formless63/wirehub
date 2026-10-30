@@ -17,7 +17,7 @@ const base = process.env.BASE_URL ?? 'http://127.0.0.1:5173';
 const shots = process.env.SHOTS_DIR;
 if (shots !== undefined) mkdirSync(shots, { recursive: true });
 
-const view = { apiVersion: '1.6', allowed: { env: true, settings: true, effective: true }, builtins: [], supervised: true, modules: [], keys: [] };
+const view = { apiVersion: '1.7', allowed: { env: true, settings: true, effective: true }, builtins: [], supervised: true, modules: [], keys: [] };
 const json = (body, status = 200) => ({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
 const browser = await chromium.launch({ ...(process.env.CHROME === undefined ? {} : { executablePath: process.env.CHROME }), args: ['--no-sandbox'] });

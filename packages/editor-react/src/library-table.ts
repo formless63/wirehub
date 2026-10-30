@@ -15,7 +15,9 @@ import {
   connectorMountingUsage,
   constructionTag,
   stripMakerSuffix,
+  resolveVocab,
   usageCounts,
+  oneBoardPerFork,
   type CableDesign,
   type ComponentDefinition,
   type ConnectorDefinition,
@@ -114,7 +116,6 @@ const NAME: LibraryColumn = { id: 'name', header: 'Name', width: 240, fixed: tru
 const USED: LibraryColumn = { id: 'used', header: 'Used', title: 'Designs and other definitions that use it', width: 58, numeric: true };
 const STATUS: LibraryColumn = { id: 'status', header: 'Status', width: 84, facet: true };
 const FLAGS: LibraryColumn = { id: 'flags', header: 'Flags', title: '3D model · drawn art · photo · inferred values · from the importer · from an installed pack · made in house, by a contract manufacturer (CM) or bought in', width: 120, facet: true };
-const ID: LibraryColumn = { id: 'id', header: 'Id', width: 150, mono: true, hiddenByDefault: true };
 
 const KIND_COLUMNS: Record<LibraryKind, LibraryColumn[]> = {
   connectors: [
@@ -122,7 +123,7 @@ const KIND_COLUMNS: Record<LibraryKind, LibraryColumn[]> = {
     { id: 'gender', header: 'Gender', width: 64, facet: true },
     { id: 'construction', header: 'Construction', title: 'How it is terminated — solder cup, PCB mount …', width: 118, facet: true },
     { id: 'pins', header: 'Pins', width: 44, numeric: true },
-    { id: 'body', header: 'Body', width: 150, mono: true },
+    { id: 'body', header: 'Body', width: 150 },
     { id: 'pinout', header: 'Pinout', width: 170 },
   ],
   components: [
@@ -169,10 +170,15 @@ export function libraryColumns(kind: LibraryKind, records: readonly DefinitionRe
         if (!COMPONENT_KNOWN.has(key) && (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean')) extra.add(key);
       }
     }
-    for (const key of [...extra].sort()) own.push({ id: `x:${key}`, header: key, width: 90, hiddenByDefault: true, facet: false });
+    for (const key of [...extra].sort()) own.push({ id: `x:${key}`, header: key === 'kicadModel' ? 'KiCad 3D model' : key, width: 90, hiddenByDefault: true, facet: false });
   }
   // a status only boards have (active / development / legacy / retired / imported)
-  return [PN, NAME, ...own, USED, ...(kind === 'pcbas' ? [STATUS] : []), FLAGS, ID];
+  return [PN, NAME, ...own, USED, ...(kind === 'pcbas' ? [STATUS] : []), FLAGS];
+}
+
+/** The columns a record's facts show: a record field (`x:`) only where this record has a value. */
+export function factColumns(columns: readonly LibraryColumn[], row: Pick<LibraryRow, 'cells'>): LibraryColumn[] {
+  return columns.filter((column) => !column.id.startsWith('x:') || (row.cells[column.id]?.text ?? '').trim() !== '');
 }
 
 /* ------------------------------------------------------------------ *
@@ -188,6 +194,8 @@ export interface ResolvedPartNumber {
   notProduct?: true;
   /** A physical body reused by several pinouts, shown visibly even in the compact list. */
   sharedBody?: string;
+  /** how many pinouts share that body's number (this one included) */
+  sharedBy?: number;
   pinout?: string;
 }
 
@@ -248,7 +256,8 @@ function connectorCells(db: Db, c: ConnectorDefinition, designs?: LibraryTableCo
   // mounted — direct-solder vs board-straddle — beside its construction
   const mounting = designs === undefined ? undefined : connectorMountingUsage(db, designs, c.id);
   return {
-    family: text(c.family),
+    // the families list's label (`D-sub`), whatever casing the record was typed in
+    family: c.family === undefined ? text(undefined) : { text: resolveVocab(db.vocab, 'families', c.family)?.entry.label ?? c.family, title: c.family },
     gender: text(c.gender),
     construction:
       construction === undefined
@@ -258,7 +267,7 @@ function connectorCells(db: Db, c: ConnectorDefinition, designs?: LibraryTableCo
             title: `${mounting === undefined ? constructionLabel(db.vocab, construction) : mountingSummaryText(constructionLabel(db.vocab, construction), mounting.straddle.length, mounting.direct.length)}${fromBody ? ` — from its body ${c.body}` : ''}${inferred ? ' — inferred' : ''}`,
           },
     pins: count(c.pins.length),
-    body: { text: c.body ?? '', ...(body === undefined ? {} : { title: body.label }) },
+    body: { text: body?.label ?? c.body ?? '', ...(c.body === undefined ? {} : { title: c.body }) },
     pinout: { text: iface?.label ?? c.interface ?? '', ...(c.interface === undefined ? {} : { title: c.interface }) },
   };
 }
@@ -274,7 +283,13 @@ function componentCells(c: ComponentDefinition): Record<string, LibraryCell> {
   };
   for (const [key, value] of Object.entries(loose)) {
     if (!COMPONENT_KNOWN.has(key) && (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean')) {
-      out[`x:${key}`] = typeof value === 'number' ? { text: String(value), sort: value } : text(String(value));
+      out[`x:${key}`] =
+        typeof value === 'number'
+          ? { text: String(value), sort: value }
+          : key === 'kicadModel' && typeof value === 'string'
+            ? // `${KICAD9_3DMODEL_DIR}/…/R_0603.step`: the file name, the path on hover
+              { text: value.split(/[\\/]/).pop() ?? value, title: value, sort: value }
+            : text(String(value));
     }
   }
   return out;
@@ -302,7 +317,8 @@ function pcbaCells(p: PcbaDefinition, all: readonly PcbaDefinition[]): Record<st
   const same = all.filter((q) => q.partNumber === p.partNumber);
   const released = same.filter((q) => (q.status ?? 'active') === 'active').map((q) => q.revision);
   const releasedRev = [...new Set(released)].sort().at(-1);
-  const builds = same.filter((q) => q.revision === p.revision).length;
+  // a pack board and its local fork are one part, not two builds
+  const builds = oneBoardPerFork(same.filter((q) => q.revision === p.revision), p.id).length;
   return {
     rev: text(p.revision),
     build: text(p.build),
@@ -334,6 +350,18 @@ function kitCells(k: KitDefinition): Record<string, LibraryCell> {
   return { parts: count(k.contents.length) };
 }
 
+/** A board's status as every view names it (list, facts, select): absent = active = Released. */
+export const STATUS_LABELS: Readonly<Record<string, string>> = {
+  active: 'Released',
+  development: 'In development',
+  legacy: 'Legacy',
+  retired: 'Retired',
+};
+
+export function statusLabel(status: string): string {
+  return STATUS_LABELS[status] ?? status;
+}
+
 function statusOf(kind: LibraryKind, record: DefinitionRecord): string {
   return kind === 'pcbas' ? ((record as PcbaDefinition).status ?? 'active') : '';
 }
@@ -362,6 +390,7 @@ export function libraryRows(
       const sameNumber = ctx.db.connectors.filter((c) => c.body === body.id && (c.partNumber ?? body.partNumber)?.trim().toLowerCase() === pn.pn?.toLowerCase());
       if (sameNumber.length > 1) {
         pn.sharedBody = body.id;
+        pn.sharedBy = sameNumber.length;
         pn.pinout = ctx.db.interfaces?.find((i) => i.id === connector?.interface)?.label ?? connector?.interface ?? 'Unassigned pinout';
         pn.note = `Physical body ${body.label} (${body.id}); shared by ${sameNumber.length} pinouts. This connector uses ${pn.pinout}.`;
       }
@@ -370,7 +399,8 @@ export function libraryRows(
     if (ctx.models?.has(`${kind}/${record.id}`) === true || (body !== undefined && ctx.models?.has(`bodies/${body.id}`) === true)) flags.push('3D');
     if (ctx.art?.has(record.id) === true) flags.push('Art');
     if (ctx.photos?.has(record.id) === true) flags.push('Photo');
-    if (isInferred(record.src)) flags.push('Inferred');
+    // a board drawn from its own board file is not a guess to flag: only one without art is
+    if (isInferred(record.src) && !(kind === 'pcbas' && ctx.art?.has(record.id) === true)) flags.push('Inferred');
     // how it is sourced (`products.ts` routes): in house, a contract manufacturer, bought in
     const route = (record as { route?: string }).route;
     if (route === 'make') flags.push('Make');
@@ -414,7 +444,7 @@ export function libraryRows(
         name: { text: shown, title: [record.label, ...(aliases.length === 0 ? [] : [`also: ${aliases.join(' · ')}`])].join('\n') },
         ...own,
         used: usedCount === undefined ? { text: '', faint: true, title: 'Where-used needs the designs', sort: -1 } : { text: String(usedCount), sort: usedCount, faint: usedCount === 0 },
-        status: text(status),
+        status: status === '' ? text('') : { text: statusLabel(status), sort: status },
         flags: { text: flags.join(' '), sort: flags.length },
         id: text(record.id),
       },

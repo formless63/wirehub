@@ -15,7 +15,7 @@
  */
 
 import { useState, type Dispatch, type SetStateAction } from 'react';
-import { validateDesign, type CableDesign, type Db } from '@wirehub/model';
+import { savedWithFindings, validateDesign, type CableDesign, type Db } from '@wirehub/model';
 import type { DepictionSource } from '@wirehub/render-svg';
 
 import {
@@ -133,27 +133,27 @@ export function useDesignLifecycle(props: DesignLifecycleProps): DesignLifecycle
     }
   };
 
-  /** Write the draft. A save that carried warnings says so in the status chip afterwards. */
+  /**
+   * Write the draft. Saving preserves work, it does not certify it: there is
+   * no "save anyway" step — a save that carried findings says so in the
+   * status chip afterwards, and they stay in the Issues panel.
+   */
   const save = async (): Promise<void> => {
     if (props.persistence === undefined) return;
     const persistence = props.persistence;
     setConfirming(false);
-    const count = warningLines.length;
+    const findings = props.db === undefined ? undefined : savedWithFindings(validateDesign(props.design, props.db));
     await run(async () => {
       const result = await saveDesign(persistence, props.design);
-      if (!result.ok || count === 0) return result;
-      return {
-        ...result,
-        status: `saved — ${count} thing${count === 1 ? '' : 's'} to look at`,
-      };
+      if (!result.ok || findings === undefined) return result;
+      return { ...result, status: `saved — ${findings}` };
     });
   };
 
   /** the exact gate the Save button (and Ctrl+S) always applied */
   const requestSave = (): void => {
     if (props.persistence === undefined || !dirty || busy) return;
-    if (warningLines.length === 0) void save();
-    else setConfirming(true);
+    void save();
   };
 
   const revert = (): void => {

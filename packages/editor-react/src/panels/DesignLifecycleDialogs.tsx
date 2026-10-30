@@ -12,9 +12,9 @@
 
 import type { CableDesign, Db } from '@wirehub/model';
 import type { DepictionSource } from '@wirehub/render-svg';
-import { useMemo, useState, type FormEvent, type JSX } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type JSX } from 'react';
 
-import type { LifecycleProblem } from '../lifecycle.ts';
+import { retireDesign, type LifecycleProblem } from '../lifecycle.ts';
 import type { DesignSummary, PersistenceAdapter } from '../persistence.ts';
 import { suggestDesignId } from '../persistence.ts';
 import { previewTrunkStock, swappableStocks } from '../stock-swap.ts';
@@ -46,7 +46,7 @@ const DIALOG_SAY: Record<DialogKind, string> = {
     'Copies this design — every part and every joint — under a new name. The original is left exactly as it is.',
   variant:
     'Copies this design onto another wire stock. The trunk moves across by conductor colour; everything else is copied as it is, and this design is left exactly as it is.',
-  rename: 'Changes this design’s name and id. The design itself is not altered.',
+  rename: 'Changes the name shown throughout the hub. Existing links keep working.',
   delete: '',
 };
 
@@ -78,13 +78,7 @@ interface DialogProps {
   onSubmit: (fields: { id: string; label: string; src: string }) => void;
 }
 
-/**
- * The name/id form the three creating dialogs share.
- *
- * The id follows the name until the moment someone edits the id themselves —
- * after that it is theirs and the suggestion stops, because silently
- * overwriting what a user typed is how a form loses their trust.
- */
+/** Names are editable; new records receive unique stable keys automatically. */
 function NameDialog(props: DialogProps): JSX.Element {
   const initialLabel =
     props.kind === 'rename'
@@ -96,12 +90,11 @@ function NameDialog(props: DialogProps): JSX.Element {
   const [id, setId] = useState(
     props.kind === 'rename' ? props.design.id : suggestDesignId(initialLabel, props.taken),
   );
-  const [ownId, setOwnId] = useState(props.kind === 'rename');
   const [src, setSrc] = useState('');
 
   const onLabel = (next: string): void => {
     setLabel(next);
-    if (!ownId) setId(suggestDesignId(next, props.taken));
+    if (props.kind !== 'rename') setId(suggestDesignId(next, props.taken));
   };
 
   const submit = (event: FormEvent): void => {
@@ -131,21 +124,7 @@ function NameDialog(props: DialogProps): JSX.Element {
         <small>The sentence a builder reads at the top of the build sheet.</small>
       </label>
 
-      <label className="cs-field">
-        <span>Id</span>
-        <input
-          value={id}
-          onChange={(event) => {
-            setOwnId(true);
-            setId(event.target.value);
-          }}
-          placeholder="xlr-mic-cable-5-m"
-        />
-        <small>
-          Short name used for the file and in links. Lowercase words joined by hyphens; suggested
-          from the name until you change it.
-        </small>
-      </label>
+
 
       {props.kind === 'new' ? (
         <label className="cs-field">
@@ -265,11 +244,7 @@ function VariantDialog(props: {
             <span>Name</span>
             <input value={shownLabel} onChange={(event) => setLabel(event.target.value)} />
           </label>
-          <label className="cs-field">
-            <span>Id</span>
-            <input value={shownId} onChange={(event) => setId(event.target.value)} />
-            <small>Lowercase words joined by hyphens; suggested from the name until you change it.</small>
-          </label>
+
         </>
       )}
       {props.problem === undefined ? null : <Problem problem={props.problem} />}
@@ -287,35 +262,47 @@ function VariantDialog(props: {
 
 function DeleteDialog(props: {
   design: CableDesign;
+  persistence: PersistenceAdapter;
   busy: boolean;
   problem: LifecycleProblem | undefined;
   onCancel: () => void;
   onConfirm: () => void;
+  onRetire: () => void;
 }): JSX.Element {
+  // saved versions are kept for good: such a design is retired, never deleted (decided before anything is offered)
+  const [revs, setRevs] = useState<number[] | undefined>(props.persistence.savedVersions === undefined ? [] : undefined);
+  useEffect(() => {
+    let live = true;
+    void props.persistence.savedVersions?.(props.design.id).then((out) => {
+      if (live) setRevs(out.ok ? out.value : []);
+    });
+    return () => { live = false; };
+  }, [props.persistence, props.design.id]);
+  const retire = revs !== undefined && revs.length > 0;
   return (
     <div className="cs-modal-card">
-      <h2>{DIALOG_TITLE.delete}</h2>
+      <h2>{retire ? `Retire ${props.design.label}?` : DIALOG_TITLE.delete}</h2>
       <p className="cs-modal-say">
-        Delete <strong>{props.design.label}</strong> (<code>{props.design.id}</code>)?
-      </p>
-      <p className="cs-modal-say">
-        This removes it from the catalog for good — the drawings, build sheet and BOM that come
-        from it go with it. Nothing else in the catalog refers to a design, so no other design is
-        affected.
+        {revs === undefined
+          ? '…'
+          : retire
+            ? `Saved versions (Rev ${revs.join(', ')}) are kept, so it can be retired but not deleted.`
+            : <>Delete <strong>{props.design.label}</strong> and its documents?</>}
       </p>
       {props.problem === undefined ? null : <Problem problem={props.problem} />}
       <div className="cs-modal-actions">
         <button type="button" className="cs-quiet" onClick={props.onCancel} disabled={props.busy}>
           Keep it
         </button>
-        <button
-          type="button"
-          className="cs-destructive"
-          onClick={props.onConfirm}
-          disabled={props.busy}
-        >
-          {props.busy ? 'Deleting…' : `Delete ${props.design.id}`}
-        </button>
+        {retire ? (
+          <button type="button" className="cs-primary" onClick={props.onRetire} disabled={props.busy || props.design.status === 'retired'}>
+            {props.busy ? 'Retiring…' : props.design.status === 'retired' ? 'Already retired' : 'Retire'}
+          </button>
+        ) : (
+          <button type="button" className="cs-destructive" onClick={props.onConfirm} disabled={props.busy || revs === undefined}>
+            {props.busy ? 'Deleting…' : 'Delete'}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -438,12 +425,14 @@ export function DesignLifecycleDialogs(props: DesignLifecycleDialogsProps): JSX.
           ) : dialog === 'delete' ? (
             <DeleteDialog
               design={props.design}
+              persistence={props.persistence}
               busy={api.busy}
               problem={api.problem}
               onCancel={api.close}
               onConfirm={() =>
                 void api.run(() => deleteDesign(props.persistence, props.design.id, props.design.id))
               }
+              onRetire={() => void api.run(() => retireDesign(props.persistence, props.design))}
             />
           ) : (
             <NameDialog

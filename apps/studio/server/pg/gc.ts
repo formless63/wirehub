@@ -19,7 +19,9 @@
  * - an orphan is deleted (object, then row) after 30 days, and only if a
  *   backup completed after it became one;
  * - a derived blob no live model key names at the current converter version
- *   is expired after 7 days; its object goes with its last row;
+ *   is expired after 7 days; its object goes with its last row (a photo
+ *   thumbnail: when its photo is no longer an asset, or its version is old; a
+ *   released document render: only once `DOCUMENT_CACHE_VERSION` changes);
  * - an object no row names, older than 24 hours, is deleted (an upload whose
  *   commit rolled back, a job's scratch file);
  * - completed webhook delivery attempts are kept for 30 days; all attempts
@@ -35,6 +37,8 @@ import type { BlobStore } from '../blobs.ts';
 import type { Notifier } from '../notify.ts';
 import type { JobContext, JobOutcome } from '../jobs/types.ts';
 import { CONVERTER_VERSION } from '../models/cache.ts';
+import { THUMBNAIL_VERSION } from '../thumbnails.ts';
+import { DOCUMENT_CACHE_VERSION } from '../document-cache.ts';
 import { inOrg, type Db } from './db.ts';
 
 export interface BackupState {
@@ -250,8 +254,14 @@ export async function runBlobGcJob(context: JobContext, options: GcOptions): Pro
       await sql<{ sha256: string }>`
         DELETE FROM studio.derived_blob d
          WHERE d.built_at < now() - ${days(options.derivedDays ?? 7)}
-           AND (d.builder_version <> ${builder}
-                OR (d.cache = 'model' AND d.key NOT IN (SELECT asset_key FROM studio.model_link WHERE imported AND asset_key IS NOT NULL)))
+           AND (CASE WHEN d.cache = 'thumbnail'
+                     -- a photo thumbnail (thumbnails.ts): its photo is no longer an asset, or it was drawn by an older version
+                     THEN d.builder_version <> ${THUMBNAIL_VERSION} OR d.key NOT IN (SELECT sha256 FROM studio.asset)
+                     -- a released document render (document-cache.ts): kept until the cache version changes
+                     WHEN d.cache = 'document'
+                     THEN d.builder_version <> ${DOCUMENT_CACHE_VERSION}
+                     ELSE d.builder_version <> ${builder}
+                          OR (d.cache = 'model' AND d.key NOT IN (SELECT asset_key FROM studio.model_link WHERE imported AND asset_key IS NOT NULL)) END)
         RETURNING d.sha256`.execute(tx)
     ).rows;
     return rows.length;
@@ -260,7 +270,8 @@ export async function runBlobGcJob(context: JobContext, options: GcOptions): Pro
     (
       await sql<{ sha256: string; object_key: string }>`
         SELECT b.sha256, b.object_key FROM studio.blob b
-         WHERE b.class = 'derived' AND NOT EXISTS (SELECT 1 FROM studio.derived_blob d WHERE d.sha256 = b.sha256)`.execute(tx)
+         WHERE b.class = 'derived' AND NOT EXISTS (SELECT 1 FROM studio.derived_blob d WHERE d.sha256 = b.sha256)
+           AND NOT EXISTS (SELECT 1 FROM studio.tool_output o WHERE o.sha256 = b.sha256)`.execute(tx)
     ).rows,
   );
   let deletedDerived = 0;
@@ -274,6 +285,8 @@ export async function runBlobGcJob(context: JobContext, options: GcOptions): Pro
       await inOrg(db, orgId, async (tx) => (await sql<{ object_key: string }>`SELECT object_key FROM studio.blob`.execute(tx)).rows.map((r) => r.object_key)),
     );
     const cutoff = Date.now() - (options.rowlessHours ?? 24) * 3600_000;
+    // only this org's keys: firmware bytes (`firmware/sha256/…`, firmware/store.ts) live outside the org
+    // prefix and are never swept here; note attachments are studio.asset rows, so live record blobs
     const objects = await options.blobs.list(`${orgId}/`);
     listed = objects.length;
     for (const o of objects) {

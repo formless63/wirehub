@@ -20,12 +20,14 @@ import { useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from '
 
 import { classes } from '../context.ts';
 import { useVocab } from '../vocab.ts';
-import { compileRecipe, recipeProblems, type VendorDocumentsAdapter, type WireLibraryAdapter } from '../wire-builder.ts';
+import { compileRecipe, recipeFindings, recipeProblems, type VendorDocumentsAdapter, type WireLibraryAdapter } from '../wire-builder.ts';
 import { layFactsOf, presetsFor } from '../wire-view.ts';
 import { Cutaway } from './WireStockEditor.tsx';
 import { NewPartDialog, WireBuilder } from './WireBuilder.tsx';
 import { LazyWireModel3d } from './wire-model-lazy.tsx';
 import { useUnsavedChangesGuard } from './useUnsavedChangesGuard.ts';
+import type { ModelCoverAdapter, ModelCoverCamera } from '../models.ts';
+import type { ViewerCover } from './CoverTools3d.tsx';
 
 export type WireDetailTab = 'builder' | 'spec' | 'record';
 
@@ -120,6 +122,10 @@ export interface WireStockDetailProps {
   /** the record's properties grid (the caller owns the table columns) — shown
    * between the visuals and the builder/edit tabs */
   properties?: ReactNode;
+  /** the builder's advisory findings for the draft, reported up to the record head's findings chip */
+  onFindings?: (findings: string[]) => void;
+  /** the host's shared cover: the 3D view offers "Use this view as cover" for a saved stock */
+  cover?: ModelCoverAdapter;
 }
 
 export function WireStockDetail(props: WireStockDetailProps): JSX.Element {
@@ -152,7 +158,33 @@ export function WireStockDetail(props: WireStockDetailProps): JSX.Element {
   const facts = useMemo(() => layFactsOf(draft), [draft]);
   const dirty = props.create || JSON.stringify(draft) !== JSON.stringify(baseline);
   useUnsavedChangesGuard(JSON.stringify(draft) !== JSON.stringify(baseline));
+
+  // the shared cover's saved 3D camera; a capture is tied to the saved stock, so unsaved edits disable it
+  const coverAdapter = props.cover?.stockViews === true && !props.create ? props.cover : undefined;
+  const [savedCover, setSavedCover] = useState<{ camera: ModelCoverCamera; stale: boolean } | undefined>();
+  const [coverRead, setCoverRead] = useState(0);
+  const stockId = props.recipe.id;
+  useEffect(() => {
+    if (coverAdapter === undefined) return;
+    let live = true;
+    void coverAdapter.saved('wires', stockId).then((saved) => { if (live) setSavedCover(saved); }, () => undefined);
+    return () => { live = false; };
+  }, [coverAdapter, stockId, coverRead, baseline]);
+  const cover3d: ViewerCover | undefined = coverAdapter === undefined ? undefined : {
+    ...(savedCover === undefined ? {} : { camera: savedCover.camera, stale: savedCover.stale }),
+    disabled: props.readOnly === true || dirty,
+    onSave: async (capture) => {
+      const out = await coverAdapter.save('wires', stockId, capture);
+      setCoverRead((n) => n + 1);
+      return out.ok ? undefined : `${out.message}${out.hint === undefined ? '' : ` ${out.hint}`}`;
+    },
+  };
   const problems = recipeProblems(draft, compiled, props.create, props.takenIds);
+  const findings = recipeFindings(draft, compiled);
+  // the record head shows them, merged with the stored record's checks (one findings chip per record)
+  const findingsKey = findings.join('\n');
+  const onFindings = props.onFindings;
+  useEffect(() => { onFindings?.(findingsKey === '' ? [] : findingsKey.split('\n')); }, [findingsKey, onFindings]);
 
   const save = async (): Promise<void> => {
     setBusy(true);
@@ -180,7 +212,7 @@ export function WireStockDetail(props: WireStockDetailProps): JSX.Element {
       <section className="cs-record-section cs-wb-views" aria-label="views">
         <h3 className="cs-record-h">Views</h3>
         <div className="cs-wb-views-3d">
-          <LazyWireModel3d wire={compiled.wire} presets={presets} facts={facts} height={420} />
+          <LazyWireModel3d wire={compiled.wire} presets={presets} facts={facts} height={420} {...(cover3d === undefined ? {} : { cover: cover3d })} />
         </div>
         <div className="cs-wb-views-section">
           <Cutaway wire={compiled.wire} />

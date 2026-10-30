@@ -15,7 +15,7 @@ The full guide is [Self-hosting (full)](../reference/self-hosting/). These are t
 | `postgres` | PostgreSQL 18: the library, designs, versions, accounts and history |
 | `garage` | S3-compatible storage for uploaded photos, datasheets and 3D models |
 | `worker` | Background jobs: imports, 3D model conversion, housekeeping |
-| `bootstrap`, `migrate`, `garage-init` | One-shots that prepare secrets, the database and storage |
+| `bootstrap`, `migrate`, `garage-init` | Optional (profile `init-services`): the earlier one-shots. By default the app prepares the secrets, the database and storage when it starts |
 
 A machine with 2 GB of memory runs the stack; 4 GB leaves room for 3D model conversion.
 
@@ -39,7 +39,7 @@ Set `COMPOSE_PROFILES=backup` for restic backups through Backrest on port 9898 (
 
 ## Upgrades
 
-Change the image tag in `.env` (`WIREHUB_IMAGE`) and run `docker compose up -d`. The `migrate` service applies pending migrations before the app starts. Read the release notes first; the upgrade section of the full guide covers each version's notes.
+Change the image tag in `.env` (`WIREHUB_IMAGE`) and run `docker compose up -d`. The app applies pending migrations when it starts, before it serves anything (`/healthz` says `initialising` meanwhile). Read the release notes first; the upgrade section of the full guide covers each version's notes.
 
 ## Settings in the app
 

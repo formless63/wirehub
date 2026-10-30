@@ -441,7 +441,8 @@ export function artHeadWidth(instanceId: string, title: string, meta: string): n
 }
 
 function boardHeadWidth(data: PcbaNodeData): number {
-  return artHeadWidth(data.instanceId, data.title, boardHeadMeta(data));
+  // the newer-revision marker (14 px + its gap) rides after the meta
+  return artHeadWidth(data.instanceId, data.title, boardHeadMeta(data)) + (data.newer === undefined ? 0 : 18);
 }
 
 /**

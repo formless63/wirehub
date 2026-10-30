@@ -12,9 +12,10 @@
  */
 
 import { boardBuildOf, boardComponentRows, boardPartsOf, compressRefs, type Db } from '@wirehub/model';
-import { useMemo, useState, type JSX } from 'react';
+import { useMemo, type JSX } from 'react';
 
 import { classes } from '../context.ts';
+import { Section } from '../ui/Section.tsx';
 
 export interface BoardComponentsSectionProps {
   db: Pick<Db, 'boardParts' | 'components'>;
@@ -30,26 +31,7 @@ export interface BoardComponentsSectionProps {
   onOpenComponent?: (id: string) => void;
 }
 
-const OPEN_KEY = 'cs-board-components-open';
-
-function readOpen(): boolean {
-  try {
-    return window.localStorage.getItem(OPEN_KEY) !== 'false';
-  } catch {
-    return true;
-  }
-}
-
-function writeOpen(open: boolean): void {
-  try {
-    window.localStorage.setItem(OPEN_KEY, open ? 'true' : 'false');
-  } catch {
-    // a private window: the choice is not remembered
-  }
-}
-
 export function BoardComponentsSection(props: BoardComponentsSectionProps): JSX.Element | null {
-  const [open, setOpen] = useState(readOpen);
   const entry = useMemo(() => boardPartsOf(props.db, props.board, props.revision), [props.db, props.board, props.revision]);
   const build = entry === undefined || props.defId === undefined ? undefined : boardBuildOf(entry, props.defId);
   const population = props.population ?? build ?? {};
@@ -58,29 +40,19 @@ export function BoardComponentsSection(props: BoardComponentsSectionProps): JSX.
   if (entry === undefined) return null;
   const fitted = rows.reduce((n, r) => n + r.qty, 0);
   const buildName = props.population?.build ?? build?.build;
-  const flip = (): void => {
-    setOpen(!open);
-    writeOpen(!open);
-  };
-
   return (
-    <section className={classes('cs-rev-panel cs-bc-panel', !open && 'is-collapsed')} aria-label="Components on this board">
-      <header className="cs-model-head">
-        <button type="button" className="cs-model-fold" aria-expanded={open} onClick={flip}>
-          {open ? '▾' : '▸'} Components on this board
-        </button>
-        <span
-          className="cs-rev-count"
-          title="Bought with the populated board: the design BOM lists the PCBA once, never these parts. From the board's .kicad_pcb, fabrication BOM and CPLs (data/board-parts.json)."
-        >
+    <Section
+      id="board-components"
+      title="Components"
+      className="cs-bc-panel"
+      summary={
+        <span title="Bought with the populated board: the design BOM lists the PCBA once, never these parts. From the board's .kicad_pcb, fabrication BOM and CPLs.">
           {entry.board} {entry.revision}
-          {buildName === undefined ? '' : ` · ${buildName}`} · {fitted} fitted · {rows.length} part{rows.length === 1 ? '' : 's'}
+          {buildName === undefined ? '' : ` · ${buildName}`} {rows.length === 0 ? ' · no placed parts' : ` · ${fitted} fitted · ${rows.length} part${rows.length === 1 ? '' : 's'}`}
         </span>
-      </header>
-      {open ? (
-        rows.length === 0 ? (
-          <p className="cs-empty cs-bc-empty">No placed parts: every footprint is a pad or a landing.</p>
-        ) : (
+      }
+    >
+      {rows.length === 0 ? null : (
           <table className="cs-rev-table cs-bc-table">
             <thead>
               <tr>
@@ -110,20 +82,19 @@ export function BoardComponentsSection(props: BoardComponentsSectionProps): JSX.
                     </td>
                     <td className="cs-bc-label">
                       {props.onOpenComponent === undefined || r === undefined ? (
-                        <span title={r?.review}>{r?.label ?? row.component}</span>
+                        <span className="cs-bc-cut" title={[r?.label ?? row.component, r?.review].filter(Boolean).join('\n')}>{r?.label ?? row.component}</span>
                       ) : (
-                        <button type="button" className="cs-link" title={r.review ?? r.label} onClick={() => props.onOpenComponent!(row.component)}>
+                        <button type="button" className="cs-link cs-bc-cut" title={[r.label, r.review].filter(Boolean).join('\n')} onClick={() => props.onOpenComponent!(row.component)}>
                           {r.label}
                         </button>
                       )}
-                      {r?.review === undefined ? null : (
-                        <span className="cs-bc-review" title={r.review}>
-                          review
-                        </span>
-                      )}
                     </td>
-                    <td>{r?.value ?? ''}</td>
-                    <td>{r?.package ?? ''}</td>
+                    <td className="cs-bc-value">
+                      <span className="cs-bc-cut" title={r?.value}>{r?.value ?? ''}</span>
+                    </td>
+                    <td className="cs-bc-value">
+                      <span className="cs-bc-cut" title={r?.package}>{r?.package ?? ''}</span>
+                    </td>
                     <td className="cs-mono">{r?.mpn ?? ''}</td>
                     <td className="cs-mono" title={(r?.suppliers ?? []).map((s) => `${s.supplier} ${s.number}${s.alternate === true ? ' (alternate)' : ''}`).join('\n') || undefined}>
                       {supplier === undefined ? '' : `${supplier.supplier} ${supplier.number}`}
@@ -134,8 +105,7 @@ export function BoardComponentsSection(props: BoardComponentsSectionProps): JSX.
               })}
             </tbody>
           </table>
-        )
-      ) : null}
-    </section>
+        )}
+    </Section>
   );
 }

@@ -1,0 +1,11 @@
+{"op":"enclosure-generate","inputs":[],"params":{
+ "boards":[{"id":"synthetic-demo-board","label":"Synthetic demo board (public-safe example)","basis":"declared","thickness":1.6,
+  "outline":[[0,0],[60,0],[60,40],[4,40],[0,36]],
+  "holes":[{"x":3.5,"y":3.5,"d":3.2},{"x":56.5,"y":3.5,"d":3.2},{"x":56.5,"y":36.5,"d":3.2},{"x":10,"y":36.5,"d":3.2}],
+  "components":[{"ref":"J1","x0":22,"y0":-1,"x1":31,"y1":6.5,"height":3.3},{"ref":"J2","x0":40,"y0":26,"x1":49,"y1":41,"height":11},
+   {"ref":"U1","x0":12,"y0":14,"x1":22,"y1":24,"height":1.2},{"ref":"C1","x0":30,"y0":15,"x1":36,"y1":21,"height":null}],
+  "ports":[{"id":"J1","label":"USB-C","edge":"front","at":26.5,"z":1.65,"width":9.0,"height":3.3,"protrude":1},
+           {"id":"J2","label":"DC jack","edge":"back","at":44.5,"z":6.5,"width":8,"height":8,"shape":"round","protrude":1}],
+  "heightAbove":{"value":null,"basis":"unknown"}}],
+ "occurrences":[{"id":"left","board":"synthetic-demo-board"},{"id":"right","board":"synthetic-demo-board"}],
+ "enclosure":{"vents":{"sides":true}}}}

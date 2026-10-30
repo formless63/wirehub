@@ -14,7 +14,7 @@
  */
 
 /** The shapes the viewer can draw. */
-export const PARAMETRIC_SHAPES = ['d-sub', 'xlr', 'rj45', 'jst-xh', 'terminal-block', 'obd2', 'sealed-rectangular'] as const;
+export const PARAMETRIC_SHAPES = ['d-sub', 'xlr', 'rj45', 'jst-xh', 'terminal-block', 'obd2', 'sealed-rectangular', 'screw', 'standoff', 'foot'] as const;
 export type ParametricShape = (typeof PARAMETRIC_SHAPES)[number];
 
 /** Required parameters: dimensions in millimetres, except `rows` (a count); `pins` is a separate count. */
@@ -26,6 +26,10 @@ export const PARAMETRIC_PARAMS: Record<ParametricShape, readonly string[]> = {
   'terminal-block': ['pitchMm', 'heightMm', 'depthMm'],
   obd2: ['widthMm', 'heightMm', 'lengthMm', 'pinPitchMm', 'rowPitchMm'],
   'sealed-rectangular': ['widthMm', 'heightMm', 'lengthMm', 'pinPitchMm', 'rowPitchMm', 'rows'],
+  // hardware (pins: 1): drawn along y, head or seat at y = 0
+  screw: ['diameterMm', 'lengthMm', 'headDiameterMm', 'headHeightMm'],
+  standoff: ['acrossFlatsMm', 'lengthMm', 'threadDiameterMm'],
+  foot: ['diameterMm', 'heightMm'],
 };
 
 export interface ParametricSpec {

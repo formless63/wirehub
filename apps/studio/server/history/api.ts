@@ -7,6 +7,9 @@
  *   GET  /api/history/records/:subject         one record's entries (?before=&limit=)
  *   GET  /api/history/entries/:id              one entry, what it changed (?subject=)
  *   POST /api/history/records/:subject/restore { entry, current } — the subject back to its state after `entry`
+ *   GET  /api/history/checkpoints               agent checkpoints: each API token's change sets, grouped
+ *   GET  /api/history/checkpoints/:token        one checkpoint (?from=): its change sets, the records it changed
+ *   POST /api/history/checkpoints/:token/restore { from?, current } — undo them together (`checkpoints.ts`)
  *
  * A restore never rewrites history: it is a new save — on the database a new
  * change set, attributed to the person who asked and restorable in its turn;
@@ -42,6 +45,11 @@ import type { StudioUser } from '../me.ts';
 import { namesOwnerOnlySettings } from '../runtime-settings.ts';
 import { contentETag, ifMatchSatisfied, staleWriteResponse } from '../etag.ts';
 import type { DefinitionKind } from '../definition-store.ts';
+import { restoreKnowledgeDoc } from '../knowledge.ts';
+import type { DomainEvent } from '../webhooks/events.ts';
+import { handleCheckpointRequest } from './checkpoints.ts';
+import { restoreList } from './list-restore.ts';
+import { currentParts, etagOf, fail, methodNotAllowed, ok, quotedParts, recorded, restorePhotoTo, type Route } from './shared.ts';
 import type { HistoryQuery, HistorySource } from './source.ts';
 
 export const HISTORY_ROUTES = [
@@ -49,19 +57,10 @@ export const HISTORY_ROUTES = [
   'GET    /api/history/records/:subject',
   'GET    /api/history/entries/:id',
   'POST   /api/history/records/:subject/restore',
+  'GET    /api/history/checkpoints',
+  'GET    /api/history/checkpoints/:token',
+  'POST   /api/history/checkpoints/:token/restore',
 ] as const;
-
-type Route = (request: ApiRequest, deps: WorkbenchDeps) => Promise<ApiResponse>;
-
-function fail(status: number, error: string, hint?: string): ApiResponse {
-  return { status, body: { error, ...(hint === undefined ? {} : { hint }) } };
-}
-
-const ok = (body: unknown, headers?: Record<string, string>): ApiResponse => ({ status: 200, body, ...(headers === undefined ? {} : { headers }) });
-
-function methodNotAllowed(method: string, allowed: string[]): ApiResponse {
-  return fail(405, `${method} is not something this address accepts.`, `It answers ${allowed.join(' and ')}.`);
-}
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -71,31 +70,8 @@ function limitOf(query: URLSearchParams, fallback: number): number {
 }
 
 function badSubject(text: string): ApiResponse {
-  return fail(400, `${JSON.stringify(text)} is not a record whose history can be shown.`, 'Name it as design:<id> or definition:<kind>:<id> (also vocab:<list>, build:<name>).');
+  return fail(400, `${JSON.stringify(text)} is not a record whose history can be shown.`, 'Name it as design:<id> or definition:<kind>:<id> (also vocab:<list>, build:<name>, note:<id>, project:<id>).');
 }
-
-/** The current value of each restorable part, from the (staged) stores. */
-async function currentParts(subject: Subject, deps: WorkbenchDeps): Promise<Record<string, unknown>> {
-  if (subject.type === 'design') {
-    const design = await deps.designs.read(subject.id);
-    const sheet = deps.drawings === undefined || design === undefined ? undefined : await deps.drawings.read(subject.id);
-    // the photo's version is the hash of its bytes (what the history names it by); no photo: absent
-    const decoded = sheet?.photo === undefined ? undefined : decodeImageDataUri(sheet.photo);
-    const photo = decoded === undefined ? undefined : `sha256:${createHash('sha256').update(decoded.bytes).digest('hex')}`;
-    return { design, drawing: sheet?.meta, photo };
-  }
-  if (subject.type === 'definition') {
-    const record = (await deps.definitions?.list(subject.kind as DefinitionKind))?.find((r) => r.id === subject.id);
-    return { record };
-  }
-  if (subject.type === 'vocab') return { record: await deps.vocab?.read(subject.list) };
-  return { record: await deps.builds?.read(subject.name) };
-}
-
-/** The parts a restore quotes the version of: the restorable ones, and for a design its photo (restored with it, by hash). */
-const quotedParts = (subject: Subject): string[] => (subject.type === 'design' ? [...restorableParts(subject), 'photo'] : restorableParts(subject));
-
-const etagOf = (value: unknown): string | null => (value === undefined ? null : contentETag(value));
 
 /**
  * Handles `/api/history…`; `undefined` for any other path. `request.path`
@@ -134,10 +110,14 @@ export async function handleHistoryRequest(request: ApiRequest, deps: WorkbenchD
       ...(to === undefined ? {} : { to }),
       ...(kind === undefined ? {} : { kind: kind as HistoryQuery['kind'] & string }),
       ...(query.get('before') === null ? {} : { before: query.get('before') as string }),
+      ...(query.get('token') === null || query.get('token') === '' ? {} : { token: query.get('token') as string }),
     };
+    if (q.token !== undefined && !/^[0-9a-f-]{36}$/i.test(q.token)) return fail(400, `${JSON.stringify(q.token)} is not an API token id.`, 'Pick an agent checkpoint from the History page.');
     const page: HistoryPage = { capabilities, ...(await source.list(q)) };
     return ok(page);
   }
+
+  if (section === 'checkpoints') return handleCheckpointRequest({ method, token: id, action, query, request, deps, source, capabilities, route });
 
   if (section === 'records' && id !== undefined) {
     const subject = parseSubject(id);
@@ -181,11 +161,6 @@ function hideOwnerOnly(records: RecordDiff[], user: StudioUser | undefined): Rec
   return records.map((r) => (namesOwnerOnlySettings(r.subject) || namesOwnerOnlySettings(r.label) ? { ...r, op: 'unknown' as const, before: UNKNOWN, after: UNKNOWN, restorable: false } : r));
 }
 
-/** The value a known state holds, or the refusal that it was not recorded. */
-function recorded(state: Known | 'current' | undefined, current: unknown): { ok: true; value: unknown } | { ok: false } {
-  if (state === undefined || state === 'current') return { ok: true, value: current };
-  return state.known ? { ok: true, value: state.value } : { ok: false };
-}
 
 async function restore(subject: Subject, request: ApiRequest, deps: WorkbenchDeps, source: HistorySource, supported: boolean, route: Route): Promise<ApiResponse> {
   const key = subjectKey(subject);
@@ -252,6 +227,19 @@ async function restore(subject: Subject, request: ApiRequest, deps: WorkbenchDep
     return ok(answer, value === undefined ? undefined : { ETag: contentETag(value) });
   }
 
+  if (subject.type === 'note' || subject.type === 'project') {
+    // through the knowledge store: the document and the index together
+    const now = current['record'];
+    let events: DomainEvent[] = [];
+    if (JSON.stringify(now) !== JSON.stringify(target.value)) {
+      events = (await restoreKnowledgeDoc(deps, subject.type, subject.id, target.value, (request.user ?? deps.localUser)?.name)).events;
+      restored.push('record');
+    }
+    const value = (await currentParts(subject, deps))['record'];
+    const answer: RestoreAnswer = { restored: { subject: key, entry, parts: restored }, ...(value === undefined ? {} : { value, etag: contentETag(value) }) };
+    return { ...ok(answer, value === undefined ? undefined : { ETag: contentETag(value) }), ...(events.length === 0 ? {} : { events }) };
+  }
+
   if (subject.type === 'vocab' || subject.type === 'build') return restoreList(subject, target.value, current['record'], { key, entry, request, deps, route });
 
   // a library record
@@ -274,12 +262,6 @@ async function restore(subject: Subject, request: ApiRequest, deps: WorkbenchDep
   return ok(answer, value === undefined ? undefined : { ETag: contentETag(value) });
 }
 
-/** PNG or JPEG, told by its first bytes (a stored photo carries no trusted type of its own). */
-function imageMime(bytes: Uint8Array): 'image/png' | 'image/jpeg' | undefined {
-  if (bytes.length > 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return 'image/png';
-  if (bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';
-  return undefined;
-}
 
 /**
  * The drawing photo as it was right after `entry`: read the bytes by their
@@ -290,78 +272,7 @@ function imageMime(bytes: Uint8Array): 'image/png' | 'image/jpeg' | undefined {
  */
 async function restorePhoto(id: string, entry: string, subject: Subject, deps: WorkbenchDeps, source: HistorySource): Promise<{ restored: boolean; skipped?: string }> {
   if (deps.drawings === undefined || source.photoAt === undefined) return { restored: false };
-  const wanted = await source.photoAt(subject, entry);
-  if (wanted === undefined) return { restored: false, skipped: 'The drawing photo was left as it is: the history did not record which photo that change left.' };
-  if (wanted !== 'none' && 'unrestorable' in wanted) return { restored: false, skipped: wanted.unrestorable };
-  const stored = await deps.drawings.read(id);
-  const decoded = stored.photo === undefined ? undefined : decodeImageDataUri(stored.photo);
-  const have = decoded === undefined ? 'none' : createHash('sha256').update(decoded.bytes).digest('hex');
-  if (wanted === 'none') {
-    if (have === 'none') return { restored: false };
-    await deps.drawings.writePhoto(id, undefined);
-    return { restored: true };
-  }
-  if (wanted.sha256 === have) return { restored: false };
-  // a legacy per-design file comes with its bytes (read from git); the others are read by hash
-  const bytes = wanted.bytes ?? (await deps.blobByHash?.(wanted.sha256));
-  const mime = bytes === undefined ? undefined : (wanted.mime ?? imageMime(bytes));
-  if (bytes === undefined || mime === undefined) return { restored: false, skipped: 'The drawing photo was not brought back: its file is no longer stored (the upload was removed from the hub), so only the rest of the design was restored.' };
-  await deps.drawings.writePhoto(id, { mime, bytes: Buffer.from(bytes) });
-  return { restored: true };
+  return restorePhotoTo(id, await source.photoAt(subject, entry), deps);
 }
 
-interface ListRestore {
-  key: string;
-  entry: string;
-  request: ApiRequest;
-  deps: WorkbenchDeps;
-  route: Route;
-}
 
-/**
- * A controlled list or a board build file back to an earlier state, through
- * its own routes. A build file is one PUT. A vocabulary list only grows, so
- * its restore is the entry edits the vocab route allows: each entry's label,
- * aliases and note go back (the label now in use stays an alias); entries
- * added since stay, and say so in `kept`.
- */
-async function restoreList(subject: Subject, target: unknown, now: unknown, ctx: ListRestore): Promise<ApiResponse> {
-  const { key, entry, request, deps, route } = ctx;
-  const as = request.user === undefined ? {} : { user: request.user };
-  const restored: string[] = [];
-  if (subject.type === 'build') {
-    if (now === undefined) return fail(409, `${subjectLabel(subject)[0]?.toUpperCase() ?? ''}${subjectLabel(subject).slice(1)} does not exist now.`, 'Create the build file from its board page first.');
-    if (JSON.stringify(now) !== JSON.stringify(target)) {
-      const answer = await route({ method: 'PUT', path: `/api/builds/${encodeURIComponent(subject.name)}`, body: { file: target }, headers: { 'if-match': contentETag(now) }, ...as }, deps);
-      if (answer.status >= 400) return answer;
-      restored.push('record');
-    }
-    const value = await deps.builds?.read(subject.name);
-    const answer: RestoreAnswer = { restored: { subject: key, entry, parts: restored }, ...(value === undefined ? {} : { value, etag: contentETag(value) }) };
-    return ok(answer, value === undefined ? undefined : { ETag: contentETag(value) });
-  }
-  if (subject.type !== 'vocab') return fail(400, 'That cannot be restored.');
-  type Entry = { id: string; label: string; aliases?: string[]; note?: string };
-  const entriesOf = (list: unknown): Entry[] => ((list as { entries?: Entry[] } | undefined)?.entries ?? []);
-  if (now === undefined) return fail(409, `${subjectLabel(subject)[0]?.toUpperCase() ?? ''}${subjectLabel(subject).slice(1)} does not exist now.`);
-  const wanted = new Map(entriesOf(target).map((e) => [e.id, e] as const));
-  let list: {} = now as {};
-  for (const old of entriesOf(now)) {
-    const was = wanted.get(old.id);
-    if (was === undefined) continue; // added since: a list never loses an entry
-    const patch: Record<string, unknown> = {};
-    if (was.label !== old.label) patch['label'] = was.label;
-    const aliases = (was.aliases ?? []).filter((a) => !(old.aliases ?? []).includes(a));
-    if (aliases.length > 0) patch['aliases'] = aliases;
-    if (was.note !== undefined && was.note !== old.note) patch['note'] = was.note;
-    if (Object.keys(patch).length === 0) continue;
-    const answer = await route({ method: 'PATCH', path: `/api/vocab/${encodeURIComponent(subject.list)}/${encodeURIComponent(old.id)}`, body: patch, headers: { 'if-match': contentETag(list) }, ...as }, deps);
-    if (answer.status >= 400) return answer;
-    list = (answer.body as { list: {} }).list;
-    if (!restored.includes('record')) restored.push('record');
-  }
-  const kept = entriesOf(now).filter((e) => !wanted.has(e.id)).map((e) => e.id);
-  const value = await deps.vocab?.read(subject.list);
-  const answer: RestoreAnswer & { kept?: string[] } = { restored: { subject: key, entry, parts: restored }, ...(value === undefined ? {} : { value, etag: contentETag(value) }), ...(kept.length === 0 ? {} : { kept }) };
-  return ok(answer, value === undefined ? undefined : { ETag: contentETag(value) });
-}

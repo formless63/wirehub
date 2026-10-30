@@ -74,6 +74,7 @@ export {
   packFiles,
   planPackInstall,
   readInstalledPacks,
+  readReleasedPacks,
   writeFileReplacing,
   readPackManifest,
 } from './packs.ts';
@@ -90,14 +91,16 @@ export {
   packSourceProblems,
   planNewPack,
   planPackDisable,
+  planPackRelease,
+  applyPackRelease,
   planPackUpdate,
   recordKey,
   recordKindOf,
   referencesTo,
 } from './pack-lifecycle.ts';
-export type { ChangedRecord, FieldChange, InstalledAcross, LocatedRecord, PackDiff, PackDisablePlan, PackInstallPreview, PackReference, PackUpdatePlan, RecordRef } from './pack-lifecycle.ts';
+export type { ChangedRecord, FieldChange, InstalledAcross, LocatedRecord, PackDiff, PackDisablePlan, PackInstallPreview, PackReference, PackReleasePlan, PackUpdatePlan, RecordRef } from './pack-lifecycle.ts';
 // the store index and pack signatures need node:crypto: server only, see ./server.ts
-export type { AssetOps, InstalledModule, InstalledPack, InstalledPacks, PackInstallPlan, PackLayerInstall, PackManifest, PackModule } from './packs.ts';
+export type { AssetOps, InstalledModule, InstalledPack, InstalledPacks, ReleasedPack, PackInstallPlan, PackLayerInstall, PackManifest, PackModule } from './packs.ts';
 
 /** Absolute path of a file inside this package's `data/` directory — the live catalog. */
 export function dataPath(relative: string): string {

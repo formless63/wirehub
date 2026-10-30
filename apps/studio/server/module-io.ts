@@ -17,12 +17,13 @@
  */
 
 import { parseDepictionMeta, stripUnsafeSvg, validateDepiction } from '@wirehub/catalog/src/depictions/index.ts';
-import type { BoardPartsEntry, CableDesign, Db } from '@wirehub/model';
+import type { BoardPartsEntry, CableDesign, Db, PcbaDefinition } from '@wirehub/model';
 import type { ContinuityData, ImportedDepiction, ImportResult, ModuleRegistry } from '@wirehub/modules';
 
 import type { ApiResponse } from './api.ts';
 import type { BatchRequestItem } from './batch.ts';
 import { contentETag } from './etag.ts';
+import type { DefinitionStore } from './definition-store.ts';
 import type { DepictionStore } from './depictions.ts';
 import type { DocStore } from './storage/doc-store.ts';
 
@@ -62,6 +63,8 @@ export interface Proposal {
   boardParts?: string[];
   /** definitions whose board art is proposed (present only when the importer proposed some) */
   depictions?: string[];
+  /** art anchors left out because they name no terminal of the board, `<defId>: <anchor>` */
+  skipped?: string[];
   notes: string[];
 }
 
@@ -138,6 +141,44 @@ function viewKinds(meta: unknown): string[] {
   return views === undefined || typeof views !== 'object' ? [] : Object.values(views).map((v) => String(v?.sourceKind ?? ''));
 }
 
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/** `meta` without the anchors that name no terminal of the board in `db`, and those anchors; undefined when it does not parse. */
+function withoutStrayAnchors(defId: string, meta: Record<string, unknown>, db: Db): { meta: Record<string, unknown>; dropped: string[] } | undefined {
+  const parsed = parseDepictionMeta(meta, `depictions/${defId}`).meta;
+  if (parsed === undefined) return undefined;
+  const dropped = validateDepiction(parsed, { db })
+    .filter((i) => i.code === 'unknown-pin-anchor')
+    .map((i) => /^anchor '(.+)' is not/.exec(i.message)?.[1])
+    .filter((id): id is string => id !== undefined && id in parsed.pinAnchors);
+  if (dropped.length === 0) return { meta, dropped };
+  const anchors = { ...(meta['pinAnchors'] as Record<string, unknown>) };
+  for (const id of dropped) delete anchors[id];
+  return { meta: { ...meta, pinAnchors: anchors }, dropped };
+}
+
+/**
+ * `db` with each board this unit of work has staged (an update's refreshed
+ * terminals) in place of its snapshot form: the unit's db only appends new
+ * records, so art for a board whose terminals an update just changed would
+ * otherwise be checked against the old terminals.
+ */
+async function withStagedBoards(db: Db, definitions: DefinitionStore | undefined): Promise<Db> {
+  if (definitions === undefined) return db;
+  const staged = new Map(((await definitions.list('pcbas')) as unknown as PcbaDefinition[]).map((p) => [p.id, p]));
+  let changed = false;
+  const pcbas = db.pcbas.map((p) => {
+    const next = staged.get(p.id);
+    // the wiring is what anchors land on: terminals, and the pins of integrated connectors
+    const wiring = (b: PcbaDefinition): string => JSON.stringify([b.terminals, b.integratedConnectors ?? []]);
+    if (next === undefined || wiring(next) === wiring(p)) return p;
+    changed = true;
+    const { integratedConnectors: _ic, ...rest } = p;
+    return { ...rest, terminals: next.terminals, ...(next.integratedConnectors === undefined ? {} : { integratedConnectors: next.integratedConnectors }) };
+  });
+  return changed ? { ...db, pcbas } : db;
+}
+
 /**
  * Stage an import's placed parts and artwork into a unit of work's stores,
  * after its records (so anchors are checked against the boards it adds).
@@ -149,9 +190,9 @@ function viewKinds(meta: unknown): string[] {
  * the depictions it skipped (kept as they were).
  */
 export async function stageImportExtras(
-  stores: { docs?: DocStore; depictions?: DepictionStore; loadDb: () => Db | Promise<Db> },
+  stores: { docs?: DocStore; depictions?: DepictionStore; definitions?: DefinitionStore; loadDb: () => Db | Promise<Db> },
   extras: ImportExtras,
-): Promise<{ keptDepictions: string[] }> {
+): Promise<{ keptDepictions: string[]; skippedAnchors: string[] }> {
   if (extras.boardParts.length > 0) {
     if (stores.docs === undefined) throw new ImportExtrasRefused('This hub does not keep catalog documents, so placed parts cannot be imported.');
     const current = ((await stores.docs.read(BOARD_PARTS)) ?? {}) as { src?: string; boards?: BoardPartsEntry[] };
@@ -164,10 +205,11 @@ export async function stageImportExtras(
     await stores.docs.write(BOARD_PARTS, { src: current.src ?? 'The parts placed on each board revision, linked to component records; written by board imports and by hand.', boards });
   }
   const kept: string[] = [];
-  if (extras.depictions.length === 0) return { keptDepictions: kept };
+  const skippedAnchors: string[] = [];
+  if (extras.depictions.length === 0) return { keptDepictions: kept, skippedAnchors };
   const store = stores.depictions;
   if (store === undefined) throw new ImportExtrasRefused('This hub does not keep artwork, so board art cannot be imported.');
-  const db = await stores.loadDb();
+  const db = await withStagedBoards(await stores.loadDb(), stores.definitions);
   for (const depiction of extras.depictions) {
     const existing = await store.readMeta(depiction.defId);
     if (existing !== undefined) {
@@ -175,6 +217,16 @@ export async function stageImportExtras(
       const replaceable = depiction.replaces !== undefined && kinds.length > 0 && kinds.every((k) => depiction.replaces!.includes(k));
       if (!replaceable) {
         kept.push(depiction.defId);
+        // an update's kept art follows its renamed terminals and lets go of its removed ones
+        if (depiction.renamed !== undefined && isObject(existing) && isObject(existing['pinAnchors'])) {
+          const moved: Record<string, unknown> = {};
+          for (const [id, anchor] of Object.entries(existing['pinAnchors'])) moved[depiction.renamed[id] ?? id] = anchor;
+          const next = withoutStrayAnchors(depiction.defId, { ...existing, pinAnchors: moved }, db);
+          if (next !== undefined && JSON.stringify(next.meta) !== JSON.stringify(existing)) {
+            await store.writeMeta(depiction.defId, next.meta);
+            skippedAnchors.push(...next.dropped.map((id) => `${depiction.defId}: ${id}`));
+          }
+        }
         continue;
       }
     }
@@ -182,7 +234,11 @@ export async function stageImportExtras(
     if (parsed.meta === undefined || parsed.meta.defId !== depiction.defId) {
       throw new ImportExtrasRefused(`The art proposed for ${depiction.defId} is not a valid depiction: ${parsed.issues.map((i) => i.message).join('; ') || 'its defId does not match'}.`);
     }
-    const problems = validateDepiction(parsed.meta, { db }).filter((i) => i.severity === 'error');
+    // an anchor on no terminal of the board is left out (and reported), never a reason to refuse the whole import
+    const cleaned = withoutStrayAnchors(depiction.defId, depiction.meta, db)!;
+    depiction.meta = cleaned.meta;
+    skippedAnchors.push(...cleaned.dropped.map((id) => `${depiction.defId}: ${id}`));
+    const problems = validateDepiction(parseDepictionMeta(depiction.meta, `depictions/${depiction.defId}`).meta!, { db }).filter((i) => i.severity === 'error');
     if (problems.length > 0) throw new ImportExtrasRefused(`The art proposed for ${depiction.defId} does not fit the board: ${problems.map((i) => i.message).join('; ')}.`);
     for (const [name, text] of Object.entries(depiction.files)) {
       if (!ART_FILE.test(name)) throw new ImportExtrasRefused(`${depiction.defId}: '${name}' is not an SVG file name.`);
@@ -192,7 +248,7 @@ export async function stageImportExtras(
     }
     await store.writeMeta(depiction.defId, depiction.meta);
   }
-  return { keptDepictions: kept };
+  return { keptDepictions: kept, skippedAnchors };
 }
 
 const OPTION_NAME = /^[a-z][a-zA-Z0-9_.-]{0,63}$/;

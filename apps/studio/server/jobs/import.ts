@@ -24,14 +24,16 @@
 
 import { createHash } from 'node:crypto';
 
-import { routeWorkbenchRequest, type ApiResponse, type WorkbenchDeps } from '../api.ts';
+import type { ApiResponse, WorkbenchDeps } from '../api.ts';
 import { batchItemRequest } from '../batch.ts';
 import type { BlobStore } from '../blobs.ts';
 import type { StudioUser } from '../me.ts';
 import { boardArtFiles, relinkWithArt } from '../models/board-art.ts';
+import { MODEL_SOURCES_DIR } from '../models/links.ts';
 import { ImportExtrasRefused, proposalOf, readImportOptions, stageImportExtras } from '../module-io.ts';
 import { CatalogTree, treeWorkbenchDeps } from '../pg/tree.ts';
 import { commitChangeSet, UnitOfWork } from '../storage/unit-of-work.ts';
+import { refuseAppendOnlyRewrites } from '../storage/append-only.ts';
 import type { CommitResult, RecordChange } from '../storage/change-set.ts';
 import type { JobContext, JobOutcome, PlanFile } from './types.ts';
 
@@ -147,18 +149,26 @@ export async function runImportJob(context: JobContext, { deps, blobs }: ImportD
   const ids = new Set((await deps.designs.list()).map((d) => d.id));
   const { proposal: summary, requests, extras } = proposalOf(proposal, db, ids);
   const uow = new UnitOfWork(deps);
-  const refused: { request: string; status: number; error: unknown }[] = [];
+  const refused: { request: string; record: string; status: number; error: unknown }[] = [];
   for (const item of requests) {
+    // the router imports this job's handler: reached lazily, so loading one never needs the other first
+    const { routeWorkbenchRequest } = await import('../api.ts');
     const answer: ApiResponse = await routeWorkbenchRequest(batchItemRequest(item, user === undefined ? {} : { user }), uow.deps);
-    if (answer.status >= 400) refused.push({ request: `${item.method} ${item.path}`, status: answer.status, error: answer.body });
+    const kind = item.path.replace(/^\/api\/definitions\//, '').split('/')[0] ?? '';
+    const id = (item.body as { id?: unknown } | undefined)?.id;
+    if (answer.status >= 400) refused.push({ request: `${item.method} ${item.path}`, record: typeof id === 'string' ? `${kind}/${id}` : kind, status: answer.status, error: answer.body });
   }
   if (refused.length > 0) {
+    // in words, naming the records (`pcbas/<id>` the page links): never the HTTP method or path
     const first = refused[0]!;
-    const words = (first.error as { error?: string } | undefined)?.error ?? `status ${first.status}`;
-    throw new Error(`${refused.length} of ${requests.length} proposed record(s) were refused; the first, ${first.request}: ${words}`);
+    const body = first.error as { error?: string; issues?: { message?: string; where?: string }[] } | undefined;
+    const record = first.record;
+    const issues = (body?.issues ?? []).slice(0, 1).map((i) => `${i.message ?? ''}${i.where === undefined ? '' : ` (${i.where})`}`);
+    throw new Error([`${record === '' ? 'A record' : record} was not saved: ${body?.error ?? `status ${first.status}`}`, ...issues].join('\n'));
   }
   try {
-    const { keptDepictions } = await stageImportExtras(uow.deps, extras);
+    const { keptDepictions, skippedAnchors } = await stageImportExtras(uow.deps, extras);
+    if (skippedAnchors.length > 0) summary.skipped = skippedAnchors;
     for (const id of keptDepictions) summary.existing.push(`depictions/${id}`);
     if (summary.depictions !== undefined) summary.depictions = summary.depictions.filter((id) => !keptDepictions.includes(id));
     // a board whose Gerber art was just imported shows it on its 3D model: re-key the model's link (cs-5k1.29)
@@ -172,6 +182,10 @@ export async function runImportJob(context: JobContext, { deps, blobs }: ImportD
     throw error;
   }
   // artwork (an SVG) is the only file an import plan carries as bytes
+  // a KiCad board keeps its native file with the import: board outputs and enclosures then run from the
+  // record directly, and its hash is the one the board's art cites (`data/model-sources/<sha256>.kicad_pcb.txt`)
+  const kept = await keepKicadSource(uow, request.fileName, bytes);
+  if (kept !== undefined) await context.step(`kept the board file as ${kept}`);
   if (uow.changes.some((c) => c.bytes !== undefined && c.kind !== 'depiction-asset')) throw new Error('the importer proposed binary files, which an import plan does not carry');
   const files = await planFiles(deps, uow.changes);
   await context.step(`planned ${uow.changes.length} change(s) to ${files.length} file(s)`);
@@ -192,6 +206,18 @@ export async function runImportJob(context: JobContext, { deps, blobs }: ImportD
   };
 }
 
+/** Stage the uploaded `.kicad_pcb` as a model-source document when it is plain KiCad text not stored yet; its path, or undefined. */
+async function keepKicadSource(uow: UnitOfWork, fileName: string, bytes: Uint8Array): Promise<string | undefined> {
+  if (!/\.kicad_pcb$/i.test(fileName) || uow.deps.docs === undefined) return undefined;
+  const text = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+  // stored exactly as its text: only when the text's hash is the file's (valid UTF-8, no byte-order mark)
+  if (!/^\s*\(kicad_pcb\b/.test(text) || sha256(new TextEncoder().encode(text)) !== sha256(bytes)) return undefined;
+  const path = `${MODEL_SOURCES_DIR}/${sha256(bytes)}.kicad_pcb.txt`;
+  if (typeof (await uow.deps.docs.read(path)) === 'string') return undefined;
+  await uow.deps.docs.write(path, text);
+  return path;
+}
+
 /** The staged changes of a finished import job, ready to commit. */
 export function planChanges(result: Record<string, unknown> | undefined): RecordChange[] | undefined {
   const plan = result?.['plan'];
@@ -206,6 +232,7 @@ export function planChanges(result: Record<string, unknown> | undefined): Record
 
 /** Commit a plan as one change set (the caller holds the write lock and maps a stale record to 409). */
 export async function commitPlan(deps: WorkbenchDeps, changes: RecordChange[], context: { path: string; user?: StudioUser; message: string }): Promise<CommitResult> {
+  await refuseAppendOnlyRewrites(deps, changes);
   const set = {
     changes,
     context: { method: 'POST', path: context.path, body: { message: context.message }, ...(context.user === undefined ? {} : { user: context.user }) },

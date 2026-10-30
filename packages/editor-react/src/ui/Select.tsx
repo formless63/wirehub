@@ -45,7 +45,7 @@ export function Select({ value, onValueChange, options, placeholder = 'Select...
         // Radix reports '' when a controlled value has no option yet (a list still loading); options are never empty
         if (next !== '') onValueChange(next);
       }} disabled={disabled} {...(name === undefined ? {} : { name })}>
-      <RSelect.Trigger {...f} {...(rest['aria-label'] === undefined ? {} : { 'aria-label': rest['aria-label'] })} className={cx('cs-ui-select-trigger', className)} data-size={size}>
+      <RSelect.Trigger {...f} {...(rest['aria-label'] === undefined ? {} : { 'aria-label': rest['aria-label'] })} className={cx('cs-ui-select-trigger', className)} data-size={size} title={options.find((o) => o.value === value)?.label}>
         <RSelect.Value placeholder={placeholder} />
         <RSelect.Icon asChild><IconChevronDown size={14} aria-hidden /></RSelect.Icon>
       </RSelect.Trigger>

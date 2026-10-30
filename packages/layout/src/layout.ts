@@ -23,7 +23,9 @@ import {
   pigtailKey,
   terminalKey,
   terminalsOf,
+  pcbaName,
   validateDesign,
+  humanizeNote,
   flattenSubassemblies,
   hasSubassemblies,
   type CableDesign,
@@ -1007,7 +1009,7 @@ export function layoutSchematic(
           id: instance.id,
           kind: 'pcba',
           def: instance.def,
-          title: `${definition.partNumber} ${definition.revision}${buildLabel}`,
+          title: `${pcbaName(definition)}${buildLabel}`,
           subtitle: definition.label,
           ...(instance.note === undefined ? {} : { note: instance.note }),
           zone,
@@ -3225,7 +3227,7 @@ export function layoutSchematic(
     (design.notes ?? []).length === 0 ? undefined : { x: noteX, y: noteY };
   if (notesHeading !== undefined) noteY += M.fontNote + 2.5;
   (design.notes ?? []).forEach((text, index) => {
-    const lines = wrapText(text, M.fontNote, noteWidth);
+    const lines = wrapText(humanizeNote(design, db, text), M.fontNote, noteWidth);
     notes.push({ index: index + 1, lines, x: noteX, y: noteY });
     noteY += Math.max(1, lines.length) * M.footnoteLineHeight + 1.2;
   });
@@ -3238,7 +3240,7 @@ export function layoutSchematic(
   return {
     designId: design.id,
     title: design.label,
-    subtitle: [design.id, design.productRef].filter((part) => part !== undefined).join(' · '),
+    subtitle: design.productRef ?? '',
     width,
     height: contentHeight,
     direction: {
@@ -3838,7 +3840,7 @@ function describeEnd(
       names.push(
         definition === undefined
           ? pcba.def
-          : `${definition.partNumber} ${definition.revision}`,
+          : pcbaName(definition),
       );
     }
   }

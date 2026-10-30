@@ -209,16 +209,16 @@ a footprint no interface fits, a module, a script.
 
 - **Find a design** (`/resolver`, the rail and the Designs toolbar): pick the two devices and
   ports, read the ranked options with their reasons, hazards and missing pieces and the refused
-  ones, pick a stock (the fitting ones first), a length, an id, and **Create design**. When nothing
+  ones, pick a stock (the fitting ones first), a length, a name, and **Create design**. When nothing
   is complete, **Proposals** drafts boards and adapters to decline or start.
 - **Proposals** (the second tab): every filed, declined and accepted proposal, **Offer again**.
 - **Devices and recipes**: the devices, recipes and hazards in force with where each came from.
   Device forms edit ports and per-position pin tables using the library's signal, direction,
   level and conditioning choices; Reset removes a pin override and restores interface inheritance.
   Recipe forms edit input/output predicates, conditioning, components, placement and location.
-  Both patch the same draft as **Advanced JSON**, preserving unshown fields such as provenance,
-  pin confidence, accepted levels, port requirements and notes. JSON editing and examples remain
-  available for hazards and the ranking policy.
+  Pin details also expose accepted levels, confidence, notes and source; port requirements are
+  editable with named choices. Hazards and ranking have forms too. Internal keys are automatic.
+  **Advanced JSON** remains optional, and forms preserve unshown metadata such as provenance.
 - The editor's **Recipe** tab (shown when the design has a recipe or the library has devices): the two
   ends, the option and stock, the option's hazards and missing pieces, the drift (badged on the tab),
   the overrides; **Record as overrides**, **Re-derive**, **Detach** — each one undo step. A hand

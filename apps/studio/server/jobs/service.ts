@@ -9,6 +9,8 @@ import { randomUUID } from 'node:crypto';
 import type { StudioUser } from '../me.ts';
 import { stageImportInput } from './import.ts';
 import {
+  FINISHED_STATUSES,
+  REPEATABLE_KINDS,
   JobTimeoutError,
   type JobHandlers,
   type JobKind,
@@ -36,22 +38,44 @@ export interface JobServiceOptions {
   stageInput?: JobService['stageInput'];
   /** poll interval for `wait`, ms */
   pollMs?: number;
+  /**
+   * Capture the effective inputs of the design a job names (`request.design`: an id or `{ id, rev? }`,
+   * `effective-inputs.ts`). The capture is recorded on the job's request as `effectiveInputs`; a
+   * request that names no design is left as it is.
+   */
+  captureInputs?: (request: Record<string, unknown>) => Promise<Record<string, unknown> | undefined>;
 }
 
 export function createJobService(options: JobServiceOptions): JobService {
   const { store, runner } = options;
   const pollMs = options.pollMs ?? 250;
   const kindsNow = (): readonly JobKind[] => (typeof options.kinds === 'function' ? options.kinds() : options.kinds);
-  return {
+  const service: JobService = {
     describe: runner.describe,
     get kinds() {
       return kindsNow();
     },
     async enqueue(kind, request, by, enqueueOptions) {
       if (!kindsNow().includes(kind)) throw new Error(`this hub does not run '${kind}' jobs`);
+      if (options.captureInputs !== undefined && request['effectiveInputs'] === undefined) {
+        const captured = await options.captureInputs(request);
+        if (captured !== undefined) request = { ...request, effectiveInputs: captured };
+      }
+      // atomic where the store and the runner can: the row and its queue entry commit in one transaction
+      if (store.transactional === true && runner.submitWithin !== undefined) {
+        await runner.prepare?.(kind);
+        return store.create(kind, request, requesterOf(by), (job, exec) => runner.submitWithin!(job, exec, enqueueOptions));
+      }
       const job = await store.create(kind, request, requesterOf(by));
       await runner.submit(job, enqueueOptions);
       return job;
+    },
+    async retry(id, by) {
+      const job = await store.get(id);
+      if (job === undefined || !REPEATABLE_KINDS.includes(job.kind) || !FINISHED_STATUSES.includes(job.status) || job.status === 'done') return undefined;
+      // the inputs are captured again: a retry runs against the design as it is now
+      const { effectiveInputs: _captured, retryOf: _previous, ...request } = job.request;
+      return service.enqueue(job.kind, { ...request, retryOf: job.id }, by);
     },
     get: (id) => store.get(id),
     list: (o) => store.list(o),
@@ -62,14 +86,16 @@ export function createJobService(options: JobServiceOptions): JobService {
       for (;;) {
         const job = await store.get(id);
         if (job === undefined) throw new Error(`there is no job ${id}`);
-        if (job.status === 'done' || job.status === 'failed' || job.status === 'cancelled') return job;
+        if (FINISHED_STATUSES.includes(job.status)) return job;
         if (Date.now() > until) throw new JobTimeoutError(id, timeoutMs);
         await new Promise((done) => setTimeout(done, pollMs));
       }
     },
     stageInput: options.stageInput ?? (async (bytes) => ({ ...(await stageImportInput(bytes, undefined, undefined)) })),
+    ...(store.cancel === undefined ? {} : { cancel: (id: string, by?: string) => store.cancel!(id, by) }),
     ...(options.worker === undefined ? {} : { worker: options.worker }),
   };
+  return service;
 }
 
 /**
@@ -89,12 +115,34 @@ export async function executeJob(
   if (job === undefined) return undefined;
   const handler = handlers[job.kind];
   const started = Date.now();
+  // the lease: renewed while the handler runs, so a reconciler can tell a live job from one whose process died
+  const lease = store.renew === undefined ? undefined : setInterval(() => void store.renew!(id).catch(() => undefined), LEASE_RENEW_MS);
+  lease?.unref?.();
+  try {
+    return await executeLeased(store, handler, job, id, started, log, onFinished);
+  } finally {
+    if (lease !== undefined) clearInterval(lease);
+  }
+}
+
+/** How often a running job's lease is renewed; the lease itself is `JOB_LEASE_SECONDS` (pg). */
+export const LEASE_RENEW_MS = 30_000;
+
+async function executeLeased(
+  store: JobStore,
+  handler: JobHandlers[JobKind],
+  job: JobRun,
+  id: string,
+  started: number,
+  log: (line: string) => void,
+  onFinished: ((job: JobRun) => void | Promise<void>) | undefined,
+): Promise<JobRun | undefined> {
   if (handler === undefined) {
     await store.fail(id, `This process does not run '${job.kind}' jobs.`);
     return store.get(id);
   }
   try {
-    const outcome: JobOutcome = await handler({ job, step: (text) => store.step(id, text) });
+    const outcome: JobOutcome = await handler({ job, step: (text) => store.step(id, text), cancelled: async () => (await store.get(id))?.status === 'cancelled' });
     await store.finish(id, outcome);
     if (outcome.quiet === true && job.request['reason'] === 'schedule' && store.discard !== undefined) {
       // a scheduled run that had nothing to do leaves no row (every five minutes would crowd the Jobs list)
@@ -169,6 +217,7 @@ export function memoryJobStore(options: { keep?: number; now?: () => Date } = {}
       patch(id, (j) => j.steps.push({ at: now(), text }));
     },
     async finish(id, outcome) {
+      if (jobs.get(id)?.status === 'cancelled') return;
       patch(id, (j) => {
         j.status = 'done';
         j.result = clone(outcome.result);
@@ -177,6 +226,7 @@ export function memoryJobStore(options: { keep?: number; now?: () => Date } = {}
       if (outcome.files !== undefined) plans.set(id, clone(outcome.files));
     },
     async fail(id, error) {
+      if (jobs.get(id)?.status === 'cancelled') return;
       patch(id, (j) => {
         j.status = 'failed';
         j.error = error;
@@ -190,6 +240,14 @@ export function memoryJobStore(options: { keep?: number; now?: () => Date } = {}
       patch(id, (j) => {
         j.publishedVersion = version;
       });
+    },
+    async cancel(id, by) {
+      const job = jobs.get(id);
+      if (job === undefined || (job.status !== 'queued' && job.status !== 'running')) return undefined;
+      job.status = 'cancelled';
+      job.error = by === undefined ? 'Cancelled.' : `Cancelled by ${by}.`;
+      job.finishedAt = now();
+      return clone(job);
     },
     async discard(id) {
       jobs.delete(id);

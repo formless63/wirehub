@@ -23,6 +23,7 @@ import type { AssemblyPlan } from './assembly.ts';
 import type { BoardTextureProfile } from './cache.ts';
 import type { BoardArt } from './board-texture.ts';
 import { finishParts, MAX_MODEL_TRIANGLES, type ConversionStats } from './finish.ts';
+import { glbInMillimetres } from './glb-units.ts';
 import { readGlbJson } from './glb.ts';
 import { isAsciiStl, isBinaryStl, parseStl, type MeshPart } from './mesh.ts';
 
@@ -142,7 +143,9 @@ export async function convertModel(
   const started = performance.now();
   if (format === 'glb') {
     checkGlb(bytes);
-    return { glb: bytes, format, stats: { triangles: 0, sourceTriangles: 0, simplified: false, parts: 0, glbBytes: bytes.byteLength, ms: 0 } };
+    // a GLB that declares metres (KiCad's own export) is scaled to the studio's millimetres
+    const kept = glbInMillimetres(bytes).bytes;
+    return { glb: kept, format, stats: { triangles: 0, sourceTriangles: 0, simplified: false, parts: 0, glbBytes: kept.byteLength, ms: 0 } };
   }
   if (format === 'stl') {
     let part: MeshPart;

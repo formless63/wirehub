@@ -4,7 +4,9 @@
  * declared internal continuity, derived from the board's own nets.
  *
  * **Terminals.** A footprint whose pads are all on one net is a landing (a
- * wire pad, a test point, a shield tab): one terminal, named by the
+ * wire pad, a test point, a shield tab) — even with a part-like reference
+ * (`R1`, `S1`) when it has a single copper pad or a pad/test-point library
+ * name: one terminal, named by the
  * footprint's value when that reads as a name (`GND`, `A`), else by its net,
  * else by its reference. Landings with the same name on the same net collapse
  * into one terminal with several pads. A connector footprint (`J`, `P`, `CN`,
@@ -24,7 +26,7 @@
  * Pure and deterministic: the same file and options give the same record.
  */
 
-import type { ComponentCategory, Db, PcbaDefinition, PcbaInternalLink, PcbaLinkElement, PcbaPad, PcbaTerminal } from '@wirehub/model';
+import type { ComponentCategory, Db, PcbaDefinition, PcbaInternalLink, PcbaLinkElement, PcbaNetPart, PcbaNetlist, PcbaPad, PcbaTerminal } from '@wirehub/model';
 
 import type { BoardSource, FootprintSource, PadSource } from './kicad.ts';
 import { categoryOfRef, displayValue, elementKindOf, kebab, parseOhms } from './values.ts';
@@ -103,14 +105,89 @@ function sideOf(pad: PadSource, fp: FootprintSource): 'top' | 'bottom' | 'both' 
 
 type Role = 'landing' | 'connector' | 'part' | 'skip';
 
-export function roleOf(fp: FootprintSource): Role {
+/** Reference prefixes that name a part, never a connector, even at the board edge. */
+const NOT_CONNECTOR = /^(H|MH|FID|F|Y|BT|K|T|LS|BZ|M|RV|TH|NTC|PS|MK|TP|LOGO|REF|G|NT)$/i;
+/** How close to the outline's bounding box a pad must sit to count as "on the edge", mm. */
+const EDGE_MM = 2.5;
+
+function copperPads(fp: FootprintSource): PadSource[] {
+  return fp.pads.filter((p) => p.number !== '' && p.kind !== 'np_thru_hole');
+}
+
+/**
+ * A footprint the import treats as a connector: a connector by reference or
+ * library (`J`, `P`, `CN`, `X`, `USB`, `Connector…`), or — a part of no other
+ * known kind — one with a copper pad on the board edge.
+ */
+export function isConnectorLike(fp: FootprintSource, frame?: BoardSource['frame']): boolean {
+  if (fp.ref === '' || fp.ref.startsWith('#')) return false;
+  const category = categoryOfRef(fp.ref, fp.lib);
+  if (category === 'connector') return true;
+  if (category !== 'other' || frame === undefined) return false;
+  const prefix = /^[A-Za-z]+/.exec(fp.ref)?.[0] ?? '';
+  if (NOT_CONNECTOR.test(prefix) || /MountingHole|Fiducial|TestPoint/i.test(fp.lib)) return false;
+  return copperPads(fp).some((pad) => {
+    if (pad.x === undefined || pad.y === undefined) return false;
+    const reach = EDGE_MM + Math.max(pad.w ?? 0, pad.h ?? 0) / 2;
+    const x = pad.x - frame.x0;
+    const y = pad.y - frame.y0;
+    return x <= reach || y <= reach || frame.width - x <= reach || frame.height - y <= reach;
+  });
+}
+
+/** KiCad's own name for a pad on no net: `unconnected-(J1-PadA5)`. */
+export function unconnectedNet(ref: string, pad: string): string {
+  return `unconnected-(${ref}-Pad${pad})`;
+}
+
+/**
+ * The board as the import reads it: a connector's copper pads that the file
+ * puts on no net (a board drawn without a schematic, a pin left open) each get
+ * KiCad's own `unconnected-(…)` net, so every pin of a connector is a terminal a
+ * cable can land on — joined to nothing on the board, which the trace reports.
+ * Returns the refs it did this for.
+ */
+export function withConnectorPadsNetted(source: BoardSource): { source: BoardSource; edge: Set<string>; opened: string[] } {
+  const edge = new Set<string>();
+  const opened: string[] = [];
+  const footprints = source.footprints.map((fp) => {
+    if (!isConnectorLike(fp, source.frame)) return fp;
+    if (categoryOfRef(fp.ref, fp.lib) !== 'connector') edge.add(fp.ref);
+    let changed = false;
+    const pads = fp.pads.map((pad) => {
+      if (pad.net !== undefined || pad.number === '' || pad.kind === 'np_thru_hole') return pad;
+      changed = true;
+      return { ...pad, net: unconnectedNet(fp.ref, pad.number) };
+    });
+    if (!changed) return fp;
+    opened.push(fp.ref);
+    return { ...fp, pads };
+  });
+  return { source: { ...source, footprints }, edge, opened };
+}
+
+export function roleOf(fp: FootprintSource, edge = false): Role {
   if (fp.ref === '' || fp.ref.startsWith('#')) return 'skip';
   const nets = distinctNets(fp);
   if (nets.length === 0) return 'skip';
-  const category = categoryOfRef(fp.ref, fp.lib);
+  const category = edge ? 'connector' : categoryOfRef(fp.ref, fp.lib);
   if (category === 'connector') return nets.length === 1 && new Set(netted(fp).map((p) => p.number)).size === 1 ? 'landing' : 'connector';
-  if (nets.length === 1 && !PARTS.includes(category)) return 'landing';
+  if (nets.length === 1 && (!PARTS.includes(category) || isPadLike(fp))) return 'landing';
   return nets.length >= 2 ? 'part' : 'skip';
+}
+
+/** A footprint library name that says it is a pad or test point (`Custom_Pads:Pad_Coax_Core_Finger`, `TestPoint:…`). */
+const PAD_LIBRARY = /^(?:Pad|TestPoint|Test_Point|WirePad|Wire_Pad|SolderWirePad|SolderPad)(?:[_\-.]|$)/i;
+
+/**
+ * A footprint that can only be a landing, whatever its reference says: it has
+ * a single copper pad (`R1` on a one-pad finger is the red video landing, not a
+ * resistor — a two-terminal part needs two pads on two nets), or its library
+ * name says it is a pad or test point.
+ */
+function isPadLike(fp: FootprintSource): boolean {
+  if (new Set(copperPads(fp).map((p) => p.number)).size === 1) return true;
+  return PAD_LIBRARY.test(fp.lib.slice(fp.lib.indexOf(':') + 1));
 }
 
 interface TerminalDraft {
@@ -188,8 +265,15 @@ function basename(fileName: string): string {
   return fileName.replace(/^.*[\\/]/, '').replace(/\.(kicad_pcb|net)$/i, '');
 }
 
-export function deriveBoard(source: BoardSource, options: DeriveOptions, db?: Pick<Db, 'connectors'>): DerivedBoard {
+/** `my_board-v2` → `My board v2`: a file stem as a name */
+export function humanName(stem: string): string {
+  const words = stem.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return words === '' ? 'Board' : words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+export function deriveBoard(file: BoardSource, options: DeriveOptions, db?: Pick<Db, 'connectors'>): DerivedBoard {
   const notes: string[] = [];
+  const { source, edge, opened } = withConnectorPadsNetted(file);
   const base = basename(source.fileName);
   const drafts: TerminalDraft[] = [];
   const integrated: { connectorDefId: string; terminalPrefix: string }[] = [];
@@ -198,7 +282,7 @@ export function deriveBoard(source: BoardSource, options: DeriveOptions, db?: Pi
   const counts = { landings: 0, connectors: 0, parts: 0, opaque: [] as string[], dnp: [] as string[] };
 
   for (const fp of source.footprints) {
-    const role = roleOf(fp);
+    const role = roleOf(fp, edge.has(fp.ref));
     if (role === 'landing') {
       counts.landings += 1;
       const net = distinctNets(fp)[0]!;
@@ -317,14 +401,26 @@ export function deriveBoard(source: BoardSource, options: DeriveOptions, db?: Pi
 
   if (counts.opaque.length > 0) notes.push(`${counts.opaque.join(', ')} ${counts.opaque.length === 1 ? 'has' : 'have'} more than two nets and ${counts.opaque.length === 1 ? 'is' : 'are'} treated as a black box: declare any path through ${counts.opaque.length === 1 ? 'it' : 'them'} by hand.`);
   if (counts.dnp.length > 0) notes.push(`${counts.dnp.join(', ')} ${counts.dnp.length === 1 ? 'is' : 'are'} marked do-not-populate and carr${counts.dnp.length === 1 ? 'ies' : 'y'} no link.`);
+  if (edge.size > 0) notes.push(`${[...edge].join(', ')} ${edge.size === 1 ? 'has' : 'have'} pads on the board edge and ${edge.size === 1 ? 'is' : 'are'} read as ${edge.size === 1 ? 'a connector' : 'connectors'}: check ${edge.size === 1 ? 'it' : 'them'} in the review.`);
+  if (opened.length > 0) {
+    const none = file.footprints.every((fp) => fp.pads.every((p) => p.net === undefined));
+    notes.push(
+      none
+        ? `The board file has no nets (drawn without a schematic?): each pad of ${opened.join(', ')} is its own terminal, joined to nothing on the board, so a trace stops there. Import the board again once its nets are in.`
+        : `${opened.join(', ')} ${opened.length === 1 ? 'has' : 'have'} pads on no net: each is its own terminal, joined to nothing on the board.`,
+    );
+  }
   if (terminals.length === 0 && integrated.length === 0) notes.push('No landing pads or connector pins were found: a board needs terminals before a cable can land on it.');
   if (source.format === 'kicad-netlist') notes.push('A netlist has no pad positions or outline: import the .kicad_pcb for artwork and anchors.');
   else if (source.outline === undefined) notes.push('The board file has no closed Edge.Cuts outline: pad positions are relative to the pads themselves.');
 
-  const label = options.label ?? source.title ?? base;
+  const netlist = nativeNetlist(file, netOfTerminal, options.sha256);
+
+  // a file with no title block: the name is the file's stem in words, and the part number stays empty (never the stem twice)
+  const label = options.label ?? source.title ?? humanName(base);
   const revision = options.revision ?? source.revision ?? 'unrevised';
   if (options.revision === undefined && source.revision === undefined) notes.push('The board file names no revision (title block): set one in the review step, or on the record after publishing.');
-  const partNumber = options.partNumber ?? source.title ?? base;
+  const partNumber = options.partNumber ?? source.title ?? '';
   const id = options.id ?? (kebab(`${source.title ?? base}-${revision === 'unrevised' ? '' : `rev-${revision}`}`).slice(0, 80).replace(/-$/, '') || 'board');
   const pcba: PcbaDefinition = {
     id,
@@ -336,8 +432,47 @@ export function deriveBoard(source: BoardSource, options: DeriveOptions, db?: Pi
     terminals,
     ...(integrated.length === 0 ? {} : { integratedConnectors: integrated }),
     internalLinks: links,
-    src: `${source.fileName} (KiCad ${source.format === 'kicad-pcb' ? 'board file' : 'netlist'}, sha256 ${options.sha256.slice(0, 16)}…), read by the board-import module: ${terminals.length} terminal(s) from its landing pads and connector pins, ${links.length} internal link(s) from its nets and two-terminal parts — inferred, review before use`,
+    netlist,
+    // a board read from its files is not released until someone releases it
+    status: 'development',
+    // one line: the file and its hash; terminals and links are inferred from it
+    src: `${source.fileName} (KiCad ${source.format === 'kicad-pcb' ? 'board file' : 'netlist'}, sha256 ${options.sha256.slice(0, 16)}…), terminals and links inferred`,
   };
   notes.unshift(`${source.fileName}: ${counts.landings} landing(s), ${counts.connectors} connector(s), ${counts.parts} part(s) → ${terminals.length} terminal(s), ${links.length} link(s).`);
   return { pcba, pads, notes };
+}
+
+/**
+ * The board's own nets as the model traces them (`PcbaNetlist`): each
+ * terminal's net, and every part with pads on two or more nets — fitted or
+ * do-not-populate, passive or active — with its category, value and, for a
+ * bridged solder jumper, its state. Nothing is inferred beyond what the file
+ * says; the trace decides what passes.
+ */
+export function nativeNetlist(file: BoardSource, netOfTerminal: ReadonlyMap<string, string>, sha256: string): PcbaNetlist {
+  const { source, edge } = withConnectorPadsNetted(file);
+  const parts: PcbaNetPart[] = [];
+  for (const fp of source.footprints) {
+    if (roleOf(fp, edge.has(fp.ref)) !== 'part' && !(fp.dnp && distinctNets(fp).length >= 2)) continue;
+    const category = categoryOfRef(fp.ref, fp.lib);
+    const pins: Record<string, string> = {};
+    for (const pad of netted(fp)) if (pad.number !== '' && pins[pad.number] === undefined) pins[pad.number] = pad.net!;
+    const raw = fp.value === fp.lib.slice(fp.lib.indexOf(':') + 1) ? undefined : fp.value;
+    const value = category === 'jumper' ? undefined : displayValue(category, raw);
+    const bridged = category === 'jumper' && /bridged/i.test(fp.lib);
+    parts.push({
+      ref: fp.ref,
+      category,
+      ...(value === undefined ? {} : { value }),
+      pins,
+      ...(fp.dnp ? { dnp: true } : {}),
+      ...(bridged ? { state: 'closed' as const } : {}),
+      ...(category === 'inductor' && (/^FB/i.test(fp.ref) || /ferrite/i.test(fp.lib)) ? { ferrite: true } : {}),
+      ...(source.frame === undefined || fp.x === undefined || fp.y === undefined ? {} : { x: round(fp.x - source.frame.x0), y: round(fp.y - source.frame.y0), side: fp.side }),
+    });
+  }
+  parts.sort((a, b) => (a.ref < b.ref ? -1 : a.ref > b.ref ? 1 : 0));
+  const terminals: Record<string, string> = {};
+  for (const [id, net] of [...netOfTerminal].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) terminals[id] = net;
+  return { src: `${source.fileName} (sha256 ${sha256.slice(0, 16)}…), nets as the board file has them`, terminals, parts };
 }

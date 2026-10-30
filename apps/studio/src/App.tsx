@@ -38,7 +38,8 @@
 import { QueryClient, QueryClientProvider, QueryObserver, useQueryClient } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
 import { useEffect, useState, useSyncExternalStore, type JSX } from 'react';
-import { WireHubToaster, registerBodyLayouts, setCommitHook } from '@wirehub/editor-react';
+import { CoverSlotContext, WireHubToaster, registerBodyLayouts, setCommitHook, type CoverSlot } from '@wirehub/editor-react';
+import { RecordCover } from './RecordCover.tsx';
 import { registerDrawingArt } from '@wirehub/docs';
 import { installBranding, installModuleArt } from '../module-art.ts';
 import { brandingQuery } from './settings.browser.ts';
@@ -72,10 +73,12 @@ export function ServerEvents({ locks, onCatalog }: { locks?: LockClient | undefi
       connectEventStream({
         onCatalog: () => {
           void browserDepictions().refresh();
-          for (const queryKey of [designsKey, cableListKey, dbKey, partNumbersKey, ['studio', 'versions']]) void queryClient.invalidateQueries({ queryKey });
+          for (const queryKey of [designsKey, cableListKey, dbKey, partNumbersKey, ['studio', 'versions'], ['representations'], ['knowledge']]) void queryClient.invalidateQueries({ queryKey });
           onCatalog?.();
         },
         onLocks: () => void locks?.refresh(),
+        // stock is not catalog data: its own event, its own queries (inventory.browser.ts)
+        onInventory: () => void queryClient.invalidateQueries({ queryKey: ['inventory'] }),
         onState: (live) => locks?.setLive(live),
       }),
     [queryClient, locks, onCatalog],
@@ -104,6 +107,9 @@ function reportRuntime(result: RuntimeLoadResult): void {
   }
 }
 const syncRuntimeModules = (): void => void runtimeLoader().sync().then(reportRuntime, () => undefined);
+
+/** Compact static shared covers in the editor's pickers (one resolver, no second path). */
+const pickerCover: CoverSlot = (kind, id, label) => <RecordCover key={`${kind}/${id}`} kind={kind} id={id} label={label} compact bare thumbClass="h-8 w-11" />;
 
 export function App({
   router = defaultRouter,
@@ -157,9 +163,11 @@ export function App({
       <LockClientContext.Provider value={locks}>
       <ServerEvents locks={locks} {...(providedModules === undefined ? { onCatalog: syncRuntimeModules } : {})} />
       <StudioProvider>
+        <CoverSlotContext.Provider value={pickerCover}>
         <CommandRegistryProvider>
           <RouterProvider router={router} />
         </CommandRegistryProvider>
+        </CoverSlotContext.Provider>
       </StudioProvider>
       </LockClientContext.Provider>
       <WireHubToaster />

@@ -109,7 +109,7 @@ export async function saveDesign(
   return settle(await adapter.save(draft), (design) => ({
     ok: true,
     change: { kind: 'saved', design },
-    status: `saved ${design.id}`,
+    status: 'saved',
   }));
 }
 
@@ -120,18 +120,13 @@ export async function createDesign(
 ): Promise<LifecycleResult> {
   const bad = checkName(fields.id, fields.label);
   if (bad !== undefined) return bad;
-  if (fields.src.trim() === '') {
-    return refuse(
-      'This design needs to say where its information comes from.',
-      'Name the document, the measurement or the board you are working from — or say that the values are inferred.',
-    );
-  }
+  // a missing source is a finding on the saved draft (`missing-src`), not a refusal
   return settle(
     await adapter.create(blankDesign(fields.id, fields.label.trim(), fields.src.trim())),
     (design) => ({
       ok: true,
       change: { kind: 'created', design },
-      status: `created ${design.id}`,
+      status: `created ${design.label}`,
     }),
   );
 }
@@ -151,16 +146,10 @@ export async function createWiredDesign(
 ): Promise<LifecycleResult> {
   const bad = checkName(design.id, design.label);
   if (bad !== undefined) return bad;
-  if (design.src.trim() === '') {
-    return refuse(
-      'This design needs to say where its information comes from.',
-      'Name the document, the measurement or the board you are working from — or say that the values are inferred.',
-    );
-  }
   return settle(await adapter.create(design), (stored) => ({
     ok: true,
     change: { kind: 'created', design: stored },
-    status: `created ${stored.id}`,
+    status: `created ${stored.label}`,
   }));
 }
 
@@ -175,7 +164,7 @@ export async function duplicateDesign(
   return settle(await adapter.duplicate(from, fields.id, fields.label.trim()), (design) => ({
     ok: true,
     change: { kind: 'duplicated', design, from },
-    status: `copied ${from} to ${design.id}`,
+    status: `copied to ${design.label}`,
   }));
 }
 
@@ -198,7 +187,7 @@ export async function variantDesign(
   return settle(await adapter.create(copy), (design) => ({
     ok: true,
     change: { kind: 'duplicated', design, from },
-    status: `made ${design.id} from ${from} on another stock`,
+    status: `made ${design.label} on another stock`,
   }));
 }
 
@@ -213,6 +202,15 @@ export async function renameDesign(
     ok: true,
     change: { kind: 'renamed', design, from },
     status: from === design.id ? `renamed ${design.id}` : `renamed ${from} to ${design.id}`,
+  }));
+}
+
+/** Retire: a design with saved versions is kept, marked out of use. Saves the design as it stands. */
+export async function retireDesign(adapter: PersistenceAdapter, design: CableDesign): Promise<LifecycleResult> {
+  return settle(await adapter.save({ ...design, status: 'retired' }), (saved) => ({
+    ok: true,
+    change: { kind: 'saved', design: saved },
+    status: 'retired',
   }));
 }
 
@@ -238,6 +236,6 @@ export async function deleteDesign(
   return settle(await adapter.remove(id, confirmation), () => ({
     ok: true,
     change: { kind: 'deleted', id },
-    status: `deleted ${id}`,
+    status: 'deleted',
   }));
 }

@@ -6,7 +6,8 @@
  * restore carries the lock this tab holds on its record.
  */
 
-import type { HistoryEntryDetail, HistoryKind, HistoryPage, RestoreAnswer } from './history/types.ts';
+import type { CheckpointDetail, CheckpointRestoreAnswer, CheckpointSummary, HistoryCapabilities, HistoryEntryDetail, HistoryKind, HistoryPage, RestoreAnswer } from './history/types.ts';
+import { localDateTime } from './when.ts';
 
 export type HistoryAnswer<T> = { ok: true; value: T } | { ok: false; status: number; error: string; hint?: string };
 
@@ -34,6 +35,8 @@ export interface HubHistoryQuery {
   to?: string;
   kind?: HistoryKind;
   before?: string;
+  /** an API token id: one agent checkpoint */
+  token?: string;
   limit?: number;
 }
 
@@ -57,12 +60,24 @@ export function restoreRecord(subject: string, entry: string, current: Record<st
   return call('POST', `/api/history/records/${encodeURIComponent(subject)}/restore`, { entry, current });
 }
 
+/** The agent checkpoints: each API token that changed something, the most recent first. */
+export function fetchCheckpoints(): Promise<HistoryAnswer<{ capabilities: HistoryCapabilities; checkpoints: CheckpointSummary[] }>> {
+  return call('GET', '/api/history/checkpoints');
+}
+
+export function fetchCheckpoint(token: string): Promise<HistoryAnswer<CheckpointDetail>> {
+  return call('GET', `/api/history/checkpoints/${encodeURIComponent(token)}`);
+}
+
+/** Undo every change the token made, quoting the versions the person saw (`detail.subjects[].current`). */
+export function restoreCheckpoint(detail: CheckpointDetail): Promise<HistoryAnswer<CheckpointRestoreAnswer>> {
+  const current = Object.fromEntries(detail.subjects.filter((s) => s.action !== 'none').map((s) => [s.subject, s.current]));
+  return call('POST', `/api/history/checkpoints/${encodeURIComponent(detail.checkpoint.token)}/restore`, { from: detail.from, current });
+}
+
 export const historyKey = (...parts: string[]): readonly string[] => ['studio', 'history', ...parts];
 
 /** `2026-10-05 14:03` in the viewer's time zone. */
 export function historyTime(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const pad = (n: number): string => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return localDateTime(iso);
 }

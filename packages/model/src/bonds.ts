@@ -26,7 +26,7 @@ import {
   type WireDefinition,
 } from './model.ts';
 import { elementPaths, resolveElementPath } from './paths.ts';
-import { terminalKey } from './validate.ts';
+import { noteReferencesTerminal, terminalKey } from './validate.ts';
 import { breakoutFates, inScope } from './breakouts.ts';
 
 /** Is the element at `path` a screen — a shield, or a bare conductor (drain)? */
@@ -170,4 +170,67 @@ export function isTrimmedFoil(wire: WireDefinition, path: string): boolean {
       return element?.kind === 'conductor' && element.bare === true;
     })
   );
+}
+
+/* ------------------------------------------------------------------ *
+ * What a stock's screens are, and what lands at each end
+ *
+ * The one place every document (build sheet, continuity spec, schematic,
+ * wizard) reads the shield from, so they never disagree:
+ * - **copper** (braids, spirals) lands;
+ * - a **foil** is trimmed back and never indicated (electrically it is the
+ *   drain, or the rest of the copper);
+ * - a **drain** is soldered only where the drain policy keeps it: a design
+ *   note naming `<segment> drain @<end>` says it is cut at that end.
+ * ------------------------------------------------------------------ */
+
+export interface StockScreens {
+  copper: string[];
+  foils: string[];
+  drains: string[];
+  /** every screen is one bonded set **with copper in it** (bonded multi-core): one shield mass */
+  mass: boolean;
+}
+
+export function stockScreens(wire: WireDefinition): StockScreens {
+  const copper: string[] = [];
+  const foils: string[] = [];
+  const drains: string[] = [];
+  for (const path of screenPaths(wire)) {
+    const element = resolveElementPath(wire.structure, path);
+    if (isFoilPath(wire, path)) foils.push(path);
+    else if (element?.kind === 'conductor') drains.push(path);
+    else copper.push(path);
+  }
+  return { copper, foils, drains, mass: copper.length > 0 && isFullyBonded(wire) };
+}
+
+/** True when a design note says this drain (or bare conductor) is cut at that end. */
+export function drainCutAt(design: CableDesign, segment: string, path: string, end: 'a' | 'b'): boolean {
+  return noteReferencesTerminal(design, { instance: segment, terminal: path, end });
+}
+
+/**
+ * The screens a pigtail really puts on its pad: its members less any foil
+ * (trimmed back) and less a drain the drain policy cuts at that end. Empty:
+ * nothing lands there, whatever the joint says.
+ */
+export function pigtailLandedScreens(design: CableDesign, wire: WireDefinition, segment: string, pigtail: Pigtail): string[] {
+  const { drains } = stockScreens(wire);
+  return pigtailMembers(wire, pigtail).filter(
+    (path) => !isFoilPath(wire, path) && !(drains.includes(path) && drainCutAt(design, segment, path, pigtail.end)),
+  );
+}
+
+/**
+ * Plain words for screens landed as one mass, never naming a foil:
+ * `shield mass (3 copper screens + drain)`, `shield mass (1 copper screen)`,
+ * `drain` (a foil + drain stock: the drain is all that lands).
+ */
+export function massWords(wire: WireDefinition, members: readonly string[]): string {
+  const { copper, drains } = stockScreens(wire);
+  const n = members.filter((path) => copper.includes(path)).length;
+  const drain = members.some((path) => drains.includes(path));
+  if (n === 0) return drain ? 'drain' : 'no screens';
+  return `shield mass (${n} copper screen${n === 1 ? '' : 's'}${drain ? ' + drain' : ''})`;
 }

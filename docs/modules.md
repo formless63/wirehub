@@ -69,6 +69,7 @@ pack can ship:
 | shop work instructions (steps on the build sheet per phase) | **bench rules** | a pack's or the hub's `bench-rules.json` (below, "Bench work instructions") |
 | design rules ("a boot on every connector of family F", "power conductors at least 0.5 mm²") | **validation rules** | Settings, Validation rules; a pack's `validation-rules.json` (`docs/validation-rules.md`) |
 | another system told when something happens (an ERP, a chat channel) | **event webhooks**, and the API with a token | Settings, Webhooks (`docs/webhooks.md`) |
+| an AI agent drafting designs or library items | the **MCP endpoint** with a draft-work grant (a scoped, budgeted token) | Account, API tokens (`docs/mcp.md`) |
 | your catalog: connectors, wires, signals, example cables | a **catalog pack** | `docs/catalog-store.md` |
 | the devices your cables connect, the parts a level change takes, connections never to make, how options rank | **device profiles, conditioning recipes, hazards, a ranking policy** | `/resolver`, Devices and recipes; a pack's `devices.json` … (`docs/resolver.md`) |
 | the organisation's name, logo, thresholds, approvals, alerts | **Settings** | `specs/runtime-settings.md` |
@@ -217,12 +218,17 @@ its own and is not a setup choice) and contributes three importers and a page:
 | `kicad-board` | `.kicad_pcb`, `.net` | the PCBA — terminals with their pads (positions in the art frame), internal links from its nets and two-terminal parts, integrated connectors named in review — and, from a `.kicad_pcb`, `kicad`-tier art (outline and pads) with anchors |
 | `gerbers` | `.zip` (RS-274X/X2 and Excellon) | `gerber`-tier art for the board: top and bottom SVG (substrate, copper, mask, silkscreen, holes, clipped to the outline), anchored on the board's pads and checked against the copper flashes; it replaces `kicad`-tier art |
 | `fab-bom` | `.csv`, `.board-bom.json` | component records (one per distinct part, reusing the Library's by MPN or supplier number) and the board's placed parts |
+| `board-set` | `.board-set.json` | the page's bundle: the board file with its Gerber set, BOM and placement read as one proposal; with `update: <board id>` the board's terminals, links, integrated connectors and netlist are refreshed from a new board file (name, PN, revision, status and each kept terminal's role, signal and label stay) |
 
-The page `/m/board-import/boards` is the review step: the options (board id, part number,
-revision; the board a Gerber set or BOM belongs to), the BOM and placement column mapping
-(detected, then editable), the job's proposal and plan with the art previewed, **Publish**, and,
-once a board is published, **Attach … as its 3D model**: the `.kicad_pcb` goes to
-`POST /api/models/pcbas/:id/upload`, the server keeps it as a catalog document
+The page `/m/board-import/boards` takes all of a board's files in one drop zone, previews the
+board in the browser (outline, terminals, parts), prefills name, part number (only when the
+title block reads like one) and revision from the title block, and runs one `board-set` job
+that **Publish** commits. Art anchors that name no terminal are left out and listed, never a
+reason to refuse the import. The `.kicad_pcb` then goes to `POST /api/models/pcbas/:id/upload`
+as the board's 3D model source and the new record opens. A board's **Update from file**
+(its journey's import step) opens the page as `?update=<id>`: added, removed and renamed
+terminals and the designs a removed one would leave dangling are shown before **Apply**.
+The model upload keeps the file as a catalog document
 (`data/model-sources/<sha256>.kicad_pcb.txt`) and links the board to a model built from it
 (`sourceKind: 'kicad-board'`, `build: { kind: 'assembly', library: <commit> }`). The
 `model-cache` job builds it, fetching the KiCad library models the footprints name from
@@ -449,7 +455,7 @@ integrations: [{ id: 'erp', label: 'ERP', routes: [{ method: 'POST', path: 'push
 A module that needs relational state of its own (an integration's push log, an import
 register) sets `migrations: { dir }`. The directory holds `NNNN_<module_id>_<name>.sql`
 files — `NNNN` from `0001` without gaps, the module id with `-` written `_` — which
-`pnpm --filter studio db:migrate` (the compose `migrate` one-shot) runs **after** the
+`pnpm --filter studio db:migrate` (in the compose stack, the app's and the worker's startup) runs **after** the
 base's migrations, as the schema owner, into the schema `mod_<module_id>` (`pc-serial` →
 `mod_pc_serial`). The interface is that one field; the runner is
 `apps/studio/server/pg/module-migrations.ts` (`migrateModules`, `pendingModuleMigrations`).
@@ -623,7 +629,7 @@ The design is `specs/runtime-modules.md`; this is the summary.
   index lists, or by a key an owner pins (`trustKey` on the upload, or Settings → Code modules).
   The preview lists what it may do and the apply needs `consent: { code: "<id>@<version>" }`. A
   module built for another major of the module API, or a newer minor, is refused (`MODULE_API_VERSION`,
-  now `1.6`). `migrations` requires the owner workflow below; `setup` and `catalogPacks` are ignored (the
+  now `1.7`). `migrations` requires the owner workflow below; `setup` and `catalogPacks` are ignored (the
   pack is the data).
 - **Loading.** The server, the worker and the page load the enabled modules into a **live
   registry** (`createLiveRegistry`, `composeRegistry`): the built-ins first, then runtime modules in
@@ -699,8 +705,10 @@ fork keeps a private fork of this repository whose only difference is those two 
 
 - The registry API (`@wirehub/modules`) and the model types are the module contract.
   Breaking changes to them bump the base's major version and are listed in the changelog.
-- `MODULE_API_VERSION` (`<major>.<minor>`, now `1.6`: 1.2 revision sources, 1.3 module SQL,
-  1.4 `PanelProps.onChange`, 1.5 declared module settings, 1.6 a UI route's `placement`) is what a runtime bundle records as its
+- `MODULE_API_VERSION` (`<major>.<minor>`, now `1.7`: 1.2 revision sources, 1.3 module SQL,
+  1.4 `PanelProps.onChange`, 1.5 declared module settings, 1.6 a UI route's `placement`, 1.7 required
+  manufacturing processes in the model: `Db.processes`, `CableDesign.processes`, `requiredProcesses`,
+  [processes.md](processes.md)) is what a runtime bundle records as its
   `apiVersion`: a hub runs a bundle of the same major and a minor no newer than its own.
 - A module declares the base range it supports in `peerDependencies`; pnpm warns on a
   mismatch at install.

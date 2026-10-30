@@ -2,8 +2,10 @@
  * Records an installed pack owns are read-only where they are edited
  * (`docs/catalog-store.md` §3): the definition routes already refuse them
  * (`definitions.ts`), and this answers the same 409 for the two other kinds
- * of pack record — a vocabulary entry and a design — with the way out
- * ("fork to edit"): copy it under an id of your own.
+ * of pack record — a vocabulary entry and a design — with the ways out:
+ * an owner releases the pack to the hub, or "fork to edit" copies it under an
+ * id of your own. A released pack is no longer in `packs`, so nothing here
+ * guards its records.
  */
 
 import type { InstalledPacks } from '@wirehub/catalog';
@@ -27,7 +29,7 @@ export function packRecordRefusal(noun: string, id: string, origin: { pack: stri
     status: 409,
     body: {
       error: `The ${noun} '${id}' comes from the ${origin.pack} pack (${origin.version}) and is read-only here.`,
-      hint: `Nothing was changed. Fork it to edit: ${how} Packs update and disable the records they ship, so a changed copy of your own is the way to keep an edit.`,
+      hint: `Nothing was changed. An owner can release the ${origin.pack} pack to this hub (Extensions, Installed, Release to this hub) to edit its records in place. Fork it to edit instead: ${how} While the pack is installed it updates and disables the records it ships, so a changed copy of your own is the way to keep an edit.`,
     },
   };
 }

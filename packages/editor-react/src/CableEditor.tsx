@@ -38,8 +38,10 @@ import {
   type Edge,
   type Node,
   type NodeChange,
+  type FinalConnectionState,
   type OnConnect,
 } from '@xyflow/react';
+import { notify } from './ui/Toast.tsx';
 import {
   IconBox,
   IconHandStop,
@@ -64,6 +66,7 @@ import {
   useState,
   type DragEvent,
   type JSX,
+  type ReactNode,
   type Ref,
 } from 'react';
 
@@ -89,7 +92,7 @@ import type { EditorLayoutStore } from './layout-store.ts';
 import { useRememberedPositions } from './remember.ts';
 import { Splitter, usePanes } from './panels/Splitter.tsx';
 import { ArtworkPane } from './panels/Artwork.tsx';
-import type { CatalogChange } from './lifecycle.ts';
+import { saveDesign, type CatalogChange } from './lifecycle.ts';
 import type { DesignSummary, Outcome, PersistenceAdapter } from './persistence.ts';
 import { DesignActions } from './panels/DesignActions.tsx';
 import { ConnectKnownPinsDialog } from './panels/ConnectKnownPinsDialog.tsx';
@@ -104,6 +107,7 @@ import { IssuesPanel, NetsPanel } from './panels/Derived.tsx';
 import { NotesPanel } from './panels/Notes.tsx';
 import { PinSearch } from './panels/PinSearch.tsx';
 import { NetHover } from './net-hover.tsx';
+import { BoardTraceContext, BoardTraceOverlay, createBoardTraceStore } from './board-trace.tsx';
 import { ConfirmDeleteDialog, deletePlan, type DeletePlan } from './panels/ConfirmDeleteDialog.tsx';
 import type { AssetsAdapter } from './assets.ts';
 import type { DrawingAdapter } from './documents.ts';
@@ -252,6 +256,15 @@ export interface CableEditorProps {
    */
   onViewChange?: (view: View) => void;
   /**
+   * The `device` view's content (apps/studio's device workspace): drawn with the editor's live
+   * design, and its edits go through the same undo/save path as any panel's.
+   */
+  devicePane?: (context: {
+    design: CableDesign; db: Db; readOnly: boolean; onChange?: (design: CableDesign, description?: string) => void;
+    /** unsaved edits; `save` writes them (true when nothing is left unsaved) */
+    dirty?: boolean; save?: () => Promise<{ ok: true } | { ok: false; message: string }>;
+  }) => ReactNode;
+  /**
    * Error/warning/part/joint counts, recomputed with every accepted edit.
    * A host with its own status bar (apps/studio's 26px footer) reads them
    * from here rather than re-deriving them from `design` — issues in
@@ -393,7 +406,7 @@ export interface EditorChromeState {
  * old bottom dock tab of the same drawing, which `chrome="host"` no longer
  * draws at all (see `CableEditor`'s canvas body, below).
  */
-export type View = 'canvas' | 'schematic' | 'documents' | 'library' | 'artwork';
+export type View = 'canvas' | 'schematic' | 'documents' | 'library' | 'artwork' | 'device';
 
 // the Documents and Library views load on first use, not with the canvas
 // (review fix, 2026-09-26: a 5.8 MB main chunk)
@@ -407,6 +420,7 @@ const VIEW_LABELS: Record<View, string> = {
   documents: 'Documents',
   library: 'Library',
   artwork: 'Artwork',
+  device: 'Device',
 };
 type DockTab = 'preview' | 'json';
 /** The right panel's tabs (spec: ui-redesign, Canvas v2 item 6). */
@@ -854,6 +868,8 @@ const CableEditorInner = forwardRef(function CableEditorInner(
    * `initialHeight` are the sizes `layout-size.ts` computes.
    */
   const [measured, setMeasured] = useState<ReadonlyMap<string, { width: number; height: number }>>(() => new Map());
+  const measuredRef = useRef(measured);
+  measuredRef.current = measured;
   const flowNodes = useMemo((): Node[] => {
     const list: Node[] = parts?.nodes ?? nodes;
     return list.map((node) => {
@@ -935,6 +951,13 @@ const CableEditorInner = forwardRef(function CableEditorInner(
   offsets.current = parts?.offsets;
   const detailRef = useRef(detail);
   detailRef.current = detail;
+  /** the cards' rendered sizes in the current detail level, by instance id */
+  const measuredById = useCallback((): Map<string, { width: number; height: number }> => {
+    const prefix = `${detailRef.current}:`;
+    const out = new Map<string, { width: number; height: number }>();
+    for (const [key, size] of measuredRef.current) if (key.startsWith(prefix)) out.set(key.slice(prefix.length), size);
+    return out;
+  }, []);
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     const sizes: [string, { width: number; height: number }][] = [];
     for (const change of changes) {
@@ -986,6 +1009,12 @@ const CableEditorInner = forwardRef(function CableEditorInner(
       b: refOf(connection.target, targetHandle),
     });
   }, [refOf]);
+
+  // a drag from a pin that ended on no pin used to vanish silently
+  const onConnectEnd = useCallback((_event: MouseEvent | TouchEvent, connection: FinalConnectionState) => {
+    if (connection.fromHandle === null || connection.toHandle !== null) return;
+    notify.info('Not connected: drop on a pin. Zoom in when the pins are small.');
+  }, []);
 
   // a wire's end dragged by its grip onto another handle: move that end
   const [repinning, setRepinning] = useState(false);
@@ -1049,9 +1078,10 @@ const CableEditorInner = forwardRef(function CableEditorInner(
       if (!canEdit) return;
       const payload = event.dataTransfer.getData(PART_MIME);
       if (payload === '') return;
-      const part = JSON.parse(payload) as { kind: InstanceKind; def: string };
+      const part = JSON.parse(payload) as { kind: InstanceKind | 'mechanical'; def: string };
       const position = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
-      if (part.kind === 'subassembly') placeSubassembly(part.def, position);
+      if (part.kind === 'mechanical') dispatch({ type: 'add-mechanical', def: part.def });
+      else if (part.kind === 'subassembly') placeSubassembly(part.def, position);
       else dispatch({ type: 'add-instance', kind: part.kind, def: part.def, position });
     },
     [flow, canEdit, placeSubassembly],
@@ -1059,6 +1089,8 @@ const CableEditorInner = forwardRef(function CableEditorInner(
 
   // the hovered ground pigtail: shared by its wire node and its edge
   const [hoverStore] = useState(createHoverStore);
+  // the conductor trace lit on the board nodes (board-trace.tsx)
+  const [traceStore] = useState(createBoardTraceStore);
 
   // the strip practice, once, for the segment 3D view
   const [stripPractice, setStripPractice] = useState<StripPractice[] | undefined>(undefined);
@@ -1076,7 +1108,13 @@ const CableEditorInner = forwardRef(function CableEditorInner(
 
   const api = useMemo(
     () => ({
-      dispatch: dispatch as (action: EditorAction) => void,
+      // a part added without a drop point is placed clear of the cards as they are really drawn
+      dispatch: ((action: EditorAction) => {
+        const placed = (action.type === 'add-instance' && action.position === undefined) || action.type === 'add-instance-near';
+        // the new card may land off screen or under the parts palette: bring it into view once it is drawn
+        if (placed) revealAdded.current = true;
+        dispatch(placed ? { ...action, measured: measuredById() } : action);
+      }) as (action: EditorAction) => void,
       selection: state.selection,
       openPicker,
       partLabelsVisible,
@@ -1216,6 +1254,24 @@ const CableEditorInner = forwardRef(function CableEditorInner(
     requestAnimationFrame(() => centre(3));
   };
 
+  const revealAdded = useRef(false);
+  useEffect(() => {
+    if (!revealAdded.current || state.selection?.kind !== 'instance') return;
+    revealAdded.current = false;
+    const id = state.selection.id;
+    // wait until the card is drawn and measured (a few frames)
+    const reveal = (tries: number): void => {
+      const node = flow.getNode(id);
+      if (node?.measured?.width === undefined) {
+        if (tries > 0) requestAnimationFrame(() => reveal(tries - 1));
+        return;
+      }
+      const h = node.measured.height ?? 0;
+      void flow.setCenter(node.position.x + node.measured.width / 2, node.position.y + h / 2, { zoom: flow.getZoom(), duration: prefersReducedMotion() ? 0 : 250 });
+    };
+    requestAnimationFrame(() => reveal(10));
+  }, [state.selection, flow]);
+
   const latest = useRef({ lifecycle, flow, showIssues, openPicker, placeSubassembly });
   latest.current = { lifecycle, flow, showIssues, openPicker, placeSubassembly };
 
@@ -1282,10 +1338,11 @@ const CableEditorInner = forwardRef(function CableEditorInner(
   return (
     <EditorContext.Provider value={api}>
       <HoverContext.Provider value={hoverStore}>
+      <BoardTraceContext.Provider value={traceStore}>
       <div className={classes('cs-editor', props.className)}>
         {chrome !== 'full' ? null : (
           <header className="cs-toolbar">
-            <span className="cs-doc-id">{state.design.id}</span>
+
             <span className="cs-doc-label">{state.design.label}</span>
             {props.persistence === undefined ? null : (
               <DesignActions
@@ -1388,6 +1445,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
                 'documents',
                 'library',
                 ...(props.artwork === undefined ? [] : ['artwork']),
+                ...(props.devicePane === undefined ? [] : ['device']),
               ] as View[]
             ).map((tab) => (
               <button
@@ -1403,7 +1461,22 @@ const CableEditorInner = forwardRef(function CableEditorInner(
           </nav>
         )}
 
-        {view === 'library' ? (
+        {view === 'device' && props.devicePane !== undefined ? (
+          <div className="min-h-0 flex-1 overflow-auto">
+            {props.devicePane({
+              design: state.design, db: state.db, readOnly: !panelEditable,
+              ...(panelEditable ? { onChange: (d: CableDesign, description?: string) => panelOnChange(d, description ?? 'edit the device layout') } : {}),
+              dirty: lifecycle.dirty,
+              ...(props.persistence === undefined ? {} : { save: async () => {
+                if (!lifecycle.dirty) return { ok: true as const };
+                const result = await saveDesign(props.persistence!, state.design);
+                if (!result.ok) return { ok: false as const, message: result.problem.message };
+                props.onCatalogChange?.(result.change);
+                return { ok: true as const };
+              } }),
+            })}
+          </div>
+        ) : view === 'library' ? (
           <Suspense fallback={VIEW_LOADING}>
           <Library
             db={state.db}
@@ -1514,6 +1587,16 @@ const CableEditorInner = forwardRef(function CableEditorInner(
                 }}
               >
                 <NetHover design={state.design} db={state.db} container={canvasRef} />
+                <BoardTraceOverlay
+                  design={state.design}
+                  db={state.db}
+                  container={canvasRef}
+                  selected={selectedTerminalKey}
+                  onDeclare={(instance, ref, partState) => {
+                    const current = state.design.instances.pcbas.find((i) => i.id === instance)?.partStates ?? {};
+                    dispatch({ type: 'update-instance', id: instance, patch: { partStates: { ...current, [ref]: partState } } });
+                  }}
+                />
                 {!pinSearchOpen ? null : (
                   <PinSearch
                     design={state.design}
@@ -1680,6 +1763,9 @@ const CableEditorInner = forwardRef(function CableEditorInner(
                   onNodeDragStart={() => dispatch({ type: 'begin-move' })}
                   onNodeDragStop={() => dispatch({ type: 'end-move' })}
                   onConnect={onConnect}
+                  // a forgiving snap at fit zoom (pins are a few px there), and a word when a drag lands nowhere
+                  connectionRadius={32}
+                  onConnectEnd={onConnectEnd}
                   edgesReconnectable={false}
                   onReconnect={onReconnect}
                   onReconnectStart={() => setRepinning(true)}
@@ -1733,6 +1819,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
                     nodeBorderRadius={3}
                     ariaLabel="canvas overview"
                   />
+                  <ZoomVar />
                 </ReactFlow>
               </div>
 
@@ -1831,7 +1918,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
               </fieldset>
               {props.extensions?.inspector === undefined ? null : (
                 <div className="cs-extension-slot" data-slot="cable-inspector">
-                  {props.extensions.inspector({ design: state.design, db: state.db, readOnly: !panelEditable, ...(panelEditable ? { onChange: panelOnChange } : {}) })}
+                  {props.extensions.inspector({ design: state.design, db: state.db, readOnly: !panelEditable, inspectorTab: side, ...(panelEditable ? { onChange: panelOnChange } : {}) })}
                 </div>
               )}
             </div>
@@ -1863,6 +1950,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
           />
         )}
       </div>
+      </BoardTraceContext.Provider>
       </HoverContext.Provider>
     </EditorContext.Provider>
   );
@@ -1878,3 +1966,17 @@ export const CableEditor = forwardRef(function CableEditor(
     </ReactFlowProvider>
   );
 });
+
+/**
+ * The canvas zoom as a CSS variable (`--cs-zoom`) on the flow's own element, so
+ * a pad's hit area can stay at least 10 screen pixels at any zoom
+ * without re-rendering the editor on every zoom step: only this renders.
+ */
+function ZoomVar(): null {
+  const zoom = useStore((s) => Math.round(s.transform[2] * 50) / 50);
+  const dom = useStore((s) => s.domNode);
+  useEffect(() => {
+    dom?.style.setProperty('--cs-zoom', String(Math.max(zoom, 0.02)));
+  }, [dom, zoom]);
+  return null;
+}

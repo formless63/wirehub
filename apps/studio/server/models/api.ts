@@ -2,9 +2,12 @@
  * The 3D model endpoints — request in, response out.
  *
  *   GET    /api/models                     every link + every stored model (the "pick imported" list)
- *   GET    /api/models/:kind/:id           this record's link (or null), with its ETag
+ *   GET    /api/models/:kind/:id           this record's link (or null), with its ETag; a link not built here
+ *                                           says which source files are missing and names the board's native model
+ *   GET    /api/models/:kind/:id/native    a board's newest native board.glb (in millimetres), the fallback view
  *   GET    /api/models/revisions/:part/:rev  a part revision's model link (read-only), with its ETag
- *   PUT    /api/models/:kind/:id           { asset, sourceKind?, src? } — link a stored model
+ *   PUT    /api/models/:kind/:id           { asset, sourceKind?, src? } — link a stored model;
+ *                                           { parametric, src } — a model drawn from its dimensions (hardware, connectors)
  *   POST   /api/models/:kind/:id/upload    { name, data (base64), sourceKind? } — convert, store, link;
  *                                           a board's `.kicad_pcb` is kept as its model source and built by the model-cache job
  *   DELETE /api/models/:kind/:id           unlink (the stored model stays; others may use it)
@@ -19,11 +22,11 @@
  * than the JSON pipe's 4 MB.
  */
 
-import type { Db } from '@wirehub/model';
+import { parametricAssetId, parametricProblems, type Db, type ParametricSpec } from '@wirehub/model';
 
 import type { ApiResponse, WorkbenchDeps } from '../api.ts';
 import type { StudioUser } from '../me.ts';
-import { isModelAsset, type AssetStore } from '../assets.ts';
+import { isViewableModelAsset, type AssetStore } from '../assets.ts';
 import { DEFINITION_KINDS, isDefinitionKind, type DefinitionKind } from '../definition-store.ts';
 import { checkIfMatch, contentETag } from '../etag.ts';
 import type { Awaitable } from '../storage/change-set.ts';
@@ -36,14 +39,18 @@ import { MAX_MODEL_TRIANGLES } from './finish.ts';
 import { parseKicadPcb } from './kicad-pcb.ts';
 import { KICAD_LIBRARY } from './kicad-library.ts';
 import type { DocStore } from '../storage/doc-store.ts';
+import type { ToolOutputStore } from '../tools/outputs.ts';
 import { convertModel, ModelRefusal, type ConvertedModel, type ConvertOptions, sniffModel } from './convert.ts';
 import { isModelSourceKind, MODEL_SOURCES_DIR, type ModelLink, type ModelLinkStore, type ModelSourceKind } from './links.ts';
+import type { SourceReader } from './build.ts';
+import { sourcesFromEnv } from '../jobs/model-cache.ts';
 
 import { configuredModelProfile, assertModelProfileAvailable } from './profile.ts';
 
 export const MODEL_ROUTES = [
   'GET    /api/models',
   'GET    /api/models/:kind/:id',
+  'GET    /api/models/:kind/:id/native',
   'GET    /api/models/revisions/:part/:rev',
   'PUT    /api/models/:kind/:id',
   'POST   /api/models/:kind/:id/upload',
@@ -78,6 +85,10 @@ export interface ModelDeps {
    * the stores under the write lock (tests, read-only hosts).
    */
   transact?: (write: (deps: ModelDeps) => Promise<ApiResponse>) => Promise<ApiResponse>;
+  /** native tool outputs: a board's own `board.glb` (the `kicad` pack's board-3d run) is offered as its model */
+  toolOutputs?: Pick<ToolOutputStore, 'runs' | 'file'>;
+  /** where an imported link's source files are read (as the model-cache job reads them): a link not built here names the missing ones */
+  sources?: SourceReader;
 }
 
 export interface ModelRequest {
@@ -105,7 +116,53 @@ export function modelDepsOf(deps: WorkbenchDeps, user?: StudioUser): ModelDeps {
     ...(deps.convertModel === undefined ? {} : { convert: deps.convertModel }),
     ...(who === undefined ? {} : { who }),
     ...(deps.today === undefined ? {} : { today: deps.today }),
+    ...(deps.toolOutputs === undefined ? {} : { toolOutputs: deps.toolOutputs }),
+    sources: sourcesFromEnv(deps),
   };
+}
+
+/** A native-output model a record can take: the newest ok board-3d run's GLB. */
+export interface OutputModel {
+  /** the output's sha256: `PUT /api/models/:kind/:id { output }` attaches it */
+  id: string;
+  originalName: string;
+  src: string;
+  bytes: number;
+}
+
+async function outputModels(deps: ModelDeps, record: string): Promise<OutputModel[]> {
+  if (deps.toolOutputs === undefined || !record.startsWith('pcbas/')) return [];
+  const runs = await deps.toolOutputs.runs(record, { limit: 20 }).catch(() => []);
+  const run = runs.find((r) => r.op === 'board-3d' && r.status === 'ok' && r.outputs.some((o) => o.role === 'model-glb'));
+  const output = run?.outputs.find((o) => o.role === 'model-glb');
+  if (run === undefined || output === undefined) return [];
+  return [{ id: output.sha256, originalName: output.path.split('/').pop() ?? 'board.glb', src: `${run.tool.name} ${run.tool.version} native output (${run.op}, ${run.createdAt.slice(0, 10)})`, bytes: output.size }];
+}
+
+/** The board's newest native board.glb in the studio's millimetres, converted once per output. */
+const nativeGlbs = new Map<string, Uint8Array>();
+async function nativeModelBytes(deps: ModelDeps, record: string): Promise<{ model: OutputModel; glb: Uint8Array } | undefined> {
+  const model = (await outputModels(deps, record))[0];
+  if (model === undefined) return undefined;
+  const cached = nativeGlbs.get(model.id);
+  if (cached !== undefined) return { model, glb: cached };
+  const file = await deps.toolOutputs?.file(model.id);
+  if (file === undefined) return undefined;
+  const glb = (await convertModel(file.bytes, model.originalName)).glb;
+  if (nativeGlbs.size >= 16) nativeGlbs.delete(nativeGlbs.keys().next().value!);
+  nativeGlbs.set(model.id, glb);
+  return { model, glb };
+}
+
+/** Which of an imported link's source files this hub cannot read: why the model-cache job cannot build it here. */
+async function missingSources(deps: ModelDeps, link: ModelLink): Promise<string[]> {
+  if (link.files === undefined || deps.sources === undefined) return [];
+  const missing: string[] = [];
+  for (const file of link.files) {
+    const bytes = await Promise.resolve(deps.sources(file.path)).catch(() => undefined);
+    if (bytes === undefined) missing.push(file.path);
+  }
+  return missing;
 }
 
 function fail(status: number, error: string, hint?: string): ApiResponse {
@@ -201,7 +258,7 @@ export async function handleModelRequest(request: ModelRequest, deps: ModelDeps)
     if (method !== 'GET') return fail(405, `${method} is not something this address accepts.`, 'It answers GET.');
     const all = await links.list();
     const models: { id: string; mime: string; originalName: string; src: string; bytes: number; built: boolean }[] = (await assets.list())
-      .filter(isModelAsset)
+      .filter(isViewableModelAsset)
       .map((m) => ({ ...m, built: true }));
     // imported models, once each (board variants share one)
     for (const link of all) {
@@ -220,12 +277,37 @@ export async function handleModelRequest(request: ModelRequest, deps: ModelDeps)
   }
   if (!isDefinitionKind(kind)) return fail(400, `'${kind}' is not a Library kind.`, `One of: ${DEFINITION_KINDS.join(', ')}.`);
   if (id === undefined || !RECORD_ID.test(id) || id.length > 100) return fail(400, `${JSON.stringify(id ?? '')} is not a record id.`, 'Ids are lowercase words joined by hyphens.');
-  if (extra !== undefined || (action !== undefined && action !== 'upload')) return fail(404, 'There is nothing at that address.', MODEL_ROUTES.join('; '));
+  if (extra !== undefined || (action !== undefined && action !== 'upload' && action !== 'native')) return fail(404, 'There is nothing at that address.', MODEL_ROUTES.join('; '));
   const record = `${kind}/${id}`;
 
   if (method === 'GET' && action === undefined) {
     const link = await links.get(record);
-    return ok({ link: link ?? null, ...(link === undefined ? {} : { built: await isBuilt(deps, link) }) }, 200, { ETag: linkETag(link) });
+    const outputs = await outputModels(deps, record);
+    const built = link === undefined ? undefined : await isBuilt(deps, link);
+    // a link not built here: why (its source files are not on this hub), and the board's own model to show meanwhile
+    const missing = link === undefined || built !== false ? [] : await missingSources(deps, link);
+    const fallback = built === false ? outputs[0] : undefined;
+    return ok({
+      link: link ?? null,
+      ...(built === undefined ? {} : { built }),
+      ...(outputs.length === 0 ? {} : { outputs }),
+      ...(missing.length === 0 ? {} : { missing, missingHint: 'Upload the model file on this record, or mount the folder that holds it (WIREHUB_MODEL_SOURCES) on this hub.' }),
+      ...(fallback === undefined ? {} : { fallback }),
+    }, 200, { ETag: linkETag(link) });
+  }
+
+  // a board's own native model, for a view while its linked model is not built (never changes the link)
+  if (action === 'native') {
+    if (method !== 'GET') return fail(405, `${method} is not something this address accepts.`, 'It answers GET.');
+    let native: Awaited<ReturnType<typeof nativeModelBytes>>;
+    try {
+      native = await nativeModelBytes(deps, record);
+    } catch (error) {
+      if (error instanceof ModelRefusal) return fail(422, error.message, error.hint);
+      throw error;
+    }
+    if (native === undefined) return fail(404, `${record} has no native 3D model.`, 'Generate its native outputs (3D model) first.');
+    return { status: 200, body: null, bytes: native.glb, contentType: 'model/gltf-binary', headers: { 'Cache-Control': 'no-store' } };
   }
 
   const db = await deps.loadDb();
@@ -259,6 +341,42 @@ export async function handleModelRequest(request: ModelRequest, deps: ModelDeps)
     });
   }
 
+  if (method === 'PUT' && action === undefined && body['parametric'] !== undefined) {
+    const spec = body['parametric'];
+    const problems = parametricProblems(spec);
+    if (problems.length > 0) return fail(400, `That parametric model cannot be drawn: ${problems.join('; ')}.`);
+    const src = typeof body['src'] === 'string' && body['src'].trim() !== '' ? body['src'].trim() : undefined;
+    if (src === undefined) return fail(400, 'Say where the dimensions come from (src): a standard, a datasheet or a measurement.');
+    return guarded(async (_current, stores) => {
+      const link: ModelLink = { record, asset: parametricAssetId(spec as ParametricSpec), sourceKind: 'parametric', src, parametric: spec as ParametricSpec };
+      await stores.links.put(link);
+      return ok({ link }, 200, { ETag: linkETag(link) });
+    });
+  }
+
+  // the board's own native-output GLB (the newest board-3d run), kept as a model asset in millimetres
+  if (method === 'PUT' && action === undefined && body['output'] !== undefined) {
+    const sha = body['output'];
+    const offered = typeof sha === 'string' ? (await outputModels(deps, record)).find((m) => m.id === sha) : undefined;
+    if (offered === undefined) return fail(404, `${record} has no native output ${String(sha)} to attach.`, 'Generate its native outputs (3D model) first, then pick its board.glb.');
+    const file = await deps.toolOutputs?.file(offered.id);
+    if (file === undefined) return fail(404, `The native output ${offered.id} is no longer stored.`, 'Generate the native outputs again.');
+    let converted: ConvertedModel;
+    try {
+      converted = await convertModel(file.bytes, offered.originalName);
+    } catch (error) {
+      if (error instanceof ModelRefusal) return fail(422, error.message, `Nothing was saved. ${error.hint}`);
+      throw error;
+    }
+    return guarded(async (_current, stores) => {
+      const src = `${offered.originalName} from ${offered.src}, sha256 ${offered.id.slice(0, 16)}…, attached by ${deps.who ?? 'the Library'} on ${today}`;
+      const stored = await stores.assets.put(Buffer.from(converted.glb), 'model/gltf-binary', `${id}-${offered.originalName}`, src);
+      const link: ModelLink = { record, asset: stored.id, sourceKind: 'generated', src, frame: 'board-file' };
+      await stores.links.put(link);
+      return ok({ link }, 200, { ETag: linkETag(link) });
+    });
+  }
+
   if (method === 'PUT' && action === undefined) {
     const asset = body['asset'];
     if (typeof asset !== 'string' || !ASSET_ID.test(asset)) return fail(400, 'Say which stored model to attach (its 64-hex asset id).');
@@ -267,7 +385,7 @@ export async function handleModelRequest(request: ModelRequest, deps: ModelDeps)
     // reusing a model another record already cites keeps that citation
     const cited = (await links.list()).find((l) => l.asset === asset);
     const found = await assets.get(asset);
-    const stored = found !== undefined && isModelAsset(found.record);
+    const stored = found !== undefined && isViewableModelAsset(found.record);
     // an imported model is known by its link (its bytes may not be built on this box yet)
     if (!stored && cited?.files === undefined) return fail(404, `No stored 3D model ${asset}.`, 'Pick one from the imported models, or upload the file.');
     return guarded(async (_current, stores) => {
@@ -286,6 +404,7 @@ export async function handleModelRequest(request: ModelRequest, deps: ModelDeps)
         ...(cited?.name === undefined ? {} : { name: cited.name }),
         ...(cited?.revision === undefined ? {} : { revision: cited.revision }),
         ...(cited?.triangles === undefined ? {} : { triangles: cited.triangles }),
+        ...(cited?.original === undefined ? {} : { original: cited.original }),
       };
       await stores.links.put(link);
       return ok({ link }, 200, { ETag: linkETag(link) });
@@ -332,12 +451,17 @@ export async function handleModelRequest(request: ModelRequest, deps: ModelDeps)
       const who = deps.who ?? 'the Library';
       const src = `${name.trim()} (${converted.format.toUpperCase()}${converted.format === 'glb' ? '' : ', converted to GLB'}), uploaded by ${who} on ${today}${sourceCitation === '' ? '' : `; ${sourceCitation}`}`;
       const stored = await stores.assets.put(Buffer.from(converted.glb), 'model/gltf-binary', name.trim(), src);
+      // a shell's STL is also kept as sent: the GLB may be thinned, and printing slices the real mesh
+      const original = kind === 'mechanicals' && converted.format === 'stl'
+        ? await stores.assets.put(Buffer.from(bytes), 'model/stl', name.trim(), `${name.trim()} as uploaded by ${who} on ${today}${sourceCitation === '' ? '' : `; ${sourceCitation}`}`)
+        : undefined;
       const link: ModelLink = {
         record,
         asset: stored.id,
         sourceKind: kindOf,
         src,
         ...(converted.stats.triangles > 0 ? { triangles: converted.stats.triangles } : {}),
+        ...(original === undefined ? {} : { original: { asset: original.id, mime: 'model/stl' as const, name: name.trim(), bytes: original.bytes } }),
       };
       await stores.links.put(link);
       return ok({ link, stats: converted.stats }, 200, { ETag: linkETag(link) });

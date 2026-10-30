@@ -1,0 +1,7 @@
+{
+  "pack": "firmware-platformio-esp32",
+  "packVersion": "0.1.0",
+  "targets": [
+    { "id": "esp32dev", "label": "ESP32 DevKit (ESP32, Arduino)", "platform": "platformio/espressif32@6.13.0", "board": "esp32dev", "framework": "arduino" }
+  ]
+}

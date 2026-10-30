@@ -35,7 +35,7 @@ import type {
   TerminalRow,
 } from '../derive.ts';
 import { estimateNodeSize, nodeHeading } from '../layout-size.ts';
-import { BoardArtNode } from './BoardNode.tsx';
+import { BoardArtNode, NewerRevisionMark, NoPadsHint } from './BoardNode.tsx';
 import { BridgeBusOverlay } from './BridgeBus.tsx';
 import { ConnectorArtNode, ConnectorThumb } from './ConnectorNode.tsx';
 import { WireArtNode } from './WireNode.tsx';
@@ -212,7 +212,13 @@ export function PcbaNode({
     return <BoardArtNode data={data} board={data.board} selected={selected === true} />;
   }
   return (
-    <NodeShell data={data} selected={selected === true}>
+    <NodeShell
+      data={data}
+      selected={selected === true}
+      {...(data.pads.length + data.integrated.length === 0 || data.newer !== undefined
+        ? { adornment: <>{data.newer === undefined ? null : <NewerRevisionMark newer={data.newer} />}{data.pads.length + data.integrated.length === 0 ? <NoPadsHint /> : null}</> }
+        : {})}
+    >
       <div className="cs-board">
         {data.cableFacing === 'right' ? (
           <>

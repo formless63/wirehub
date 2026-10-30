@@ -60,11 +60,12 @@
  */
 
 import type { CableDesign, ComponentDefinition, ConnectorDefinition, Db, Issue, MechanicalDefinition, PcbaDefinition, TerminalRef, WireDefinition } from './model.ts';
-import { findComponent, findConnector, findMechanical, findPcba, findWire } from './model.ts';
+import { findComponent, findConnector, findMechanical, findPcba, findWire, pigtailTerminal } from './model.ts';
+import { pigtailMembers } from './bonds.ts';
 import { deriveNets, trace } from './nets.ts';
 import { electricalPaths, resolveElementPath } from './paths.ts';
 import { signalOf } from './signals.ts';
-import { terminalKey } from './validate.ts';
+import { noteReferencesTerminal, terminalKey } from './validate.ts';
 import { vocabEntry, type LaneEntry, type SignalEntry } from './vocab.ts';
 
 /* ------------------------------------------------------------------ *
@@ -250,6 +251,21 @@ export function ruleListProblems(list: unknown): string[] {
   return problems;
 }
 
+/** A subject selector without a requirement: what a required process's `derive` entry names (`processes.ts`). */
+export interface RuleSelector {
+  each: RuleSubject;
+  where?: Condition;
+}
+
+/** Why a selector (`each`, a design subject, and an optional `where`) cannot be used; empty when it can. Same language and limits as a rule. */
+export function selectorProblems(selector: unknown, at = 'selector'): string[] {
+  if (!isObject(selector)) return [`${at}: a selector is an object { each, where? }`];
+  const problems: string[] = [];
+  if (!(DESIGN_RULE_SUBJECTS as readonly unknown[]).includes(selector['each'])) problems.push(`${at}: each is one of ${DESIGN_RULE_SUBJECTS.join(', ')}`);
+  if (selector['where'] !== undefined) conditionProblems(selector['where'], `${at}.where`, 0, new Counter(), problems);
+  return problems;
+}
+
 /* ------------------------------------------------------------------ *
  * Evaluation
  * ------------------------------------------------------------------ */
@@ -410,7 +426,7 @@ function plain(record: object): Scope {
 
 function designScope(design: CableDesign): Scope {
   return {
-    ...plain({ id: design.id, label: design.label, ...(design.productRef === undefined ? {} : { productRef: design.productRef }), status: design.status ?? 'active', ...(design.labourMinutes === undefined ? {} : { labourMinutes: design.labourMinutes }), ...(design.route === undefined ? {} : { route: design.route }), ...(design.maker === undefined ? {} : { maker: design.maker }) }),
+    ...plain({ id: design.id, label: design.label, ...(design.productRef === undefined ? {} : { productRef: design.productRef }), status: design.status ?? 'active', kind: design.kind ?? 'cable', ...(design.labourMinutes === undefined ? {} : { labourMinutes: design.labourMinutes }), ...(design.route === undefined ? {} : { route: design.route }), ...(design.maker === undefined ? {} : { maker: design.maker }) }),
     tags: Array.isArray((design as { tags?: unknown }).tags) ? ((design as { tags: unknown[] }).tags.filter((t) => typeof t === 'string') as string[]) : [],
   };
 }
@@ -820,9 +836,24 @@ function runRules(rules: readonly ValidationRule[], subjectsFor: (each: RuleSubj
   return issues;
 }
 
-function indexJoints(design: CableDesign): Set<string> {
+function indexJoints(design: CableDesign, db: Db): Set<string> {
   const jointed = new Set<string>();
   for (const joint of design.joints) for (const ref of [joint.a, joint.b, ...(joint.through === undefined ? [] : [joint.through])]) jointed.add(terminalKey(ref));
+  // a screen or drain twisted into a pigtail lands where the pigtail lands (a board GND pad, a shell pin).
+  // A mass pigtail (no member list) carries every screen of the stock, except a drain a design note
+  // says is cut back at that end (the drain policy note).
+  for (const segment of design.instances.segments) {
+    const wire = segment.pigtails === undefined ? undefined : findWire(db, segment.def);
+    if (wire === undefined) continue;
+    for (const pigtail of segment.pigtails ?? []) {
+      if (!jointed.has(terminalKey({ instance: segment.id, terminal: pigtailTerminal(pigtail.id), end: pigtail.end }))) continue;
+      const cut = (path: string): boolean =>
+        resolveElementPath(wire.structure, path)?.kind === 'conductor' &&
+        noteReferencesTerminal(design, { instance: segment.id, terminal: path, end: pigtail.end });
+      const members = pigtail.members ?? pigtailMembers(wire, pigtail).filter((path) => !cut(path));
+      for (const path of members) jointed.add(terminalKey({ instance: segment.id, terminal: path, end: pigtail.end }));
+    }
+  }
   return jointed;
 }
 
@@ -830,8 +861,38 @@ function indexJoints(design: CableDesign): Set<string> {
 export function ruleIssuesForDesign(design: CableDesign, db: Db): Issue[] {
   const rules = (db.validationRules ?? []).filter((r) => !isLibrary(String(r?.each)));
   if (rules.length === 0) return [];
-  const facts: DesignFacts = { design, db, scope: designScope(design), jointed: indexJoints(design) };
+  const facts: DesignFacts = { design, db, scope: designScope(design), jointed: indexJoints(design, db) };
   return runRules(rules, (each) => subjectsOf(each, facts));
+}
+
+/**
+ * The subjects of `design` each selector picks, as their `where` addresses (`j1`, `w1:core-red`,
+ * the design's id), in subject order; one per selector. Unusable selectors pick nothing. All
+ * selectors share one evaluation budget: `exceeded` says it ran out and the lists are incomplete.
+ */
+export function matchingSubjects(design: CableDesign, db: Db, selectors: readonly RuleSelector[]): { subjects: string[][]; exceeded: boolean } {
+  const usable = selectors.map((s) => selectorProblems(s).length === 0);
+  if (!usable.some(Boolean)) return { subjects: selectors.map(() => []), exceeded: false };
+  const facts: DesignFacts = { design, db, scope: designScope(design), jointed: indexJoints(design, db) };
+  const budget: Budget = { steps: 0, exceeded: false };
+  const cache = new Map<RuleSubject, { scope: Scope; where: string }[]>();
+  const subjects: string[][] = [];
+  for (const [i, selector] of selectors.entries()) {
+    const found: string[] = [];
+    subjects.push(found);
+    if (!usable[i] || budget.exceeded) continue;
+    let list = cache.get(selector.each);
+    if (list === undefined) {
+      list = subjectsOf(selector.each, facts).slice(0, MAX_SUBJECTS_PER_RULE);
+      cache.set(selector.each, list);
+    }
+    for (const subject of list) {
+      const picked = selector.where === undefined || holds(selector.where, subject.scope, undefined, budget);
+      if (budget.exceeded) break;
+      if (picked) found.push(subject.where);
+    }
+  }
+  return { subjects, exceeded: budget.exceeded };
 }
 
 /** The library-scope rules over the definitions, and a warning for every rule that cannot be used. */

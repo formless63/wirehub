@@ -50,7 +50,7 @@ import { ProductChips } from './ProductChips.tsx';
 import { StatusChip } from './StatusChip.tsx';
 import { ReleaseChip } from '../versions/ReleaseChip.tsx';
 import { HistoryButton } from '../history/HistoryPanel.tsx';
-import { pageTitle } from './navigation.ts';
+import { pageTitle, sectionOf } from './navigation.ts';
 import { useModules } from '../modules/ModulesContext.tsx';
 import { designRecord } from '../locks/records.ts';
 
@@ -58,6 +58,7 @@ const VIEWS: readonly { key: CableView; label: string }[] = [
   { key: 'build', label: 'Build' },
   { key: 'schematic', label: 'Schematic' },
   { key: 'documents', label: 'Documents' },
+  { key: 'device', label: 'Device' },
 ];
 
 const MENU_CONTENT =
@@ -98,6 +99,7 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
   const pathname = matches[matches.length - 1]?.pathname ?? '';
   const modules = useModules();
   const moduleTitle = modules.routes().find(route => pathname === `/m/${route.module}/${route.path}`)?.label;
+  const section = sectionOf(pathname);
   const cableMatch = matches.find((match) => match.routeId === cableRoute.id);
 
 
@@ -152,10 +154,10 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
           <span className="shrink-0 text-faint max-[1300px]:hidden max-sm:hidden">/</span>
           <span
             className="min-w-0 flex-1 truncate font-medium text-ink max-sm:max-w-[96px]"
-            title={label ?? cableId}
-            aria-label={label ?? cableId}
+            title={label ?? 'Loading design…'}
+            aria-label={label ?? 'Loading design…'}
           >
-            {label ?? cableId}
+            {label ?? 'Loading design…'}
           </span>
           <ProductChips products={designProducts(studio.db.products, cableId)} />
           <StatusChip status={cableId !== undefined && studio.cableId === cableId ? studio.design?.status : undefined} />
@@ -165,7 +167,7 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
           <HistoryButton
             compact
             subject={designRecord(cableId)}
-            label={`design ${cableId}`}
+            label={label ?? 'Design'}
             {...(dirty ? { restoreBlocked: 'Save or discard your edits first — a restore replaces the saved design' } : {})}
             onRestored={(answer) => {
               if (answer.value !== undefined && studio.cableId === cableId) studio.reloadCable(answer.value as Parameters<typeof studio.reloadCable>[0]);
@@ -249,8 +251,23 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
       ) : (
         <>
           <span data-testid="section-title" className="truncate text-sm font-medium text-ink">
-            {moduleTitle ?? pageTitle(pathname)}
+            {moduleTitle ?? section?.title ?? pageTitle(pathname)}
           </span>
+          {section === undefined ? null : (
+            <nav aria-label={`${section.title} pages`} data-testid="section-pages" className="flex shrink-0 max-sm:hidden gap-0.5 rounded-md border border-line bg-raised p-0.5">
+              {section.subs.map((sub) => {
+                const active = pathname === sub.to || pathname.startsWith(`${sub.to}/`);
+                return (
+                  <Link key={sub.to} to={sub.to} title={sub.hint} aria-current={active ? 'page' : undefined}
+                    className={active
+                      ? 'flex h-[22px] items-center rounded border border-line2 bg-panel px-2.5 text-xs font-semibold text-ink no-underline'
+                      : 'flex h-[22px] items-center rounded border border-transparent px-2.5 text-xs text-dim no-underline hover:text-ink'}>
+                    {sub.title}
+                  </Link>
+                );
+              })}
+            </nav>
+          )}
         </>
       )}
 

@@ -189,7 +189,6 @@ export function ConditionEditor({ value, onChange, label, depth = 0 }: { value: 
 export function RuleEditor({ value, onChange }: { value: ObjectValue; onChange: (next: ObjectValue) => void }): JSX.Element {
   return <div className="space-y-2" aria-label="Rule form">
     <div className="grid grid-cols-2 gap-2">
-      <Text label="Rule id" value={value['id']} onChange={(x) => onChange(patch(value, 'id', x))} />
       <Text label="Rule name" value={value['label']} onChange={(x) => onChange(patch(value, 'label', x || undefined))} />
       <Select label="Rule subject" value={String(value['each'] ?? '')} options={RULE_SUBJECTS} onChange={(x) => onChange(patch(value, 'each', x))} />
       <Select label="Rule severity" value={String(value['severity'] ?? '')} options={['error', 'warning']} onChange={(x) => onChange(patch(value, 'severity', x))} />

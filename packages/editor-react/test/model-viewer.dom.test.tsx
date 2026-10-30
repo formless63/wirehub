@@ -151,9 +151,8 @@ describe('ModelPanel', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Attach model' }));
     // opening the form starts an edit: the host's lock scope takes the lease
     expect(onDirtyChange).toHaveBeenCalledWith(true);
-    const list = await screen.findByRole('listbox', { name: 'imported model' });
-    await screen.findByText(/SHL-00103-00 Rev1\.glb/);
-    fireEvent.change(list, { target: { value: LINK.asset } });
+    await screen.findByRole('listbox', { name: 'imported model' });
+    fireEvent.click(await screen.findByText(/SHL-00103-00 Rev1\.glb/));
     fireEvent.click(screen.getByRole('button', { name: 'Attach' }));
     await waitFor(() => expect(models.calls).toEqual([`attach pcbas/PCA-00109-rev3 ${LINK.asset}`]));
     expect(onDirtyChange).toHaveBeenLastCalledWith(false);
@@ -164,7 +163,9 @@ describe('ModelPanel', () => {
     models.fetchModel = async () => ({ ok: false, message: 'This 3D model has not been built on this studio yet.', hint: 'Run the model-cache job.', status: 404 });
     render(<ModelPanel kind="mechanicals" id="shell-hd15-coax" label="HD15 shell" models={models} />);
     expect(await screen.findByText('Resin print · Rev1 · not built yet')).toBeTruthy();
-    expect(await screen.findByText(/not been built on this studio yet\. Run the model-cache job\./)).toBeTruthy();
+    const status = await screen.findByTestId('model-not-built');
+    expect(status.textContent).toContain('3D model building');
+    expect(status.getAttribute('title')).toMatch(/not been built on this studio yet\. Run the model-cache job\./);
   });
 
   it("is read-only while someone else holds the record's lock", async () => {

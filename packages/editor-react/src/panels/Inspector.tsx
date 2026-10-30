@@ -72,6 +72,7 @@ import {
 } from './connection-rows.ts';
 import type { PigtailEdit } from '../pigtail-edit.ts';
 import { BreakoutPanel, SegmentBreakoutSection } from './BreakoutPanel.tsx';
+import { PartStatesSection } from './PartStatesSection.tsx';
 import { SegmentModel3d } from './SegmentModel3d.tsx';
 import { versionsOf } from '../assemblies.ts';
 
@@ -304,6 +305,7 @@ function AddJointRow({ design, db, connection, focusRequest, onFocusHandled, onL
         }
       }}
     >
+      <span className="cs-conn-add-label" title="Pick a pad and a conductor to join them">Add joint</span>
       <TerminalCombobox id={padId} placeholder="pad" options={padOptions} value={padChoice} onChange={pickPad} />
       <TerminalCombobox id={wireId} placeholder="conductor" options={wireOptions} value={wireChoice} onChange={pickWire} />
     </div>
@@ -820,7 +822,7 @@ function PigtailBar({
   if (isFullyBonded(wire)) {
     return (
       <div className="cs-conn-row cs-conn-pigtail-bar">
-        <span className="cs-conn-note">Ground connections at this end: {pigtails}</span>
+        <span className="cs-conn-add-label" title={`Ground connections from the shield mass at this end: ${pigtails}`}>Add ground</span>
         <span />
         <TerminalCombobox id={`${landingId}-lands`} placeholder="lands on" options={grounds} value={landingChoice ?? null} onChange={setLandingChoice} />
         <button
@@ -1492,6 +1494,8 @@ export function CavitiesSection({ state, id }: { state: EditorState; id: string 
   );
 }
 
+const KIND_NOUN: Readonly<Record<InstanceKind, string>> = { connector: 'connector', segment: 'wire', component: 'component', pcba: 'board', subassembly: 'sub-assembly' };
+
 export function PartPanel({ state }: { state: EditorState }): JSX.Element {
   const { dispatch, requestDelete, stripPractice } = useEditorApi();
   const stripPracticeOf = stripPractice ?? [];
@@ -1560,42 +1564,25 @@ export function PartPanel({ state }: { state: EditorState }): JSX.Element {
   return (
     <div className="cs-panel cs-part-panel">
       <div className="cs-scroll">
-        <dl className="cs-facts">
-          <dt>instance</dt>
-          <dd className="cs-mono">{id}</dd>
-          <dt>kind</dt>
-          <dd>{kind}</dd>
-          <dt>definition</dt>
-          <dd className="cs-mono">{instance.def}</dd>
-          {facts === undefined ? null : (
-            <>
-              <dt>label</dt>
-              <dd>{facts.label}</dd>
-              {facts.partNumber === undefined ? null : (
-                <>
-                  <dt>part no.</dt>
-                  <dd className="cs-mono">{facts.partNumber}</dd>
-                </>
-              )}
-              {facts.revision === undefined ? null : (
-                <>
-                  <dt>rev</dt>
-                  <dd className="cs-mono">{facts.revision}</dd>
-                </>
-              )}
-            </>
-          )}
-          <dt>joints</dt>
-          <dd>{jointCount}</dd>
-          {mounting === undefined ? null : (
-            <>
-              <dt>mounting</dt>
-              <dd>
-                {mounting} <span className="cs-meta">{mountingStored ? '(set)' : '(derived)'}</span>
-              </dd>
-            </>
-          )}
-        </dl>
+        <div className="cs-part-head" title={`${id} · ${instance.def}`}>
+          <div className="cs-part-head-text">
+            <strong>{facts?.label ?? instance.def}</strong>
+            <span className="cs-meta">
+              {[id.toUpperCase(), facts?.partNumber, facts?.revision === undefined ? undefined : `rev ${facts.revision}`, KIND_NOUN[kind], `${jointCount} joint${jointCount === 1 ? '' : 's'}`, mounting === undefined ? undefined : `${mounting}${mountingStored ? '' : ' (derived)'}`]
+                .filter((w) => w !== undefined && w !== '')
+                .join(' · ')}
+            </span>
+          </div>
+          <button
+            type="button"
+            className="cs-icon-btn cs-part-delete"
+            title={`Delete ${id.toUpperCase()}${jointCount === 0 ? '' : ` and its ${jointCount} joint${jointCount === 1 ? '' : 's'}`}`}
+            aria-label={`delete ${id}`}
+            onClick={() => (requestDelete === undefined ? dispatch({ type: 'delete-instance', id }) : requestDelete([id]))}
+          >
+            <IconTrash size={14} />
+          </button>
+        </div>
 
         {connector === undefined ? null : (
           <>
@@ -1636,7 +1623,10 @@ export function PartPanel({ state }: { state: EditorState }): JSX.Element {
           </>
         )}
         {pcba === undefined ? null : (
-          <InstanceField label="note" value={pcba.note ?? ''} onChange={(v) => patch('note', v)} />
+          <>
+            <InstanceField label="note" value={pcba.note ?? ''} onChange={(v) => patch('note', v)} />
+            <PartStatesSection design={design} db={db} id={id} />
+          </>
         )}
         {subassembly === undefined ? null : <SubassemblySection state={state} id={id} />}
 
@@ -1674,13 +1664,6 @@ export function PartPanel({ state }: { state: EditorState }): JSX.Element {
           </ul>
         )}
 
-        <button
-          type="button"
-          className="cs-danger"
-          onClick={() => (requestDelete === undefined ? dispatch({ type: 'delete-instance', id }) : requestDelete([id]))}
-        >
-          delete instance ({jointCount} joint{jointCount === 1 ? '' : 's'} go with it)
-        </button>
       </div>
     </div>
   );

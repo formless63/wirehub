@@ -26,7 +26,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import { dataPath, installedPackSources, livePacksDir } from '@wirehub/catalog';
@@ -48,9 +48,15 @@ export const ASSET_MIME_EXT = {
   'application/pdf': 'pdf',
   'model/gltf-binary': 'glb',
   'model/stl': 'stl',
+  'model/step': 'step',
+  // a print file uploaded for slicing (server/print/files.ts): kept as sent, never shown in the 3D viewer
+  'model/3mf': '3mf',
   'font/ttf': 'ttf',
   'font/otf': 'otf',
   'font/woff2': 'woff2',
+  // a note's attachment that is neither a photo nor a PDF (specs/knowledge.md): served only as a download
+  'application/zip': 'zip',
+  'application/octet-stream': 'bin',
 } as const;
 export type AssetMime = keyof typeof ASSET_MIME_EXT;
 
@@ -76,6 +82,35 @@ export interface AssetStore {
    * record untouched (same id, nothing written) rather than a second copy.
    */
   put(bytes: Buffer, mime: AssetMime, originalName: string, src: string): Awaitable<AssetSummary>;
+  /**
+   * Drop assets from the hub's own index, with their bytes (a pack's images are the pack's: never
+   * dropped here). Returns the ids it dropped. Low level: call `removeUnreferencedAssets`
+   * (`asset-remove.ts`), which refuses any asset a record, version or history entry still names.
+   */
+  remove?(ids: readonly string[]): Awaitable<string[]>;
+}
+
+/**
+ * `assets/replaced.json`: `{ "<old sha>": "<new sha>" }` for an asset dropped because a cleaned copy
+ * replaced it (a photo whose metadata was removed at rest). Reading the old id answers the new
+ * asset, so a history restore to before the rewrite brings back the clean photo.
+ */
+export const ASSET_REPLACED_DOC = 'assets/replaced.json';
+
+/** The asset an id resolves to through `assets/replaced.json` (following a chain), or undefined. */
+export function replacementOf(map: Readonly<Record<string, string>> | undefined, id: string): string | undefined {
+  let at = map?.[id];
+  for (let i = 0; at !== undefined && i < 16; i += 1) {
+    const next = map?.[at];
+    if (next === undefined) return at;
+    at = next;
+  }
+  return at;
+}
+
+function readReplaced(): Record<string, string> | undefined {
+  const text = hubCatalogSource().read(ASSET_REPLACED_DOC);
+  return text === undefined ? undefined : (JSON.parse(text) as Record<string, string>);
 }
 
 function indexPath(): string {
@@ -141,11 +176,14 @@ export function assetBlobKey(id: string, mime: AssetMime): string {
  * store on first read.
  */
 export function fileAssetStore(blobs?: BlobStore): AssetStore {
-  return {
+  const store: AssetStore = {
     list: () => readIndex(),
     async get(id) {
       const record = readIndex().find((r) => r.id === id);
-      if (record === undefined) return undefined;
+      if (record === undefined) {
+        const to = replacementOf(readReplaced(), id);
+        return to === undefined || to === id ? undefined : store.get(to);
+      }
       const path = assetPath(id, record.mime);
       if (blobs !== undefined) {
         const key = assetBlobKey(id, record.mime);
@@ -181,7 +219,21 @@ export function fileAssetStore(blobs?: BlobStore): AssetStore {
       writeIndex([...records, record]);
       return record;
     },
+    async remove(ids) {
+      const drop = new Set(ids);
+      const records = readOwnIndex();
+      const gone = records.filter((r) => drop.has(r.id));
+      if (gone.length === 0) return [];
+      // the entry first: a failed byte delete leaves a stray file, never an entry naming missing bytes
+      writeIndex(records.filter((r) => !drop.has(r.id)));
+      for (const r of gone) {
+        if (blobs !== undefined) await blobs.delete(assetBlobKey(r.id, r.mime));
+        rmSync(assetPath(r.id, r.mime), { force: true });
+      }
+      return gone.map((r) => r.id);
+    },
   };
+  return store;
 }
 
 /** In memory, for tests — same dedup-by-content behaviour. */
@@ -204,6 +256,14 @@ export function memoryAssetStore(): AssetStore & { files: Map<string, Buffer> } 
       records.push(record);
       files.set(id, bytes);
       return record;
+    },
+    remove(ids) {
+      const gone = records.filter((r) => ids.includes(r.id)).map((r) => r.id);
+      for (const id of gone) {
+        records.splice(records.findIndex((r) => r.id === id), 1);
+        files.delete(id);
+      }
+      return gone;
     },
   };
 }
@@ -229,6 +289,11 @@ export function isFontAsset(summary: Pick<AssetSummary, 'mime'>): boolean {
 /** A 3D model (the Library's 3D view) — never a photo, never a vendor document. */
 export function isModelAsset(summary: Pick<AssetSummary, 'mime'>): boolean {
   return summary.mime.startsWith('model/');
+}
+
+/** A model the 3D viewer can show (a GLB, or an STL kept as sent) — not a STEP kept for download. */
+export function isViewableModelAsset(summary: Pick<AssetSummary, 'mime'>): boolean {
+  return summary.mime === 'model/gltf-binary' || summary.mime === 'model/stl';
 }
 
 /** An image the photo picker can show (a PDF is a document, not a photo). */

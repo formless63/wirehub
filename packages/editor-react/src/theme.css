@@ -45,6 +45,10 @@
   --color-conn-kind: var(--conn-kind);
   --color-wire-kind: var(--wire-kind);
   --color-comp-kind: var(--comp-kind);
+  --color-trace-copper: var(--trace-copper);
+  --color-trace-passive: var(--trace-passive);
+  --color-trace-active: var(--trace-active);
+  --color-trace-unknown: var(--trace-unknown);
   --color-paper: var(--paper);
   --color-paper-2: var(--paper-2);
   --color-paper-3: var(--paper-3);

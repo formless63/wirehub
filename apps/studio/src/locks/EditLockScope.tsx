@@ -51,7 +51,11 @@ function Scope({ record: maybeRecord, children, fill = true, client }: EditLockS
   const active = maybeRecord !== undefined;
   const held = active && (snapshot?.held.has(record) ?? false);
   const lock = active ? snapshot?.locks.get(record) : undefined;
-  const other = active ? otherHolder(snapshot, record) : undefined;
+  const holder = active ? otherHolder(snapshot, record) : undefined;
+  // this browser's own other tab (or a page it just left): never a reason to block — the first
+  // change here takes the lease over
+  const mine = holder !== undefined && snapshot !== undefined && holder.holder.clientId === snapshot.me.clientId;
+  const other = mine ? undefined : holder;
   const requested = active && (snapshot?.requested.has(record) ?? false);
   const lost = active ? snapshot?.lost.get(record) : undefined;
   const [handedOver, setHandedOver] = useState(false);
@@ -87,14 +91,15 @@ function Scope({ record: maybeRecord, children, fill = true, client }: EditLockS
     if (!active || held || other !== undefined || handedOver || lost !== undefined || inFlight.current) return;
     if (!(firstChange || requested || (dirty && wasBlocked.current))) return;
     inFlight.current = true;
-    void client.acquire(record).then((ok) => {
+    const take = mine ? client.takeOver(record, true).then((outcome) => outcome === 'ok') : client.acquire(record);
+    void take.then((ok) => {
       inFlight.current = false;
       if (ok) {
         wasBlocked.current = false;
         client.forgetLost(record);
       }
     });
-  }, [client, record, active, dirty, held, other, requested, handedOver, lost]);
+  }, [client, record, active, dirty, held, other, mine, requested, handedOver, lost]);
 
   // idle and clean: let it go, so a lease never outlives the work
   useEffect(() => {
@@ -123,6 +128,10 @@ function Scope({ record: maybeRecord, children, fill = true, client }: EditLockS
     };
   } else if (held && lock?.request !== undefined) {
     banner = { kind: 'asked', lock };
+  } else if (!held && lost !== undefined && mine && holder !== undefined) {
+    // taken over by this browser's other tab: say so, and "Take over here" takes it back
+    // (Resume editing would only ask for a lease that tab still holds)
+    banner = { kind: 'other', lock: holder, sameBrowser: true, requested: false, declined: false, lost };
   } else if (!held && lost !== undefined) {
     banner = { kind: 'lost', lost };
   } else if (handedOver && !held) {

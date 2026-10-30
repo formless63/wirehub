@@ -16,6 +16,7 @@ import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
 import { memoryAssetStore } from '../server/assets.ts';
 import { convertModel, convertModelFiles, ModelRefusal, sniffModel } from '../server/models/convert.ts';
 import { readGlbJson, writeGlb } from '../server/models/glb.ts';
+import { glbInMillimetres } from '../server/models/glb-units.ts';
 import { linkETag } from '../server/models/api.ts';
 import { memoryModelLinkStore } from '../server/models/links.ts';
 import { memoryModelCache, sourceKey } from '../server/models/cache.ts';
@@ -161,6 +162,39 @@ describe('convertModel', () => {
     view.setUint32(16, 0x4e4f534a, true);
     out.set(padded, 20);
     await expect(convertModel(out, 'evil.glb')).rejects.toThrow(/outside itself/);
+  });
+
+  it('scales a GLB that declares metres (KiCad export) to millimetres, keeping its buffers; keeps any other GLB as sent', async () => {
+    const plain = writeGlb([parseStl(TETRA, 't')]);
+    expect(Buffer.from((await convertModel(plain, 't.glb')).glb).equals(Buffer.from(plain))).toBe(true);
+    const json = readGlbJson(plain)!;
+    json['asset'] = { version: '2.0', generator: 'Open CASCADE Technology 7.8', extras: { generator: 'KiCad 10.0.6' } };
+    const metres = glbInMillimetres(plain).bytes; // unchanged: not declared yet
+    expect(metres).toBe(plain);
+    const text = new TextEncoder().encode(JSON.stringify(json));
+    const padded = new Uint8Array((text.length + 3) & ~3).fill(0x20);
+    padded.set(text);
+    const oldLength = new DataView(plain.buffer, plain.byteOffset).getUint32(12, true);
+    const rest = plain.subarray(20 + oldLength);
+    const kicad = new Uint8Array(20 + padded.length + rest.length);
+    const view = new DataView(kicad.buffer);
+    view.setUint32(0, 0x46546c67, true);
+    view.setUint32(4, 2, true);
+    view.setUint32(8, kicad.length, true);
+    view.setUint32(12, padded.length, true);
+    view.setUint32(16, 0x4e4f534a, true);
+    kicad.set(padded, 20);
+    kicad.set(rest, 20 + padded.length);
+    const out = (await convertModel(kicad, 'board.glb')).glb;
+    const scaled = readGlbJson(out)!;
+    const scene = (scaled['scenes'] as { nodes: number[] }[])[0]!;
+    const root = (scaled['nodes'] as { scale?: number[]; children?: number[] }[])[scene.nodes[0]!]!;
+    expect(root.scale).toEqual([1000, 1000, 1000]);
+    expect(root.children).toEqual((json['scenes'] as { nodes: number[] }[])[0]!.nodes);
+    expect((scaled['asset'] as { extras: Record<string, unknown> }).extras['wirehubUnits']).toBe('mm');
+    expect(Buffer.from(out.subarray(out.length - rest.length)).equals(Buffer.from(rest))).toBe(true);
+    // already in millimetres: never scaled twice
+    expect(glbInMillimetres(out).bytes).toBe(out);
   });
 
   it('converts a STEP in the child process and reports its memory', async () => {

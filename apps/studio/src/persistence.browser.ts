@@ -11,6 +11,7 @@
  * step, because that is what the screen has to show.
  */
 
+import { withFindings } from './save-findings.ts';
 import {
   withAssetUsed,
   type AssembliesAdapter,
@@ -136,15 +137,16 @@ export function workbenchPersistence(base = '/api'): PersistenceAdapter {
 
     load: (id) => request<CableDesign>(designUrl(base, id), { method: 'GET' }, remember(id)),
 
+    // a save that kept findings says so in a header; the outcome carries it to the save toast (`save-findings.ts`)
     save: (design) =>
-      request<CableDesign>(
+      withFindings((onResponse) => request<CableDesign>(
         designUrl(base, design.id),
         { method: 'PUT', body: design, ...(ifMatchOf(design.id) === undefined ? {} : { headers: ifMatchOf(design.id) }) },
-        remember(design.id),
-      ),
+        onResponse,
+      ), remember(design.id)),
 
     create: (design) =>
-      request<CableDesign>(`${base}/designs`, { method: 'POST', body: design }, remember(design.id)),
+      withFindings((onResponse) => request<CableDesign>(`${base}/designs`, { method: 'POST', body: design }, onResponse), remember(design.id)),
 
     duplicate: (id, newId, newLabel) =>
       request<CableDesign>(
@@ -171,6 +173,10 @@ export function workbenchPersistence(base = '/api'): PersistenceAdapter {
         if (result.ok) versions.delete(id);
         return result.ok ? { ok: true, value: { id: result.value.deleted } } : result;
       }),
+
+    savedVersions: (id) =>
+      request<{ revisions: { rev: number }[] }>(designUrl(base, id, 'versions'), { method: 'GET' }).then((result) =>
+        result.ok ? { ok: true, value: result.value.revisions.map((r) => r.rev) } : result),
   };
 }
 
@@ -213,6 +219,30 @@ export async function withAssemblyLibrary(db: Db, design: CableDesign, base = '/
 export async function fetchCableList(base = '/api'): Promise<Outcome<CableListEntry[]>> {
   const result = await request<{ designs: CableListEntry[] }>(`${base}/designs`);
   return result.ok ? { ok: true, value: result.value.designs } : result;
+}
+
+/** One design's answer from `POST /api/design-tags` (`server/design-tags.ts`). */
+export interface DesignTagResult {
+  id: string;
+  outcome: 'changed' | 'unchanged' | 'skipped';
+  tags?: string[];
+  etag?: string;
+  reason?: 'not-found' | 'locked' | 'read-only' | 'stale' | 'invalid' | 'refused';
+  error?: string;
+}
+
+export interface DesignTagsAnswer {
+  add: string[];
+  remove: string[];
+  changed: number;
+  unchanged: number;
+  skipped: number;
+  results: DesignTagResult[];
+}
+
+/** Add and/or remove tags on many designs' working copies: one request, one change set. */
+export async function retagDesigns(change: { designs: string[]; add?: string[]; remove?: string[] }, base = '/api'): Promise<Outcome<DesignTagsAnswer>> {
+  return request<DesignTagsAnswer>(`${base}/design-tags`, { method: 'POST', body: change });
 }
 
 /**

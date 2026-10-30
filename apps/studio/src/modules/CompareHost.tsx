@@ -3,7 +3,7 @@
  * declares, else the base's generic field diff (`RecordCompare`, cs-5k1.21).
  */
 
-import { RecordCompare, parseCompareSide, type ArtworkAdapter, type ModelsAdapter, type RecordRef, type RevisionsAdapter } from '@wirehub/editor-react';
+import { RecordCompare, parseCompareSide, type ArtworkAdapter, type FrozenRecordsAdapter, type ModelsAdapter, type RecordRef, type RevisionsAdapter } from '@wirehub/editor-react';
 import type { Db } from '@wirehub/model';
 import type { CompareProps, ModuleRegistry } from '@wirehub/modules';
 import { useMemo, type ComponentType, type JSX } from 'react';
@@ -16,7 +16,7 @@ export function parseRecordRef(item: string | undefined): RecordRef | undefined 
   return parseCompareSide(item);
 }
 
-export function CompareHost(props: { registry: ModuleRegistry; db: Db; a: string; b?: string; onClose: () => void; revisions?: RevisionsAdapter; artwork?: ArtworkAdapter; models?: ModelsAdapter }): JSX.Element | null {
+export function CompareHost(props: { registry: ModuleRegistry; db: Db; a: string; b?: string; onClose: () => void; revisions?: RevisionsAdapter; artwork?: ArtworkAdapter; models?: ModelsAdapter; frozen?: FrozenRecordsAdapter }): JSX.Element | null {
   const a = parseRecordRef(props.a);
   const b = parseRecordRef(props.b);
   const view = a === undefined ? undefined : props.registry.compareViewFor(a.kind);
@@ -31,6 +31,7 @@ export function CompareHost(props: { registry: ModuleRegistry; db: Db; a: string
         {...(props.revisions === undefined ? {} : { revisions: props.revisions })}
         {...(props.artwork === undefined ? {} : { artwork: props.artwork })}
         {...(props.models === undefined ? {} : { models: props.models })}
+        {...(props.frozen === undefined ? {} : { frozen: props.frozen })}
         onClose={props.onClose}
       />
     );

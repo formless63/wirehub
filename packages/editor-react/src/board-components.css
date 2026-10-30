@@ -23,27 +23,39 @@
   font-variant-numeric: tabular-nums;
 }
 
-.cs-bc-table td.cs-bc-label {
-  width: 100%;
-  max-width: 0;
+.cs-bc-table td {
+  white-space: nowrap;
+}
+
+/* long names and values end in an ellipsis (the whole text on hover), never run into the next column */
+.cs-bc-cut {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.cs-bc-table td.cs-bc-label .cs-bc-cut {
+  max-width: 280px;
+}
+
+.cs-bc-table td.cs-bc-value .cs-bc-cut {
+  max-width: 200px;
 }
 
 .cs-bc-off {
   color: var(--faint);
 }
 
-.cs-bc-review {
-  margin-left: 6px;
-  padding: 0 5px;
-  border-radius: 4px;
-  border: 1px solid var(--line2);
-  font-size: var(--fs-2xs);
-  color: var(--dim);
-}
-
 .cs-bc-empty {
   margin: 0;
   padding: 6px 8px;
+}
+
+/* cells never wrap: a wide table scrolls sideways instead */
+.cs-bc-table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
 }

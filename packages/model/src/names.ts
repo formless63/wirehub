@@ -117,3 +117,30 @@ export function humanizeIssue(design: CableDesign, db: Db, issue: Issue): Issue 
   const whereLabel = isTerminalKey(design, issue.where) ? terminalName(design, db, parseTerminalKey(issue.where)) : undefined;
   return { ...issue, message, ...(whereLabel === undefined ? {} : { whereLabel }) };
 }
+
+/**
+ * A design note as a person reads it. Notes carry terminal references for the
+ * checks (`noteReferencesTerminal`: `w1 drain @b`, `w1:pair-2.b@a`); people
+ * read names. A bracketed reference block (`[w1 drain @b]`) is for the checks
+ * only and is dropped; any other segment reference becomes its name
+ * (`W1 drain (destination end)`). The stored text never changes.
+ */
+export function humanizeNote(design: CableDesign, db: Db, text: string): string {
+  const escape = (id: string): string => id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const segments = design.instances.segments.map((s) => escape(s.id));
+  let out = text.replace(/\s*\[(?:[\w-]+\s*[ .:]\s*[\w.:-]+\s*@[ab][,;\s]*)+\]/g, '');
+  if (segments.length > 0) {
+    const ref = new RegExp(`(?<![\\w-])(${segments.join('|')})(?:\\s+|[.:])([\\w][\\w.-]*?)\\s*@([ab])(?![\\w-])`, 'g');
+    out = out.replace(ref, (raw, instance: string, path: string, end: 'a' | 'b') => {
+      const segment = design.instances.segments.find((s) => s.id === instance);
+      const wire = segment === undefined ? undefined : findWire(db, segment.def);
+      if (wire === undefined) return raw;
+      const known = path.split('.').reduce<Element[] | undefined>((children, id) => {
+        const next = children?.find((c) => c.id === id);
+        return next === undefined ? undefined : next.kind === 'group' ? next.children : [];
+      }, wire.structure.children);
+      return known === undefined ? raw : terminalName(design, db, { instance, terminal: path, end });
+    });
+  }
+  return humanizeText(design, db, out).trim();
+}

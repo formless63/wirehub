@@ -41,6 +41,18 @@ const OPEN_HEADERS = ['Kind', 'Terminal', 'Expected', 'Why'];
 const PARAMETER_HEADERS = ['Parameter', 'Value'];
 const ELECTRICAL_HEADERS = ['Segment', 'Conductor', 'Net', 'Current (A)', 'Length (mm)', 'Area (mm2)', 'Rated (A)', 'Drop (V)', 'Drop (%)'];
 const CONTACT_HEADERS = ['Connector', 'Pin', 'Net', 'Current (A)', 'Contact rating (A)'];
+const BOARD_PATH_HEADERS = ['From', 'To', 'Kind', 'Through', 'Boards'];
+const BOARD_FINDING_HEADERS = ['Finding', 'Where', 'What the trace cannot claim'];
+const BOARD_NOTE = 'Traced across the boards\' own nets, read from their board files. Copper is one net; passive runs through the parts listed. Active parts stop the trace, and a missing fact (no net, a do-not-populate part, an undeclared jumper or switch state) is listed below, never assumed.';
+
+function boardPathRows(spec: TestSpec): string[][] {
+  return (spec.boardTrace?.paths ?? []).map((row) => [row.from, row.to, row.kind, row.through.join(' → ') || '—', row.boards.join(', ')]);
+}
+
+function boardFindingRows(spec: TestSpec): string[][] {
+  return (spec.boardTrace?.findings ?? []).map((row) => [row.kind, row.where, row.message]);
+}
+
 const ELECTRICAL_NOTE = 'Declared currents only: each conductor against its ampacity, each contact against its rating, and the voltage drop over its length (one conductor, at 20 C). Warnings are listed with the design issues.';
 
 function num(value: number | undefined, digits = 3): string {
@@ -55,12 +67,11 @@ function contactRows(spec: TestSpec): string[][] {
   return spec.electrical.contacts.map((c) => [c.connector, c.pin, c.net, num(c.currentA), num(c.ratingA)]);
 }
 
-const LANDING_HEADERS = ['End', 'Pigtail', 'Screens', 'Lands on', 'Expected', 'Prep'];
+const LANDING_HEADERS = ['End', 'Screens', 'Lands on', 'Expected', 'Prep'];
 
 function landingRow(check: GroundLandingCheck): string[] {
   return [
-    `${check.segment} @${check.end}`,
-    check.pigtail,
+    `${check.segment.toUpperCase()} ${check.end === 'a' ? 'source' : 'destination'} end`,
     check.membersText,
     check.landing === ''
       ? '—'
@@ -77,9 +88,14 @@ const LANDING_PREAMBLE =
 const PATH_ALIGN: ('left' | 'right')[] = [];
 PATH_ALIGN[6] = 'right';
 
+/** A net as the sheet numbers it: `net-3` is `3`. */
+function netNumber(net: string | undefined): string | undefined {
+  return net?.replace(/^net-/, '');
+}
+
 function netRow(check: NetCheck): string[] {
   return [
-    check.net,
+    netNumber(check.net) ?? '',
     check.signal,
     check.ends.map((end) => SIDE_WORD[end]).join(' + '),
     check.ports.map((port) => port.text).join(' · '),
@@ -109,8 +125,8 @@ function isolationRow(check: IsolationCheck): string[] {
   return [
     SIDE_WORD[check.side],
     check.rule,
-    facts([check.a.text, check.netA]),
-    facts([check.b.text, check.netB]),
+    facts([check.a.text, check.netA === undefined ? undefined : `net ${netNumber(check.netA)}`]),
+    facts([check.b.text, check.netB === undefined ? undefined : `net ${netNumber(check.netB)}`]),
     check.expected,
     check.rationale,
   ];
@@ -121,20 +137,24 @@ function commonedRow(check: IsolationCheck): string[] {
 }
 
 function openRow(check: OpenCheck): string[] {
-  return [check.openKind, check.text, check.expected, check.rationale];
+  return [check.openKind.replace(/-/g, ' '), check.text, check.expected, check.rationale];
+}
+
+function count(n: number, one: string, many = `${one}s`): string {
+  return `${n} ${n === 1 ? one : many}`;
 }
 
 function summaryLine(spec: TestSpec): string {
   return facts([
-    `${spec.summary.ports} probe points`,
-    `${spec.summary.nets} nets`,
-    `${spec.netChecks.length} net checks`,
-    `${spec.pathChecks.length} path checks`,
+    count(spec.summary.ports, 'probe point'),
+    count(spec.summary.nets, 'net'),
+    count(spec.netChecks.length, 'net check'),
+    count(spec.pathChecks.length, 'path check'),
     `${spec.summary.nonDcPaths} of them NOT DC-continuous`,
-    `${spec.summary.isolation} isolation checks`,
+    count(spec.summary.isolation, 'isolation check'),
     spec.summary.commoned === 0 ? undefined : `${spec.summary.commoned} commoned by design`,
-    `${spec.summary.opens} deliberate opens`,
-    `${spec.summary.groundLandings} ground landings`,
+    count(spec.summary.opens, 'deliberate open'),
+    count(spec.summary.groundLandings, 'ground landing'),
     spec.summary.violations === 0
       ? 'no isolation violations'
       : `${spec.summary.violations} ISOLATION VIOLATION(S)`,
@@ -222,6 +242,21 @@ export function testSpecToMarkdown(spec: TestSpec, parameters?: ResolvedTestPara
     out.push(markdownTable(LANDING_HEADERS, spec.groundLandings.map(landingRow)));
   }
 
+  if (spec.boardTrace !== undefined && (spec.boardTrace.paths.length > 0 || spec.boardTrace.findings.length > 0)) {
+    out.push('');
+    out.push('## Through board nets');
+    out.push('');
+    out.push(BOARD_NOTE);
+    if (spec.boardTrace.paths.length > 0) {
+      out.push('');
+      out.push(markdownTable(BOARD_PATH_HEADERS, boardPathRows(spec)));
+    }
+    if (spec.boardTrace.findings.length > 0) {
+      out.push('');
+      out.push(markdownTable(BOARD_FINDING_HEADERS, boardFindingRows(spec)));
+    }
+  }
+
   if (spec.electrical.rows.length > 0 || spec.electrical.contacts.length > 0) {
     out.push('');
     out.push('## Electrical — declared currents');
@@ -305,6 +340,13 @@ export function testSpecToHtml(spec: TestSpec, parameters?: ResolvedTestParamete
     parts.push(
       htmlTable('cs-table cs-table--landings', LANDING_HEADERS, spec.groundLandings.map(landingRow)),
     );
+  }
+
+  if (spec.boardTrace !== undefined && (spec.boardTrace.paths.length > 0 || spec.boardTrace.findings.length > 0)) {
+    parts.push('<h3 class="cs-section__h3">Through board nets</h3>');
+    parts.push(`<p class="cs-caution">${escapeHtml(BOARD_NOTE)}</p>`);
+    if (spec.boardTrace.paths.length > 0) parts.push(htmlTable('cs-table cs-table--board-paths', BOARD_PATH_HEADERS, boardPathRows(spec)));
+    if (spec.boardTrace.findings.length > 0) parts.push(htmlTable('cs-table cs-table--board-findings', BOARD_FINDING_HEADERS, boardFindingRows(spec)));
   }
 
   if (spec.electrical.rows.length > 0 || spec.electrical.contacts.length > 0) {

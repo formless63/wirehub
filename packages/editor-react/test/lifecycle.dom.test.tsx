@@ -105,15 +105,16 @@ describe('Save', () => {
 
   it('shows a refusal as sentences, never as a payload', async () => {
     const broken = structuredClone(REAL);
-    broken.instances.connectors.push({ id: 'j99', def: 'no-such-connector' });
+    // two parts under one id: the one kind of problem a save refuses
+    broken.instances.connectors.push({ id: REAL.instances.connectors[0]!.id, def: 'no-such-connector' });
     setup({ draft: broken });
 
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     const alert = await screen.findByRole('alert');
 
-    expect(alert.textContent).toContain('no-such-connector');
+    expect(alert.textContent).toContain('duplicate instance id');
     expect(alert.textContent).toContain('untouched');
-    expect(alert.textContent).not.toContain('unknown-def');
+    expect(alert.textContent).not.toContain('duplicate-instance-id');
     expect(alert.textContent).not.toContain('{');
   });
 });
@@ -132,34 +133,19 @@ describe('Revert', () => {
 });
 
 describe('New', () => {
-  it('suggests an id from the name, and stops once the user writes their own', () => {
-    setup();
+  it('creates a named design without exposing a key field', async () => {
+    const { adapter } = setup();
     fireEvent.click(screen.getByRole('button', { name: 'New…' }));
-
-    const name = screen.getByLabelText(/^Name/) as HTMLInputElement;
-    const id = screen.getByLabelText(/^Id/) as HTMLInputElement;
-
-    fireEvent.change(name, { target: { value: 'Mixer (Main) → Stage' } });
-    expect(id.value).toBe('mixer-main-stage');
-
-    fireEvent.change(id, { target: { value: 'my-own-name' } });
-    fireEvent.change(name, { target: { value: 'Something else entirely' } });
-    expect(id.value).toBe('my-own-name');
+    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: 'Mixer (Main) → Stage' } });
+    expect(screen.queryByLabelText(/^Id/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'New design' }));
+    await waitFor(() => expect(adapter.stored.get('mixer-main-stage')?.label).toBe('Mixer (Main) → Stage'));
   });
 
-  it('asks where the information comes from, and will not create without it', async () => {
+  it('creates a draft without a source yet (a finding, not a refusal)', async () => {
     const { adapter } = setup();
     fireEvent.click(screen.getByRole('button', { name: 'New…' }));
     fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: 'Fresh cable' } });
-    fireEvent.click(screen.getByRole('button', { name: 'New design' }));
-
-    const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toContain('where its information comes from');
-    expect(adapter.stored.has('fresh-cable')).toBe(false);
-
-    fireEvent.change(screen.getByLabelText(/come from/), {
-      target: { value: 'bench measurement' },
-    });
     fireEvent.click(screen.getByRole('button', { name: 'New design' }));
     await waitFor(() => expect(adapter.stored.has('fresh-cable')).toBe(true));
   });
@@ -189,8 +175,8 @@ describe('Delete', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete…' }));
 
     const dialog = screen.getByRole('dialog');
+    // named by its name, not its id (UX review: names instead of ids)
     expect(dialog.textContent).toContain(REAL.label);
-    expect(dialog.textContent).toContain(REAL.id);
 
     // backing out changes nothing
     fireEvent.click(screen.getByRole('button', { name: 'Keep it' }));
@@ -198,19 +184,25 @@ describe('Delete', () => {
     expect(adapter.stored.has(REAL.id)).toBe(true);
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete…' }));
-    fireEvent.click(screen.getByRole('button', { name: `Delete ${REAL.id}` }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(adapter.stored.has(REAL.id)).toBe(false));
     expect(adapter.calls).toContain(`remove:${REAL.id}`);
   });
 });
 
-describe('Save with warnings', () => {
-  it('names the things to look at the way a person would', async () => {
-    setup({ draft: draftWithWarnings(), withDb: true });
+describe('Save with findings', () => {
+  it('saves without a "save anyway" step, and says there are things to look at', async () => {
+    const draft = draftWithWarnings();
+    const adapter = memoryPersistence(db, [REAL]);
+    const actions = (baseline: CableDesign): ReactNode =>
+      harness(() => <DesignActions design={draft} baseline={baseline} persistence={adapter} designs={[{ id: REAL.id, label: REAL.label }]} db={db} />).ui;
+    const { rerender } = render(actions(REAL));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Save with warnings' });
-    expect(dialog.textContent).not.toMatch(/\bw1:|@[ab]\b/);
-    expect(Array.from(dialog.querySelectorAll('li')).map((li) => li.textContent)).toMatchSnapshot();
+    await waitFor(() => expect(adapter.calls).toContain(`save:${REAL.id}`));
+    expect(screen.queryByRole('dialog', { name: 'Save with warnings' })).toBeNull();
+    // the host moves the baseline to what was saved; the status chip then names the findings
+    rerender(actions(draft));
+    expect(await screen.findByText(/to look at/)).toBeTruthy();
   });
 
   it('saves straight through when there is nothing to look at', async () => {
@@ -226,16 +218,15 @@ describe('New', () => {
   it('opens the guided wizard when the host hands the library in', () => {
     setup({ withDb: true });
     fireEvent.click(screen.getByRole('button', { name: 'New…' }));
-    const heading = screen.getByRole('heading', { name: 'New design' });
-    expect(heading).toBeTruthy();
-    // the wizard's intro sentence moved into the heading's tooltip (// no narrative copy on the page itself)
-    expect(heading.title).toContain('already wired');
+    expect(screen.getByRole('heading', { name: 'New design' })).toBeTruthy();
+    // the wizard, not the blank dialog: it opens on its first step
+    expect(screen.getByRole('heading', { name: 'What is this design called?' })).toBeTruthy();
   });
 
   it('still offers the blank design for anyone who wants one', () => {
     setup({ withDb: true });
     fireEvent.click(screen.getByRole('button', { name: 'New…' }));
-    fireEvent.click(screen.getByRole('button', { name: /blank design instead/ }));
+    fireEvent.click(screen.getByRole('button', { name: /blank design instead/i }));
     expect(screen.getByRole('heading', { name: 'New design' })).toBeTruthy();
   });
 

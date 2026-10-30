@@ -65,8 +65,11 @@ describe('Runtime settings', () => {
     fireEvent.change(within(jobs).getByLabelText('Model build window'), { target: { value: '02:00-04:00' } });
     fireEvent.click(within(jobs).getByRole('button', { name: 'Save jobs & limits' }));
     await waitFor(() => expect(settings.env().WIREHUB_CONVERT_WINDOW).toBe('02:00-04:00'));
+    cleanup();
 
-    const notifications = screen.getByTestId('runtime-notifications');
+    // the hub's own alert webhook sits with the event webhooks
+    mount('webhooks');
+    const notifications = await screen.findByTestId('runtime-notifications');
     const url = within(notifications).getByTestId('secret-notify.url');
     expect(within(url).getByText('Not set.')).toBeTruthy();
     fireEvent.change(within(url).getByLabelText('Webhook URL'), { target: { value: 'https://ntfy.example.com/hidden-topic' } });
@@ -81,7 +84,7 @@ describe('Runtime settings', () => {
     mount('authentication');
     const signIn = await screen.findByTestId('runtime-sign-in');
     expect(within(signIn).getByRole('combobox', { name: `${label} sign-in` }).textContent).toBe('Default (off)');
-    expect(within(signIn).getByText(new RegExp(`PUBLIC_URL followed by /api/auth/callback/${provider}`))).toBeTruthy();
+    expect(within(signIn).getByTestId(`callback-${provider}`).textContent).toMatch(new RegExp(`/api/auth/callback/${provider}$`));
     fireEvent.change(within(signIn).getByLabelText(`${label} client id`), { target: { value: 'synthetic-client' } });
     fireEvent.click(within(signIn).getByRole('button', { name: 'Save sign-in & accounts' }));
     await waitFor(() => expect(settings.env()[`AUTH_${provider.toUpperCase()}_CLIENT_ID`]).toBe('synthetic-client'));

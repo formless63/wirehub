@@ -8,7 +8,12 @@
  * to `wirehub.event/1`; a change that could break a receiver becomes `wirehub.event/2`.
  */
 
+import { baseExport } from '@wirehub/docs';
+
 import type { StudioUser } from '../me.ts';
+
+/** The exports a design event links to (`fetch.exports`); an id this build does not offer is left out. */
+const FETCH_EXPORTS = ['bom.csv', 'wire-list.csv', 'cut-list.csv', 'production.xlsx', 'continuity.json', 'mass.json', 'processes.json'];
 
 export const PAYLOAD_SCHEMA = 'wirehub.event/1';
 
@@ -22,8 +27,11 @@ export const WEBHOOK_EVENTS = [
   { type: 'version.released', label: 'Version released', description: 'A version became the released revision: when it is saved (approvals off) or approved (approvals on).' },
   { type: 'product.changed', label: 'Product changed', description: 'A product family was created, changed, merged, split or removed.' },
   { type: 'part-number.assigned', label: 'Part number assigned', description: 'A part number was set or changed on a cable, a drawing or a library part.' },
-  { type: 'pack.installed', label: 'Pack installed', description: 'A catalog pack was installed, updated or disabled.' },
+  { type: 'pack.installed', label: 'Pack installed', description: 'A catalog pack was installed, updated, disabled or released to the hub.' },
   { type: 'job.finished', label: 'Job finished', description: 'A background job (an import, a model build, a backup watch …) finished or failed.' },
+  { type: 'inventory.changed', label: 'Inventory changed', description: 'Stock was received, moved, adjusted, reserved, consumed, returned or released, a lot\'s details were edited, units or a print batch were recorded, or a location changed.' },
+  { type: 'note.changed', label: 'Note changed', description: 'A note or decision was created, saved or deleted.' },
+  { type: 'project.changed', label: 'Project changed', description: 'A project was created, saved or deleted.' },
   { type: 'catalog.changed', label: 'Catalog changed', description: 'Any committed change to the catalog: the records it touched.' },
 ] as const;
 
@@ -34,7 +42,7 @@ export const WEBHOOK_EVENT_TYPES: readonly WebhookEventType[] = WEBHOOK_EVENTS.m
 export const ALL_EVENTS = '*';
 
 export interface EventSubject {
-  /** `design`, `connectors` … (a library kind), `pack`, `job`, `catalog` */
+  /** `design`, `connectors` … (a library kind), `pack`, `job`, `note`, `project`, `catalog` */
   kind: string;
   id: string;
   label?: string;
@@ -81,11 +89,19 @@ function fetchLinksOf(subject: EventSubject, type: string): { ui?: string; api?:
     case 'design': {
       const base = `/api/designs/${enc(subject.id)}`;
       const rev = subject.rev === undefined ? '' : `?rev=${subject.rev}`;
-      const exports = Object.fromEntries(['bom.csv', 'wire-list.csv', 'cut-list.csv', 'production.xlsx', 'continuity.json'].map((f) => [f, `${base}/exports/${f}${rev}`]));
+      const exports = Object.fromEntries(FETCH_EXPORTS.filter((f) => baseExport(f) !== undefined).map((f) => [f, `${base}/exports/${f}${rev}`]));
       return {
         ui: `/cables/${enc(subject.id)}`,
         api: base,
-        fetch: { design: base, versions: `${base}/versions`, ...(subject.rev === undefined ? {} : { version: `${base}/versions/${subject.rev}` }), exports, ...(type.startsWith('version.') ? { released: `${base}/exports/bom.csv?rev=released` } : {}) },
+        fetch: {
+          design: base,
+          versions: `${base}/versions`,
+          ...(subject.rev === undefined ? {} : { version: `${base}/versions/${subject.rev}` }),
+          exports,
+          ...(type.startsWith('version.') ? { released: `${base}/exports/bom.csv?rev=released` } : {}),
+          // the revision's released document manifest: every document's URL and SHA-256 (docs/document-manifest.md)
+          ...(type.startsWith('version.') && subject.rev !== undefined ? { documents: `${base}/versions/${subject.rev}/documents` } : {}),
+        },
       };
     }
     case 'pack':
@@ -94,6 +110,18 @@ function fetchLinksOf(subject: EventSubject, type: string): { ui?: string; api?:
       return { ui: `/products/${enc(subject.id)}`, api: `/api/products/${enc(subject.id)}`, fetch: { product: `/api/products/${enc(subject.id)}`, lineup: '/api/lineup', 'lineup.csv': '/api/lineup.csv' } };
     case 'job':
       return { ui: '/jobs', api: `/api/jobs/${enc(subject.id)}`, fetch: { job: `/api/jobs/${enc(subject.id)}` } };
+    case 'lot':
+      return { ui: '/inventory', api: `/api/inventory/lots/${enc(subject.id)}`, fetch: { lot: `/api/inventory/lots/${enc(subject.id)}`, inventory: '/api/inventory' } };
+    case 'reservation':
+      return { ui: '/inventory', api: `/api/inventory/reservations/${enc(subject.id)}`, fetch: { reservation: `/api/inventory/reservations/${enc(subject.id)}` } };
+    case 'location':
+      return { ui: '/inventory', api: '/api/inventory', fetch: { inventory: '/api/inventory' } };
+    case 'batch':
+      return { ui: '/inventory', api: '/api/inventory/batches', fetch: { batches: '/api/inventory/batches' } };
+    case 'note':
+      return { api: `/api/knowledge/notes/${enc(subject.id)}`, fetch: { note: `/api/knowledge/notes/${enc(subject.id)}`, knowledge: '/api/knowledge' } };
+    case 'project':
+      return { ui: `/projects/${enc(subject.id)}`, api: `/api/knowledge/projects/${enc(subject.id)}`, fetch: { project: `/api/knowledge/projects/${enc(subject.id)}` } };
     case 'catalog':
       return { ui: '/history', api: '/api/history', fetch: { history: '/api/history', db: '/api/db', export: '/api/export' } };
     default:

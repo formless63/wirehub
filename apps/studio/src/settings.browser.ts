@@ -510,6 +510,64 @@ export async function saveRules(rules: unknown[], etag: string, base = '/api'): 
 
 export const previewRule = (rule: unknown, base = '/api'): Promise<Outcome<RulePreview>> => request<RulePreview>(`${base}/rules/preview`, { method: 'POST', body: { rule } });
 
+/* ------------------------------------------------------------------ *
+ * Required manufacturing processes (`server/processes-settings.ts`)
+ * ------------------------------------------------------------------ */
+
+export const processesKey = ['settings', 'processes'] as const;
+
+export interface ProcessEntry {
+  id: string;
+  label: string;
+  description?: string;
+  derive?: { each: string; where?: unknown; note?: string }[];
+  enabled?: boolean;
+  src: string;
+  license?: string;
+  provenance?: unknown;
+}
+
+export interface ProcessView extends ProcessEntry {
+  origin: 'local' | 'pack';
+  pack?: string;
+  problems: string[];
+}
+
+export interface ProcessesView {
+  processes: ProcessView[];
+  /** this hub's own processes, as stored */
+  local: ProcessEntry[];
+  limits: { processes: number; derivePerProcess: number; declaredPerDesign: number };
+  subjects: string[];
+  etag: string;
+}
+
+export async function fetchProcesses(base = '/api'): Promise<Outcome<ProcessesView>> {
+  let etag = '';
+  const out = await request<Omit<ProcessesView, 'etag'>>(`${base}/processes`, { method: 'GET' }, (r) => {
+    etag = r.headers.get('etag') ?? '';
+  });
+  return out.ok ? { ok: true, value: { ...out.value, etag } } : out;
+}
+
+export async function saveProcesses(processes: unknown[], etag: string, base = '/api'): Promise<Outcome<ProcessesView>> {
+  let next = '';
+  const out = await request<Omit<ProcessesView, 'etag'>>(`${base}/processes`, { method: 'PUT', body: { processes }, headers: { 'if-match': etag } }, (r) => {
+    next = r.headers.get('etag') ?? '';
+  });
+  return out.ok ? { ok: true, value: { ...out.value, etag: next } } : out;
+}
+
+export const processesQuery = {
+  queryKey: processesKey,
+  queryFn: async (): Promise<ProcessesView> => {
+    const out = await fetchProcesses();
+    if (!out.ok) throw new Error(`${out.message}${out.hint === undefined ? '' : ` ${out.hint}`}`);
+    return out.value;
+  },
+  retry: false,
+} as const;
+
 export const rulesQuery = {
   queryKey: rulesKey,
   queryFn: async (): Promise<RulesView> => {

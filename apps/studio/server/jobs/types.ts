@@ -21,7 +21,7 @@ import type { StudioUser } from '../me.ts';
 import type { Awaitable, RecordChange } from '../storage/change-set.ts';
 
 /** The base's queues (§2). A module's queue is `<module>:<queue>`. */
-export const JOB_KINDS = ['import', 'convert', 'model-cache', 'derive', 'blob-gc', 'backup', 'git-mirror', 'webhook'] as const;
+export const JOB_KINDS = ['import', 'convert', 'model-cache', 'derive', 'blob-gc', 'backup', 'git-mirror', 'webhook', 'board-outputs', 'firmware-compile', 'enclosure-generate', 'print-prepare', 'device-export'] as const;
 export type BaseJobKind = (typeof JOB_KINDS)[number];
 /** A queue a module registered (`@wirehub/modules` `JobQueueContribution`): `<module id>:<queue id>`. */
 export type ModuleJobKind = `${string}:${string}`;
@@ -41,7 +41,23 @@ export function isJobKind(value: unknown): value is JobKind {
   return isBaseJobKind(value) || isModuleJobKind(value);
 }
 
-export type JobStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
+/**
+ * `interrupted`: the job was running when its process stopped (a worker crash, a restart): its lease
+ * ran out with nobody renewing it (`JobStore.reconcile`). A repeatable stage can be run again
+ * (`POST /api/jobs/:id/retry`).
+ */
+export type JobStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled' | 'interrupted';
+
+/** Finished: nothing will change the job any more (but a retry, which is a new job). */
+export const FINISHED_STATUSES: readonly JobStatus[] = ['done', 'failed', 'cancelled', 'interrupted'];
+
+/** Kinds whose run can simply be repeated from its request (idempotent, content-addressed stages). */
+export const REPEATABLE_KINDS: readonly JobKind[] = ['board-outputs', 'firmware-compile', 'enclosure-generate', 'print-prepare', 'device-export', 'model-cache', 'derive', 'convert'];
+
+/** Runs SQL inside an open transaction (pg-boss `IDatabase`): how a send joins the insert's transaction. */
+export interface SqlExecutor {
+  executeSql(text: string, values?: unknown[]): Promise<{ rows: unknown[] }>;
+}
 
 export interface JobStep {
   at: string;
@@ -92,7 +108,17 @@ export interface JobOutcome {
 }
 
 export interface JobStore {
-  create(kind: JobKind, request: Record<string, unknown>, by?: JobRequester): Promise<JobRun>;
+  /**
+   * Record a job. `within`, when the store is a database: called with the new row inside the insert's
+   * transaction, so a queue send made through `exec` commits (or rolls back) with it.
+   */
+  create(kind: JobKind, request: Record<string, unknown>, by?: JobRequester, within?: (job: JobRun, exec: SqlExecutor) => Promise<void>): Promise<JobRun>;
+  /** whether `create` honours `within` */
+  readonly transactional?: boolean;
+  /** extend a running job's lease (the process running it is alive); a store without leases omits it */
+  renew?(id: string): Promise<void>;
+  /** running jobs whose lease ran out → `interrupted`; answers the jobs it marked */
+  reconcile?(): Promise<JobRun[]>;
   get(id: string): Promise<JobRun | undefined>;
   /** newest first */
   list(options?: { kind?: JobKind; limit?: number }): Promise<JobRun[]>;
@@ -108,6 +134,8 @@ export interface JobStore {
   discard?(id: string): Promise<void>;
   /** the time a job of `kind` last finished `done`, ISO; undefined when none has */
   lastDone(kind: JobKind): Promise<string | undefined>;
+  /** queued or running → cancelled (a running handler sees it through `JobContext.cancelled`); undefined when it had finished */
+  cancel?(id: string, by?: string): Promise<JobRun | undefined>;
 }
 
 /** Hands a recorded job to whatever runs it. */
@@ -115,6 +143,10 @@ export interface JobRunner {
   readonly describe: string;
   /** `delayMs`: do not start before this long from now (a webhook's retry backoff) */
   submit(job: JobRun, options?: { delayMs?: number }): Promise<void>;
+  /** get ready to submit `kind` (a queue to create) before a transaction is opened */
+  prepare?(kind: JobKind): Promise<void>;
+  /** submit inside the job row's transaction (`JobStore.create`'s `within`): the queue entry and the row commit together */
+  submitWithin?(job: JobRun, exec: SqlExecutor, options?: { delayMs?: number }): Promise<void>;
 }
 
 /** Options of `JobService.enqueue`. */
@@ -127,6 +159,8 @@ export interface JobContext {
   job: JobRun;
   /** report progress (`job_run.steps`) */
   step(text: string): Promise<void>;
+  /** whether someone cancelled the job since it started (a handler that runs long polls it) */
+  cancelled?: () => Promise<boolean>;
 }
 
 export type JobHandler = (context: JobContext) => Promise<JobOutcome>;
@@ -146,6 +180,10 @@ export interface JobService {
   wait(id: string, timeoutMs: number): Promise<JobRun>;
   /** keep an uploaded file for a job (an import's input): in the blob store when there is one */
   stageInput(bytes: Uint8Array): Promise<Record<string, unknown>>;
+  /** run a finished job of a repeatable kind again, as a new job from the same request (`POST /api/jobs/:id/retry`) */
+  retry?: (id: string, by?: StudioUser) => Promise<JobRun | undefined>;
+  /** cancel a queued or running job (`POST /api/jobs/:id/cancel`); absent when the store cannot */
+  cancel?: (id: string, by?: string) => Promise<JobRun | undefined>;
   /** the worker's last heartbeat (pg), for `GET /api/jobs` */
   worker?: () => Awaitable<WorkerBeat | undefined>;
 }

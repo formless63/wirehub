@@ -118,10 +118,7 @@ export function ConnectionsImport({ onImported, expose }: { onImported: () => vo
           <strong>Design from {fileName}</strong>
           <div className="text-faint">One row per connection, each end written part.pin (J1.3). A part is a connector: pick which, unless its name already is one.</div>
           <div className="flex flex-wrap items-center gap-2">
-            <label>
-              Design id{' '}
-              <Input aria-label="Design id" value={designId} onChange={(e) => setDesignId(e.target.value)} placeholder={slug(fileName.replace(/\.[^.]+$/, ''))} mono className="w-48" />
-            </label>
+
             <label>
               Name{' '}
               <Input aria-label="Design name" value={label} onChange={(e) => setLabel(e.target.value)} className="w-56" />

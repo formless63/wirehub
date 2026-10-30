@@ -30,6 +30,7 @@ import { boardParts, boardPartsFromKicad, isPlacement, type BomField, type Colum
 import { deriveBoard } from './derive.ts';
 import { gerberDepiction, readGerberSet } from './gerber-art.ts';
 import { parseKicadNetlist, parseKicadPcb } from './kicad.ts';
+import { importBoardSet } from './set.ts';
 import { kebab } from './values.ts';
 import { isZip, readZip } from './zip.ts';
 
@@ -95,7 +96,8 @@ export const kicadBoardImporter: ImporterContribution = {
         sha256,
         ...(opt('id') === undefined ? {} : { id: opt('id')! }),
         ...(opt('label') === undefined ? {} : { label: opt('label')! }),
-        ...(opt('partNumber') === undefined ? {} : { partNumber: opt('partNumber')! }),
+        // sent but empty: the board has no part number yet
+        ...(input.options?.['partNumber'] === undefined ? {} : { partNumber: opt('partNumber') ?? '' }),
         ...(opt('revision') === undefined ? {} : { revision: opt('revision')! }),
         ...(opt('build') === undefined ? {} : { build: opt('build')! }),
         ...(connectors === undefined ? {} : { connectors }),
@@ -168,4 +170,11 @@ export const fabBomImporter: ImporterContribution = {
       notes: [`Parts of ${pcba.id} (${pcba.partNumber} ${pcba.revision}).`, ...proposal.notes],
     };
   },
+};
+
+export const boardSetImporter: ImporterContribution = {
+  id: 'board-set',
+  label: 'Board files (KiCad board with its Gerbers, BOM and placement)',
+  accepts: ['.board-set.json'],
+  import: (input, db) => importBoardSet(input, db),
 };

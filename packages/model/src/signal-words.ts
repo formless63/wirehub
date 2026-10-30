@@ -126,6 +126,21 @@ function groundSignalFor(vocab: Vocab | undefined, text: string): string | undef
   return has(vocab, GROUND_SIGNAL) ? GROUND_SIGNAL : grounds[0]?.id;
 }
 
+/**
+ * The voltage a supply entry names (`+5`, `-12`), from its own words;
+ * `undefined` for a supply that names none (a generic `V+`) or for any
+ * other kind of signal.
+ */
+export function voltageOfSignal(vocab: Vocab | undefined, id: string): string | undefined {
+  const entry = vocabEntry<SignalEntry>(vocab, 'signals', id);
+  if (entry === undefined || entry.kind !== 'power') return undefined;
+  for (const phrase of phrasesOf(entry)) {
+    const volts = voltageOf(phrase);
+    if (volts !== undefined && volts !== '+0') return volts;
+  }
+  return undefined;
+}
+
 /** The return of signal `id`: the ground entry whose `returnFor` names it. */
 export function returnOf(vocab: Vocab | undefined, id: string): string | undefined {
   return liveSignals(vocab).find((e) => e.kind === 'ground' && (e.returnFor ?? []).includes(id))?.id;

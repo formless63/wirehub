@@ -229,7 +229,7 @@ export function StoreSourcesSettings(): JSX.Element {
               {preview === undefined ? null : (
                 <div className="border border-line p-2" data-testid="store-preview">
                   <div>
-                    <b>{preview.store.name}</b> <span className="text-faint">{preview.store.id}</span>
+                    <b>{preview.store.name}</b>
                   </div>
                   <div>
                     {preview.packs} pack{preview.packs === 1 ? '' : 's'} · publishers: {preview.publishers.length === 0 ? 'none named (packs are pinned by the index only)' : preview.publishers.map((p) => p.name).join(', ')}

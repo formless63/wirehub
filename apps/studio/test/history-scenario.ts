@@ -23,6 +23,7 @@ import { handleWorkbenchRequest, type ApiRequest, type ApiResponse, type Workben
 import type { StudioUser } from '../server/me.ts';
 import type { HistoryEntryDetail, HistoryPage, RestoreAnswer } from '../src/history/types.ts';
 import { fieldDiff } from '../src/history/diff.ts';
+import { makePng, pngDataUri } from './png-fixture.ts';
 
 export const DESIGN = 'dc-led-lead';
 export const COMPONENT = 'r-120';
@@ -101,7 +102,9 @@ export async function historyScenario(backend: HistoryBackend): Promise<{ log: s
   const library = await get<HistoryPage>(`/api/history?kind=library&person=${encodeURIComponent('bob@example')}`);
   expect(library.entries.length).toBe(1);
   expect(library.entries[0]?.id).toBe(hub.entries[0]?.id);
-  const today = new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  // local date: both backends read ?from= in the server's time zone
+  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   expect((await get<HistoryPage>(`/api/history?from=2000-01-01&to=2000-01-02`)).entries).toEqual([]);
   expect((await get<HistoryPage>(`/api/history?from=${today}&person=alice`)).entries.length).toBe(1);
   const paged = await get<HistoryPage>('/api/history?limit=1');
@@ -249,7 +252,7 @@ export async function photoScenario(backend: HistoryBackend): Promise<void> {
   };
   const subject = `design:${DESIGN}`;
   const restorePath = `/api/history/records/${encodeURIComponent(subject)}/restore`;
-  const png = (text: string): string => `data:image/png;base64,${Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from(text)]).toString('base64')}`;
+  const png = (size: number): string => pngDataUri(makePng(size));
   const setPhoto = async (photo: string | null, user: StudioUser): Promise<void> => {
     const sheet = await call({ method: 'GET', path: `/api/drawings/${DESIGN}` });
     const put = await call({ method: 'PUT', path: `/api/drawings/${DESIGN}/photo`, body: { photo }, headers: { 'if-match': sheet.headers?.ETag as string }, user });
@@ -260,8 +263,8 @@ export async function photoScenario(backend: HistoryBackend): Promise<void> {
 
   // the entry before any photo, then two photos by two people
   const before = (await entries())[0]!;
-  const first = png('first photo');
-  const second = png('second photo');
+  const first = png(4);
+  const second = png(5);
   await setPhoto(first, alice);
   const afterFirst = (await entries())[0]!;
   expect(afterFirst.by.name).toBe(alice.name);
@@ -294,7 +297,7 @@ export async function photoScenario(backend: HistoryBackend): Promise<void> {
   expect(await photoNow()).toBe(second);
 
   // cs-7xb: the photo is quoted like the rest. Carol looks, then Bob replaces the photo: her restore is refused (409), and nothing is written.
-  const third = png('third photo');
+  const third = png(6);
   const looked = await get<HistoryEntryDetail>(`/api/history/entries/${afterFirst.id}?subject=${encodeURIComponent(subject)}`);
   expect(looked.current).toHaveProperty('photo');
   await setPhoto(third, bob);

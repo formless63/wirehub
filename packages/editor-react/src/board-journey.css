@@ -232,6 +232,19 @@
   min-height: 28px;
 }
 
+.cs-bj-source {
+  padding: 2px 8px;
+  font-size: var(--fs-xs);
+  border-bottom: 1px solid var(--line);
+}
+
+.cs-editor .cs-bj-source button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+}
+
 .cs-bj-savebar {
   padding: 4px 8px;
   border: 1px solid var(--line);
@@ -328,6 +341,22 @@
 .cs-bj-table tr.is-bad td,
 .cs-bj-table tr.is-bad th {
   background: color-mix(in srgb, var(--err) 8%, transparent);
+}
+
+/* a curated supply whose net states no voltage: quieter than a disagreement */
+.cs-bj-table tr.is-warn td,
+.cs-bj-table tr.is-warn th {
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+}
+
+/* a curated signal the net name contradicts: the strongest row */
+.cs-bj-table tr.is-contradiction th {
+  box-shadow: inset 3px 0 0 var(--err);
+}
+
+.cs-bj-table tr.is-contradiction td,
+.cs-bj-table tr.is-contradiction th {
+  background: color-mix(in srgb, var(--err) 16%, transparent);
 }
 
 .cs-bj-path-cell {
@@ -988,4 +1017,28 @@ fieldset.cs-lockable {
   .cs-bj-parts-list {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* the KiCad check under the Import step (apps/studio BoardCheck): an inline drop, not a zone */
+.cs-bj-check-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cs-ui-filedrop.cs-bj-sheetdrop {
+  flex-direction: row;
+  width: auto;
+  min-height: 0;
+  height: 26px;
+  padding: 0 10px;
+  font-size: var(--fs-xs);
+}
+
+.cs-bj-check-section .cs-ui-badge + .cs-ui-badge {
+  margin-left: 4px;
+}
+
+.cs-bj-check-section details summary {
+  cursor: pointer;
 }

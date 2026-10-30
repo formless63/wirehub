@@ -54,6 +54,7 @@ import {
   type WireDefinition,
   type WireLayOrder,
   type PartCost,
+  type RecordMassPerLength,
   type WireBondedSet,
   type WireProfile,
   type WireVendorDoc,
@@ -128,7 +129,7 @@ export function definitionSummary(
     id: record.id,
     label: record.label,
     detail: definitionDetail(kind, record),
-    src: record.src,
+    src: record.src ?? '',
     ...(readOnly ? { readOnly: true } : {}),
     ...(status === undefined || status === 'active' ? {} : { status }),
   };
@@ -446,15 +447,15 @@ export function connectorDraftOf(connector: ConnectorDefinition, tags?: SignalTa
   return {
     id: connector.id,
     label: connector.label,
-    family: connector.family,
+    family: connector.family ?? '',
     gender: connector.gender ?? '',
     partNumber: text(connector.partNumber),
-    src: connector.src,
+    src: connector.src ?? '',
     pins: connector.pins.map((pin) => {
       const pinExtra = extrasOf(pin, PIN_FIELDS);
       return {
         id: pin.id,
-        label: pin.label,
+        label: pin.label ?? '',
         aliases: (pin.aliases ?? []).join(', '),
         note: text(pin.note),
         // composed pins carry their interface's signal; the tag table is
@@ -560,7 +561,7 @@ export function componentDraftOf(component: ComponentDefinition): ComponentDraft
     kind: component.kind,
     value: text(component.value),
     partNumber: text(component.partNumber),
-    src: component.src,
+    src: component.src ?? '',
     terminals: component.terminals.map((terminal) => {
       const terminalExtra = extrasOf(terminal, TERMINAL_FIELDS);
       return {
@@ -690,6 +691,8 @@ export interface WireDraft {
   bonded?: WireBondedSet[];
   /** the part's price (cs-5k1.17), edited in the stock form's Cost section */
   cost?: PartCost;
+  /** grams per metre (`mass.ts`), edited in the stock form's Mass section */
+  massPerLength?: RecordMassPerLength;
   /** the colour code on the record itself (vocab `colour-codes`), kept as read — no form control yet */
   colourCode?: string;
   lay?: {
@@ -881,8 +884,9 @@ export function wireFormOf(wire: WireDefinition): WireDraft | undefined {
     ...(wire.vendorDocs === undefined ? {} : { vendorDocs: wire.vendorDocs.map((doc) => ({ ...doc })) }),
     ...(wire.profile === undefined ? {} : { profile: { ...wire.profile } }),
     ...(wire.cost === undefined ? {} : { cost: structuredClone(wire.cost) }),
+    ...(wire.massPerLength === undefined ? {} : { massPerLength: { ...wire.massPerLength } }),
     odMm: mmField(wire.odMm),
-    src: wire.src,
+    src: wire.src ?? '',
     structureId: wire.structure.id,
     structureLabel: text(wire.structure.label),
     structureSrc: text(wire.structure.src),
@@ -999,6 +1003,7 @@ export function wireDefinitionOf(draft: WireDraft): WireDefinition {
     ...(numberOf(draft.odMm) === undefined ? {} : { odMm: numberOf(draft.odMm) as number }),
     ...(draft.profile === undefined ? {} : { profile: { ...draft.profile } }),
     ...(draft.cost === undefined ? {} : { cost: structuredClone(draft.cost) }),
+    ...(draft.massPerLength === undefined ? {} : { massPerLength: { ...draft.massPerLength } }),
     src: draft.src.trim(),
     ...(draft.lay === undefined
       ? {}
@@ -1010,7 +1015,7 @@ export function wireDefinitionOf(draft: WireDraft): WireDefinition {
             ring: draft.lay.ring.filter((member) => member.trim() !== ''),
             ...some({ center: draft.lay.center.trim() }),
             ...(draft.lay.inner === undefined || draft.lay.inner.length === 0 ? {} : { inner: [...draft.lay.inner] }),
-            src: draft.lay.src.trim(),
+            src: (draft.lay.src ?? '').trim(),
           },
         }),
     ...(draft.bonded === undefined
@@ -1221,11 +1226,11 @@ export function pcbaDraftOf(pcba: PcbaDefinition, tags?: SignalTags): PcbaDraft 
   return {
     id: pcba.id,
     label: pcba.label,
-    partNumber: pcba.partNumber,
-    revision: pcba.revision,
+    partNumber: pcba.partNumber ?? '',
+    revision: pcba.revision ?? '',
     build: text(pcba.build),
     kicadProject: text(pcba.kicadProject),
-    src: pcba.src,
+    src: pcba.src ?? '',
     terminals: pcba.terminals.map((terminal) => {
       const onRecord = terminal.role !== undefined || terminal.signal !== undefined;
       const tagged: PcbaTerminalTags = onRecord ? terminal : (table[terminal.id] ?? {});
@@ -1265,6 +1270,8 @@ export function blankPcbaDraft(): PcbaDraft {
     terminals: [blankPadRow()],
     integrated: [],
     links: [],
+    // a new board starts in development: released is a later, deliberate step
+    extra: { status: 'development' },
   };
 }
 
@@ -1497,7 +1504,7 @@ export function mechanicalDraftOf(part: MechanicalDefinition): MechanicalDraft {
     partNumber: text(part.partNumber),
     revision: text(part.revision),
     ...(part.termination === undefined ? {} : { termination: terminationDraftOf(part.termination) }),
-    src: part.src,
+    src: part.src ?? '',
     ...(extra === undefined ? {} : { extra }),
   };
 }
@@ -1565,7 +1572,7 @@ export function kitDraftOf(kit: KitDefinition): KitDraft {
     id: kit.id,
     label: kit.label,
     sku: kit.sku,
-    src: kit.src,
+    src: kit.src ?? '',
     lines: kit.contents.map((line) => {
       const lineExtra = extrasOf(line, KIT_LINE_FIELDS);
       return {

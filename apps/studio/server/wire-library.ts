@@ -20,7 +20,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dataPath } from '@wirehub/catalog';
 import {
   compileWire,
-  errors,
+  integrityIssues,
+  savedWithFindings,
   validateWireParts,
   WIRE_PART_KINDS,
   type CableDesign,
@@ -146,6 +147,12 @@ function ok(body: unknown, status = 200, headers?: Record<string, string>): ApiR
  * One version for the parts library and the recipes together: what `GET`
  * hands out and what a stock edit must quote back as `If-Match`.
  */
+/** What a save kept as findings, as a header; the body is unchanged. */
+function findingsHeader(found: readonly Issue[]): Record<string, string> {
+  const line = savedWithFindings(found);
+  return line === undefined ? {} : { 'X-WireHub-Findings': line };
+}
+
 async function libraryTag(store: WireLibraryStore): Promise<Record<string, string>> {
   return { ETag: contentETag(await store.read()) };
 }
@@ -168,20 +175,20 @@ async function postPart(store: WireLibraryStore, body: unknown): Promise<ApiResp
   }
   if (!isDefinitionId(part['id'])) return fail(400, `${JSON.stringify(String(part['id']))} cannot be used as a part id.`, ID_RULE);
   if (!filled(part['label'])) return fail(400, 'This part has no name.', 'Give it a label — what the picker will list it as.');
-  if (!filled(part['src'])) {
-    return fail(400, 'This part does not say where its values come from.', 'Cite the vendor sheet, a measurement, or say the values are inferred.');
-  }
+  // an uncited part is a `missing-src` finding (validateWireParts), not a refusal
+  if (part['src'] !== undefined && typeof part['src'] !== 'string') return fail(400, "This part's source is not text.", 'Cite the vendor sheet, or leave it empty for now.');
   const library = await store.read();
   if (library.parts.some((existing) => existing.id === part['id'])) {
     return fail(409, `The parts library already has '${String(part['id'])}'.`, 'Choose a different id.');
   }
   const next = [...library.parts, part as unknown as WirePart];
-  const problems = errors(validateWireParts(next)).filter((issue) => issue.where === `wire-parts/${String(part['id'])}`);
+  const own = validateWireParts(next).filter((issue) => issue.where === `wire-parts/${String(part['id'])}`);
+  const problems = integrityIssues(own);
   if (problems.length > 0) {
     return fail(422, 'That part could not be added.', 'Nothing was written.', problems);
   }
   await store.writeParts(next);
-  return ok(part, 201, await libraryTag(store));
+  return ok(part, 201, { ...(await libraryTag(store)), ...findingsHeader(own) });
 }
 
 async function everyDesign(deps: WireLibraryDeps): Promise<CableDesign[]> {
@@ -195,13 +202,13 @@ function issueKey(issue: Issue): string {
 async function putStock(deps: WireLibraryDeps, store: WireLibraryStore, id: string, body: unknown, ifMatch: string | undefined): Promise<ApiResponse> {
   if (!isDefinitionId(id)) return fail(400, `${JSON.stringify(id)} cannot be used as a wire stock id.`, ID_RULE);
   if (!isObject(body) || !isObject(body['recipe'])) return fail(400, 'That is not a stock recipe.', 'Send `{ recipe }`.');
-  const recipe = body['recipe'] as unknown as WireRecipe;
+  // an uncited draft stock is stored with an empty citation (a finding), never without the field
+  const recipe = (body['recipe']['src'] === undefined ? { ...body['recipe'], src: '' } : body['recipe']) as unknown as WireRecipe;
   const create = body['create'] === true;
   if (recipe.id !== id) return fail(400, `This save is for '${id}', but the recipe says '${String(recipe.id)}'.`, 'Save it under its own id.');
   if (!filled(recipe.label)) return fail(400, 'This stock has no name.', 'Give it a label — what a builder calls the reel.');
-  if (!filled(recipe.src)) {
-    return fail(400, 'This stock does not say where its information comes from.', 'Cite the vendor sheet or say it is inferred.');
-  }
+  // an uncited stock is a finding, not a refusal; the shape is what has to hold
+  if (recipe.src !== undefined && typeof recipe.src !== 'string') return fail(400, "This stock's source is not text.", 'Cite the vendor sheet, or leave it empty for now.');
   if (!Array.isArray(recipe.cores) || recipe.cores.length === 0) return fail(400, 'This stock has no cores.', 'Add at least one core.');
 
   const library = await store.read();
@@ -211,9 +218,10 @@ async function putStock(deps: WireLibraryDeps, store: WireLibraryStore, id: stri
     if (guard !== undefined) return guard;
   }
   const compiled = compileWire(recipe, library.parts);
-  const compileErrors = errors(compiled.issues);
+  // a core naming a part not in the library yet is a finding; two cores under one id cannot be stored
+  const compileErrors = integrityIssues(compiled.issues);
   if (compileErrors.length > 0) {
-    return fail(422, 'This stock does not compile from its parts.', 'Nothing was written.', compileErrors);
+    return fail(422, 'This stock cannot be stored as it stands.', 'Nothing was written.', compileErrors);
   }
 
   const db = await deps.loadDb();
@@ -229,14 +237,15 @@ async function putStock(deps: WireLibraryDeps, store: WireLibraryStore, id: stri
 
   const wires = exists ? db.wires.map((wire) => (wire.id === id ? compiled.wire : wire)) : [...db.wires, compiled.wire];
   const designs = await everyDesign(deps);
-  const introduced = errors(libraryIssues({ ...db, wires }, designs));
+  // only an ambiguous library refuses (`save-policy.ts`); what designs now find is theirs to show
+  const introduced = integrityIssues(libraryIssues({ ...db, wires }, designs));
   if (introduced.length > 0) {
-    const before = new Set(errors(libraryIssues(db, designs)).map(issueKey));
+    const before = new Set(integrityIssues(libraryIssues(db, designs)).map(issueKey));
     const blocking = introduced.filter((issue) => !before.has(issueKey(issue)));
     if (blocking.length > 0) {
       return fail(
         422,
-        blocking.length === 1 ? 'Saving this stock would break something.' : `Saving this stock would break ${blocking.length} things.`,
+        'Saving this stock would make the library ambiguous.',
         'Nothing was written — the catalog is untouched.',
         blocking,
       );

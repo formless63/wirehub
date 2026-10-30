@@ -128,7 +128,7 @@ internal link mentions it may go unanchored (its row is dropped, not the whole p
 
 A connector face whose used pins spread more across the face than down it is **turned** a
 quarter clockwise so its long axis runs down the page (as the built-in faces are), and its
-anchors are turned with it. A board that has a gerber-tier `board-top`, a `board-bottom`
+anchors are turned with it. A board that has a native-source (`kicad` or `gerber`) `board-top`, a matching-tier `board-bottom`
 mirroring it and readable vector art for both draws **both faces**, stacked.
 
 The depictions come from a `DepictionSource` (`meta(defId)`, `artwork(defId, view)`): the
@@ -212,3 +212,61 @@ Boards with the journey strip open the depiction upload and anchor editor throug
   anchored. After a successful write the preview redraws from the fresh manifest. The record's flags show `Art` for a definition with a
   depiction (`specs/library.md`).
 - A connector body's art is edited once and serves every pinout on the body.
+
+## 8. Shared board covers
+
+The board Library row and record header resolve the same persisted presentation choice through
+`GET /api/representations/pcbas/:id`. The working board's candidates come from its existing
+depiction manifest and assets: top, bottom, artwork/photo and schematic where available. Every
+candidate names the record, declared revision/build, exact artwork hash, native source hashes,
+source kind/citation, and frame/scale when declared. Artwork is served by content address.
+
+`PUT` at the same address takes `{ choice: { view, lineage } }`, or `{ choice: null }` for automatic,
+with the GET's `If-Match`. Choices live under `data/presentation/covers/pcbas/<id>.json`, through
+the ordinary document change set on files and PostgreSQL. These are shared presentation settings;
+choosing a cover does not modify pack-owned definitions, electrical facts, or physical geometry.
+The existing role/token and definition-lock gates apply. A dry run stages and discards normally.
+
+Automatic prefers board top, then bottom, then artwork and schematic. A choice survives output
+regeneration from the same declared native inputs and revision/build. Changed input hashes or
+revision/build mark it stale; missing bytes mark it unavailable. Both retain the original choice,
+show a useful automatic fallback when possible, and require an explicit choice to adopt changed
+inputs. Unversioned image uploads use their artwork hash as lineage. The working endpoint refuses
+historical `rev` requests; saved revisions keep using their frozen depiction sources.
+
+The physical cable editor and simplified document view continue to use the board's top/bottom
+artwork and mirrored terminal anchors regardless of cover choice. Both accept matching KiCad or
+Gerber tiers. Photos cannot replace geometry. Existing 3D/model views stay available separately.
+
+## 9. One resolver for boards, wire stock and designs
+
+The same endpoint serves `/api/representations/<kind>/<id>` for `pcbas`, `wires` and `designs`
+(locks: a definition's record, or the design's). Candidates per kind, automatic order first:
+
+- **Wire stock:** the layered cutaway (a preparation view, conductor → jacket) and the scaled
+  cross-section, drawn from the stock's construction by the document renderers (`drawCutaway`,
+  `renderCrossSection`).
+- **Designs:** the schematic and the drawing sheet, rendered by the documents route.
+- **Captures** (never picked automatically): a saved 3D camera (`camera`) — a board's attached
+  model, or a wire stock's construction view — and a design editor view (`saved-view`, the Build
+  canvas or the schematic, taken with "Use this view as cover" in the design editor).
+
+Server-rendered candidates are rasterised on demand when an `<img>` asks for
+`/api/representations/<kind>/<id>/images/<key>`; the key hashes record, view, source version and
+renderer version (`DERIVED_COVER_RENDERER`), so a list never renders and a stale image is never
+served. A design's key follows its saved version only: a library-only change shows after the
+design's next save. Their lineage is the record and view, so regenerating after an edit keeps
+the choice.
+
+`POST …/captures` (`If-Match` of the GET) stores `{ view, source, renderer, image (base64 PNG,
+JPEG or WebP ≤ 1.5 MB, type sniffed), camera?, editorView? }` and chooses it. `source` must equal
+the current `captureSources[view]` (the model link's asset, the stock's or design's version) and
+`renderer` the current `COVER_CAPTURE_RENDERERS` entry, else 409. Captures and their image bytes
+are presentation documents (`data/presentation/captures/…`, `…/cover-images/…`) through the
+same change set; replacing a capture removes its old image. A design capture is refused in the
+editor while there are unsaved edits.
+
+A capture's lineage is its record, view and (for 3D) camera. When its source or renderer changes
+it is **stale**: the choice is kept, lists show the automatic fallback with the reason, and the
+3D view offers **Refresh cover** (same camera, same lineage) while the design editor recaptures.
+Galleries and lists only show these static images; no list mounts a WebGL view.

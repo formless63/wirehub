@@ -42,12 +42,14 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useRouter } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Dialog } from 'radix-ui';
 import { Command } from 'cmdk';
 import {
   IconBook,
+  IconFolders,
+  IconNotes,
   IconCommand,
   IconCornerDownLeft,
   IconCpu,
@@ -63,12 +65,14 @@ import type { Db } from '@wirehub/model';
 import type { LibraryKind } from '@wirehub/editor-react';
 
 import type { CableListEntry } from '../cable-list.ts';
-import { matchedPartNumber, pnMatches } from '../pn-search.ts';
+import { matchedPartNumber, normalizePn, pnMatches } from '../pn-search.ts';
 import { cableListKey, loadCableList } from '../queries.ts';
 import { docsEntryLabel, loadDocsIndex, searchDocs, type DocsEntry } from '../docs-search.ts';
 import { useDocsBase } from '../hooks/useDocsBase.ts';
 import { cableRoute, libraryItemRoute } from '../router.tsx';
 import { useStudio } from '../studio-context.tsx';
+import { describeRef, matchesKnowledge, type NoteSummary, type ProjectSummary } from '../knowledge.ts';
+import { fetchKnowledgeIndex, knowledgeIndexKey } from '../knowledge.browser.ts';
 import { formatShortcut } from './shortcuts.ts';
 import { useCommandRegistry, useCommands, useRegisterCommands, type AppCommand } from './registry.tsx';
 
@@ -81,6 +85,8 @@ interface LibraryEntry {
   kind: LibraryKind;
   id: string;
   label: string;
+  /** its part number (a kit's SKU), shown as the row's meta and searched */
+  pn?: string;
 }
 
 type IconComponent = ComponentType<{ size?: number; className?: string }>;
@@ -103,15 +109,46 @@ const KIND_BADGE: Record<LibraryKind, string> = {
   kits: 'bg-board',
 };
 
+/** Where a note opens: the first item it links (a project, a design or a library record). */
+const LIBRARY_URL: Readonly<Record<string, string>> = { connectors: 'connectors', components: 'components', wires: 'wires', pcbas: 'boards', mechanicals: 'hardware', kits: 'kits', bodies: 'connectors', interfaces: 'connectors' };
+function notePath(note: NoteSummary): string | undefined {
+  for (const record of note.links) {
+    const ref = describeRef(record);
+    if (ref.type === 'project') return `/projects/${encodeURIComponent(ref.id)}`;
+    if (ref.type === 'design') return `/cables/${encodeURIComponent(ref.id)}`;
+    if (ref.type === 'firmware') return `/firmware/${encodeURIComponent(ref.id)}`;
+    if (ref.type === 'definition' && ref.kind !== undefined && LIBRARY_URL[ref.kind] !== undefined) return `/library/${LIBRARY_URL[ref.kind]}/${encodeURIComponent(ref.id)}`;
+  }
+  return undefined;
+}
+
 function libraryEntriesOf(db: Db): LibraryEntry[] {
   return [
-    ...db.connectors.map((d): LibraryEntry => ({ kind: 'connectors', id: d.id, label: d.label })),
-    ...db.components.map((d): LibraryEntry => ({ kind: 'components', id: d.id, label: d.label })),
-    ...db.wires.map((d): LibraryEntry => ({ kind: 'wires', id: d.id, label: d.label })),
-    ...db.pcbas.map((d): LibraryEntry => ({ kind: 'pcbas', id: d.id, label: d.label })),
-    ...(db.mechanicals ?? []).map((d): LibraryEntry => ({ kind: 'mechanicals', id: d.id, label: d.label })),
-    ...(db.kits ?? []).map((d): LibraryEntry => ({ kind: 'kits', id: d.id, label: `${d.label} (${d.sku})` })),
+    ...db.connectors.map((d): LibraryEntry => ({ kind: 'connectors', id: d.id, label: d.label, ...pnOf(d.partNumber) })),
+    ...db.components.map((d): LibraryEntry => ({ kind: 'components', id: d.id, label: d.label, ...pnOf(d.partNumber) })),
+    ...db.wires.map((d): LibraryEntry => ({ kind: 'wires', id: d.id, label: d.label, ...pnOf(d.partNumber) })),
+    ...db.pcbas.map((d): LibraryEntry => ({ kind: 'pcbas', id: d.id, label: d.label || 'Unnamed board', ...pnOf(d.partNumber === '' ? undefined : `${d.partNumber}${d.revision === '' ? '' : ` ${d.revision}`}`) })),
+    ...(db.mechanicals ?? []).map((d): LibraryEntry => ({ kind: 'mechanicals', id: d.id, label: d.label, ...pnOf(d.partNumber) })),
+    ...(db.kits ?? []).map((d): LibraryEntry => ({ kind: 'kits', id: d.id, label: d.label, ...pnOf(d.sku) })),
   ];
+}
+
+function pnOf(pn: string | undefined): { pn?: string } {
+  return pn === undefined || pn.trim() === '' ? {} : { pn: pn.trim() };
+}
+
+/**
+ * How well a row answers the query, best first: 0 its own PN, id or name exactly; 1 its own PN
+ * contains it; 2 anything else (a design found through a board or part it is built from).
+ */
+function rank(query: string, own: { id: string; label: string; pn?: string | undefined }): number {
+  const q = query.trim().toLowerCase();
+  if (q === '') return 2;
+  const pn = own.pn === undefined ? '' : normalizePn(own.pn.split(' ')[0] ?? '');
+  const nq = normalizePn(q);
+  if (own.id.toLowerCase() === q || own.label.toLowerCase() === q || (nq !== '' && pn === nq)) return 0;
+  if (nq !== '' && pn.includes(nq)) return 1;
+  return 2;
 }
 
 /** case-insensitive substring match over every field — see the file header for why this isn't a scored fuzzy algorithm */
@@ -135,6 +172,8 @@ function ResultRow(props: {
   badgeClass: string;
   label: string;
   meta?: string;
+  /** the record's id: on hover only */
+  title?: string;
   shortcut?: string;
 }): JSX.Element {
   const Icon = props.icon;
@@ -143,7 +182,7 @@ function ResultRow(props: {
       <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] ${props.badgeClass}`}>
         <Icon size={13} className="text-panel" />
       </span>
-      <span className="min-w-0 flex-1 truncate text-sm text-ink">{props.label}</span>
+      <span className="min-w-0 flex-1 truncate text-sm text-ink" {...(props.title === undefined ? {} : { title: props.title })}>{props.label}</span>
       {props.meta !== undefined && props.meta !== '' ? (
         <span className="shrink-0 whitespace-nowrap font-mono text-2xs text-faint">{props.meta}</span>
       ) : null}
@@ -173,6 +212,7 @@ export function CommandPalette(): JSX.Element {
   const registry = useCommandRegistry();
   const commands = useCommands();
   const navigate = useNavigate();
+  const router = useRouter();
   const docsBase = useDocsBase();
   const [docsIndex, setDocsIndex] = useState<readonly DocsEntry[]>([]);
 
@@ -219,13 +259,29 @@ export function CommandPalette(): JSX.Element {
           // a design by any part number it answers to — drawing, length, part
           (entry.partNumbers ?? []).some((pn) => pnMatches(commandQuery, pn)),
       )
+      .map((entry) => ({ entry, score: rank(commandQuery, { id: entry.id, label: entry.label, pn: entry.partNumber.pn }) }))
+      .sort((a, b) => a.score - b.score)
+      .map(({ entry }) => entry)
       .slice(0, MAX_ROWS_PER_GROUP);
   }, [cableEntries, isCommandMode, commandQuery]);
 
   const libraryResults = useMemo<LibraryEntry[]>(() => {
     if (isCommandMode) return [];
-    return libraryEntries.filter((entry) => matches([entry.label, entry.id], commandQuery)).slice(0, MAX_ROWS_PER_GROUP);
+    return libraryEntries
+      .filter((entry) => matches([entry.label, entry.id, entry.pn ?? ''], commandQuery) || (entry.pn !== undefined && pnMatches(commandQuery, entry.pn)))
+      .map((entry) => ({ entry, score: rank(commandQuery, entry) }))
+      .sort((a, b) => a.score - b.score)
+      .map(({ entry }) => entry)
+      .slice(0, MAX_ROWS_PER_GROUP);
   }, [libraryEntries, isCommandMode, commandQuery]);
+  // the group with the better best match comes first: a board's own PN beats the designs built on it
+  const libraryFirst = (libraryResults[0] === undefined ? 3 : rank(commandQuery, libraryResults[0])) <
+    (cableResults[0] === undefined ? 3 : rank(commandQuery, { id: cableResults[0].id, label: cableResults[0].label, pn: cableResults[0].partNumber.pn }));
+
+  // notes, decisions and projects (specs/knowledge.md): the same substring match over title, text and tags
+  const knowledge = useQuery({ queryKey: knowledgeIndexKey, queryFn: fetchKnowledgeIndex, enabled: open, retry: false });
+  const projectResults = useMemo<ProjectSummary[]>(() => (isCommandMode || commandQuery.length < 2 ? [] : (knowledge.data?.projects ?? []).filter((p) => matchesKnowledge(p, commandQuery)).slice(0, MAX_ROWS_PER_GROUP)), [knowledge.data, isCommandMode, commandQuery]);
+  const noteResults = useMemo<NoteSummary[]>(() => (isCommandMode || commandQuery.length < 2 ? [] : (knowledge.data?.notes ?? []).filter((n) => notePath(n) !== undefined && matchesKnowledge(n, commandQuery)).slice(0, MAX_ROWS_PER_GROUP)), [knowledge.data, isCommandMode, commandQuery]);
 
   const docsResults = useMemo<DocsEntry[]>(() => (isCommandMode || commandQuery.length < 2 ? [] : searchDocs(docsIndex, commandQuery)), [docsIndex, isCommandMode, commandQuery]);
 
@@ -239,6 +295,7 @@ export function CommandPalette(): JSX.Element {
   function close(): void {
     setOpen(false);
   }
+
 
   function openCablePath(id: string): string {
     return `/cables/${id}`;
@@ -268,6 +325,16 @@ export function CommandPalette(): JSX.Element {
       close();
       return;
     }
+    if (value.startsWith('project:') || value.startsWith('note:')) {
+      const id = value.slice(value.indexOf(':') + 1);
+      const path = value.startsWith('project:') ? `/projects/${encodeURIComponent(id)}` : notePath(knowledge.data?.notes.find((n) => n.id === id) ?? { links: [] } as unknown as NoteSummary);
+      if (path !== undefined) {
+        if (newTab) window.open(path, '_blank', 'noopener');
+        else router.history.push(path);
+      }
+      close();
+      return;
+    }
     if (value.startsWith('docs:')) {
       // the docs live on another site: always a new tab
       window.open(docsBase + value.slice('docs:'.length), '_blank', 'noopener');
@@ -284,6 +351,47 @@ export function CommandPalette(): JSX.Element {
     if (event.key === 'Enter') enterModRef.current = event.ctrlKey || event.metaKey;
   }
 
+  const designsGroup = cableResults.length > 0 ? (
+                <Command.Group heading={<GroupHeading>Designs</GroupHeading>}>
+                  {cableResults.map((entry) => (
+                    <Command.Item
+                      key={entry.id}
+                      value={`cable:${entry.id}`}
+                      onSelect={handleSelect}
+                      className={ITEM_CLASS}
+                    >
+                      <ResultRow
+                        icon={IconPlugConnected}
+                        badgeClass="bg-accent"
+                        label={entry.label}
+                        meta={matchedPartNumber(entry, commandQuery) ?? entry.partNumber.pn ?? ''}
+                        title={entry.label}
+                      />
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              ) : null;
+  const libraryGroup = libraryResults.length > 0 ? (
+                <Command.Group heading={<GroupHeading>Library</GroupHeading>}>
+                  {libraryResults.map((entry) => (
+                    <Command.Item
+                      key={`${entry.kind}:${entry.id}`}
+                      value={`lib:${entry.kind}:${entry.id}`}
+                      onSelect={handleSelect}
+                      className={ITEM_CLASS}
+                    >
+                      <ResultRow
+                        icon={KIND_ICON[entry.kind]}
+                        badgeClass={KIND_BADGE[entry.kind]}
+                        label={entry.label}
+                        meta={entry.pn ?? ''}
+                        title={entry.label}
+                      />
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              ) : null;
+
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Portal>
@@ -294,7 +402,7 @@ export function CommandPalette(): JSX.Element {
         >
           <Dialog.Title className="sr-only">Quick open</Dialog.Title>
           <Dialog.Description className="sr-only">
-            Search designs, library definitions, docs, and actions. Type &gt; for commands only.
+            Search designs, library definitions, projects, notes, docs, and actions. Type &gt; for commands only.
           </Dialog.Description>
           <Command shouldFilter={false} value={highlighted} onValueChange={setHighlighted} loop label="Quick open">
             <div className="flex h-[46px] items-center gap-2.5 border-b border-line px-3.5 text-faint">
@@ -313,43 +421,24 @@ export function CommandPalette(): JSX.Element {
                 Nothing found.
               </Command.Empty>
 
-              {cableResults.length > 0 ? (
-                <Command.Group heading={<GroupHeading>Designs</GroupHeading>}>
-                  {cableResults.map((entry) => (
-                    <Command.Item
-                      key={entry.id}
-                      value={`cable:${entry.id}`}
-                      onSelect={handleSelect}
-                      className={ITEM_CLASS}
-                    >
-                      <ResultRow
-                        icon={IconPlugConnected}
-                        badgeClass="bg-accent"
-                        label={entry.label}
-                        meta={((pn) => (pn === undefined ? entry.id : `${pn} · ${entry.id}`))(
-                          matchedPartNumber(entry, commandQuery),
-                        )}
-                      />
+              {libraryFirst ? libraryGroup : designsGroup}
+              {libraryFirst ? designsGroup : libraryGroup}
+
+              {projectResults.length > 0 ? (
+                <Command.Group heading={<GroupHeading>Projects</GroupHeading>}>
+                  {projectResults.map((p) => (
+                    <Command.Item key={p.id} value={`project:${p.id}`} onSelect={handleSelect} className={ITEM_CLASS}>
+                      <ResultRow icon={IconFolders} badgeClass="bg-accent" label={p.title} meta={`${p.items.length} items`} />
                     </Command.Item>
                   ))}
                 </Command.Group>
               ) : null}
 
-              {libraryResults.length > 0 ? (
-                <Command.Group heading={<GroupHeading>Library</GroupHeading>}>
-                  {libraryResults.map((entry) => (
-                    <Command.Item
-                      key={`${entry.kind}:${entry.id}`}
-                      value={`lib:${entry.kind}:${entry.id}`}
-                      onSelect={handleSelect}
-                      className={ITEM_CLASS}
-                    >
-                      <ResultRow
-                        icon={KIND_ICON[entry.kind]}
-                        badgeClass={KIND_BADGE[entry.kind]}
-                        label={entry.label}
-                        meta={entry.id}
-                      />
+              {noteResults.length > 0 ? (
+                <Command.Group heading={<GroupHeading>Notes</GroupHeading>}>
+                  {noteResults.map((n) => (
+                    <Command.Item key={n.id} value={`note:${n.id}`} onSelect={handleSelect} className={ITEM_CLASS}>
+                      <ResultRow icon={IconNotes} badgeClass="bg-info" label={n.title} meta={n.kind === 'decision' ? `decision · ${n.status ?? 'proposed'}` : n.text.slice(0, 40)} />
                     </Command.Item>
                   ))}
                 </Command.Group>

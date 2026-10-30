@@ -88,7 +88,7 @@ const hub = (): ReturnType<typeof createCatalog> => createCatalog(catalogWithPac
 
 describe('GET /api/packs', () => {
   it('lists what is installed and what this build bundles', async () => {
-    expect((await call('GET', '/api/packs')).body.packs).toEqual([{ id: 'demo', version: '1.0.0', license: 'CC0-1.0', records: 4, module: 'demo' }]);
+    expect((await call('GET', '/api/packs')).body.packs).toEqual([{ id: 'demo', name: 'Demo', version: '1.0.0', license: 'CC0-1.0', records: 4, module: 'demo' }]);
     bundle('1.1.0', v2);
     expect((await call('GET', '/api/packs')).body.packs[0]).toMatchObject({ id: 'demo', version: '1.0.0', available: '1.1.0' });
   });

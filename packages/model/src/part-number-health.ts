@@ -30,6 +30,12 @@ export interface PnHolder {
   identity: string;
   /** which field: `partNumber`, `sku`, `productRef` or the drawing's `partNumber` */
   field: 'partNumber' | 'sku' | 'productRef' | 'drawing';
+  /**
+   * A board's revision and build (`rev|build`, lower-cased). Boards are numbered per part,
+   * not per revision: two board records with one number and different revisions are one
+   * part's revisions, not a duplicate (`pnRevisionKey`).
+   */
+  revision?: string;
 }
 
 export interface PnDuplicate {
@@ -82,6 +88,20 @@ function canon(pn: string, scheme: PartNumberScheme): string {
 
 type Numbered = { id: string; label: string; partNumber?: string };
 
+/** The revision key a board holder carries: revision and build, trimmed and lower-cased. */
+export function pnRevisionKey(revision: string | undefined, build?: string): string {
+  return `${(revision ?? '').trim().toLowerCase()}|${(build ?? '').trim().toLowerCase()}`;
+}
+
+/**
+ * Whether two holders of one number name different things. Twins share an identity; two
+ * revisions (or builds) of one board share a number by design.
+ */
+function clash(a: PnHolder, b: PnHolder): boolean {
+  if (a.identity === b.identity) return false;
+  return !(a.revision !== undefined && b.revision !== undefined && a.revision !== b.revision);
+}
+
 /** Every number written anywhere in the catalog, the designs and their drawings. */
 export function partNumberHolders(
   db: Pick<Db, 'connectors' | 'wires' | 'components' | 'pcbas' | 'mechanicals' | 'bodies' | 'kits' | 'products'>,
@@ -106,7 +126,10 @@ export function partNumberHolders(
   }
   plain(db.wires, 'wires', 'wire');
   plain(db.components, 'components', 'component');
-  plain(db.pcbas, 'pcbas', 'pcba');
+  for (const r of db.pcbas) {
+    const text = clean(r.partNumber);
+    if (text !== undefined) out.push({ pn: text, canonical: canon(text, scheme), kind: 'pcba', id: r.id, label: r.label, where: `pcbas/${r.id}`, identity: `pcbas/${r.id}`, field: 'partNumber', revision: pnRevisionKey(r.revision, r.build) });
+  }
   for (const m of db.mechanicals ?? []) {
     const kind: PnKind = m.kind === 'shell' ? 'shell' : m.kind === 'fastener' ? 'fastener' : 'mechanical-other';
     add(m.partNumber, kind, m.id, m.label, `mechanicals/${m.id}`, `mechanicals/${m.id}`, 'partNumber');
@@ -124,13 +147,16 @@ export function partNumberHolders(
   return out;
 }
 
-/** Numbers written on two or more different things (twins and a design's own two copies do not count). */
+/**
+ * Numbers written on two or more different things (twins, a design's own two copies and
+ * a board's revisions do not count).
+ */
 export function duplicatesOf(holders: readonly PnHolder[]): PnDuplicate[] {
   const byNumber = new Map<string, PnHolder[]>();
   for (const h of holders) byNumber.set(h.canonical, [...(byNumber.get(h.canonical) ?? []), h]);
   const out: PnDuplicate[] = [];
   for (const [pn, list] of byNumber) {
-    if (new Set(list.map((h) => h.identity)).size > 1) out.push({ pn, holders: list });
+    if (list.some((a, i) => list.slice(i + 1).some((b) => clash(a, b)))) out.push({ pn, holders: list });
   }
   return out.sort((a, b) => (a.pn < b.pn ? -1 : a.pn > b.pn ? 1 : 0));
 }
@@ -141,22 +167,26 @@ export function duplicatesOf(holders: readonly PnHolder[]): PnDuplicate[] {
  */
 export function pnDuplicateIssues(db: Db, scheme: PartNumberScheme = DEFAULT_PART_NUMBER_SCHEME): Issue[] {
   return duplicatesOf(partNumberHolders(db, [], {}, scheme)).flatMap((dup) =>
-    dup.holders.map((h) => {
-      const others = dup.holders.filter((o) => o.identity !== h.identity).map((o) => o.where);
-      return {
+    dup.holders.flatMap((h) => {
+      const others = dup.holders.filter((o) => clash(h, o)).map((o) => o.where);
+      if (others.length === 0) return [];
+      return [{
         code: 'pn-duplicate',
         severity: 'warning' as const,
         message: `part number '${h.pn}' is also on ${others.join(', ')}`,
         where: h.where,
-      };
+      }];
     }),
   );
 }
 
-/** Which holders (other than `except`'s own identity) already carry `pn`. */
-export function holdersOfNumber(holders: readonly PnHolder[], pn: string, scheme: PartNumberScheme = DEFAULT_PART_NUMBER_SCHEME, exceptIdentity?: string): PnHolder[] {
+/**
+ * Which holders (other than `except`'s own identity) already carry `pn`. With `revision`
+ * (a board's `pnRevisionKey`), other revisions of a board are not counted as taking it.
+ */
+export function holdersOfNumber(holders: readonly PnHolder[], pn: string, scheme: PartNumberScheme = DEFAULT_PART_NUMBER_SCHEME, exceptIdentity?: string, revision?: string): PnHolder[] {
   const wanted = canon(pn, scheme);
-  return holders.filter((h) => h.canonical === wanted && h.identity !== exceptIdentity);
+  return holders.filter((h) => h.canonical === wanted && h.identity !== exceptIdentity && !(revision !== undefined && h.revision !== undefined && h.revision !== revision));
 }
 
 const NUMBERED_GROUPS: readonly { group: 'connectors' | 'wires' | 'components' | 'pcbas'; kind: PnKind }[] = [

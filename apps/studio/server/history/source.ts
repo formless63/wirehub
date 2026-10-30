@@ -12,7 +12,7 @@
  * - **none**: a file catalog outside git. Nothing is recorded; the panel says so.
  */
 
-import type { HistoryCapabilities, HistoryEntry, HistoryKind, Known, RecordDiff, Subject } from '../../src/history/types.ts';
+import type { CheckpointSummary, HistoryCapabilities, HistoryEntry, HistoryKind, HistoryTouch, Known, RecordDiff, Subject } from '../../src/history/types.ts';
 
 export interface HistoryQuery {
   /** a name or email, matched case-insensitively as a substring */
@@ -23,6 +23,8 @@ export interface HistoryQuery {
   kind?: HistoryKind;
   /** an entry id: answer the entries older than it */
   before?: string;
+  /** an API token id: only the change sets made with it (an agent checkpoint) */
+  token?: string;
   limit: number;
 }
 
@@ -33,6 +35,45 @@ export interface HistoryList {
 
 /** A subject's restorable parts right after an entry; `'current'`: unchanged since, read it from the stores. */
 export type SubjectState = Record<string, Known | 'current'>;
+
+/** A design's drawing photo at some point: by the hash its bytes are stored under, `'none'`, or why not. */
+export type PhotoState = { sha256: string; mime?: 'image/png' | 'image/jpeg'; bytes?: Uint8Array } | { unrestorable: string } | 'none' | undefined;
+
+/** One record an agent checkpoint changed (`CheckpointSource.of`). */
+export interface CheckpointRecord {
+  subject: Subject;
+  /** the restorable parts (and `photo`) the checkpoint's change sets changed */
+  parts: string[];
+  /** change sets by anyone else that changed those parts after the checkpoint began */
+  others: string[];
+  /** each changed part's state right before the checkpoint began; `'current'`: unchanged since */
+  before: SubjectState;
+  /** a design's drawing photo before the checkpoint, when the checkpoint changed it */
+  photo?: PhotoState;
+}
+
+/**
+ * A catalog document a checkpoint changed that its undo puts back besides records (what Explore keeps,
+ * `CHECKPOINT_DOCS`): its value before the checkpoint's first change and after its last. `undefined`: absent.
+ */
+export interface CheckpointDoc {
+  path: string;
+  before: unknown;
+  after: unknown;
+  /** false when a change set from before history kept bodies left the earlier value unrecorded */
+  recorded: boolean;
+}
+
+/** The documents an agent checkpoint's undo covers besides records: Explore's kept explorations and their picks. */
+export const CHECKPOINT_DOCS: readonly string[] = ['data/explore/saved.json'];
+
+/** Agent checkpoints (database only): an API token's change sets, grouped. */
+export interface CheckpointSource {
+  /** the tokens that made changes, the most recent first */
+  list(limit: number): Promise<CheckpointSummary[]>;
+  /** one token's checkpoint, from change set `from` on (default: its first); undefined: the token made none */
+  of(token: string, from?: string): Promise<{ summary: CheckpointSummary; from: string; entries: HistoryEntry[]; records: CheckpointRecord[]; others: HistoryTouch[]; docs?: CheckpointDoc[] } | undefined>;
+}
 
 export interface HistorySource {
   capabilities(): Promise<HistoryCapabilities>;
@@ -55,7 +96,9 @@ export interface HistorySource {
    * undefined: not recoverable (an older entry, a legacy per-design file, no
    * such entry). The bytes are read by hash (`WorkbenchDeps.blobByHash`).
    */
-  photoAt?(subject: Subject, id: string): Promise<{ sha256: string; mime?: 'image/png' | 'image/jpeg'; bytes?: Uint8Array } | { unrestorable: string } | 'none' | undefined>;
+  photoAt?(subject: Subject, id: string): Promise<PhotoState>;
+  /** agent checkpoints, where the history records which token made each change */
+  checkpoints?: CheckpointSource;
 }
 
 export const NO_HISTORY: HistoryCapabilities = {

@@ -22,13 +22,23 @@ export interface DocStore {
   remove(path: string): Awaitable<void>;
 }
 
-/** Binary files of the catalog that are not documents: a pack's art, `data/art/<name>.<image>`, and a code module's entries, `data/code/<module>/…`. Written only through a change set. */
+/**
+ * Binary files of the catalog that are not documents: a pack's art, `data/art/<name>.<image>`, a code module's
+ * entries, `data/code/<module>/…`, and a cover image captured in the browser,
+ * `data/presentation/cover-images/<kind>/<id>/<sha256>.<png|jpg|webp>` (`representations.ts`). Written only
+ * through a change set. On Postgres each is a `catalog_file` row naming a record blob, so the blob GC
+ * keeps it while the row lives and sweeps it once removed.
+ */
 export interface CatalogFileStore {
   write(path: string, bytes: Uint8Array): Awaitable<void>;
   remove(path: string): Awaitable<void>;
+  /** the bytes at `path`, or undefined; optional (a write-only store, such as an import tree) */
+  read?(path: string): Awaitable<Uint8Array | undefined>;
+  /** whether `path` holds a file, without reading it; optional like `read` */
+  has?(path: string): Awaitable<boolean>;
 }
 
-const FILE_PATH = /^(?:data\/art\/[A-Za-z0-9._/-]+\.(?:svg|png|jpe?g|webp)|data\/(?:docs|pack-assets)\/[A-Za-z0-9._/-]+\.pdf|data\/fonts\/[A-Za-z0-9._/-]+\.(?:ttf|otf|woff2))$/;
+const FILE_PATH = /^(?:data\/art\/[A-Za-z0-9._/-]+\.(?:svg|png|jpe?g|webp)|data\/(?:docs|pack-assets)\/[A-Za-z0-9._/-]+\.pdf|data\/fonts\/[A-Za-z0-9._/-]+\.(?:ttf|otf|woff2)|data\/presentation\/cover-images\/[a-z]+\/[a-z0-9][a-z0-9._-]*\/[0-9a-f]{64}\.(?:png|jpg|webp))$/;
 const CODE_PATH = /^data\/code\/[a-z0-9]+(?:-[a-z0-9]+)*\/(?:server\.mjs|browser\.mjs|browser\.css)$/;
 
 /** A path a catalog file may live at: `data/art/…` with an image name, a pack's vendor PDF (`data/docs/…`, `data/pack-assets/…`) or font (`data/fonts/…`), or a code module's entry `data/code/<module>/…`; no `..`, no dot-files. */
@@ -73,6 +83,36 @@ export function fileDocStore(root: string = dataPath('..')): DocStore {
       if (existsSync(file) && readFileSync(file, 'utf8') === text) return;
       mkdirSync(dirname(file), { recursive: true });
       writeFileAtomic(file, text, 'utf8');
+    },
+    remove(path) {
+      const file = full(path);
+      if (existsSync(file)) unlinkSync(file);
+      recordWrite(file);
+    },
+  };
+}
+
+/** The catalog directory's binary files (`isCatalogFilePath`), beside its documents: the file backend's `files`. */
+export function fileCatalogFileStore(root: string = dataPath('..')): CatalogFileStore {
+  const base = resolve(root);
+  const full = (path: string): string => {
+    if (!isCatalogFilePath(path)) throw new Error(`'${path}' is not a catalog file path`);
+    const out = resolve(join(base, path));
+    if (!out.startsWith(base + sep)) throw new Error(`'${path}' escapes the catalog`);
+    return out;
+  };
+  return {
+    read(path) {
+      if (!isCatalogFilePath(path)) return undefined;
+      const file = full(path);
+      return existsSync(file) ? new Uint8Array(readFileSync(file)) : undefined;
+    },
+    has: (path) => isCatalogFilePath(path) && existsSync(full(path)),
+    write(path, bytes) {
+      const file = full(path);
+      if (existsSync(file) && Buffer.from(readFileSync(file)).equals(Buffer.from(bytes))) return;
+      mkdirSync(dirname(file), { recursive: true });
+      writeFileAtomic(file, bytes);
     },
     remove(path) {
       const file = full(path);

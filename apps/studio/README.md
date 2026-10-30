@@ -36,11 +36,14 @@ docker compose up -d           # then open http://localhost:5183/setup
 docker compose logs wirehub    # the first-run setup code
 ```
 
-The image also carries the stack's one-shots (`stack/`): `bootstrap.ts`
-generates every secret into the `secrets` volume, `garage-init.ts` sets up
-Garage and has it create the S3 keys, `backup-init.ts` stages the backup
-scripts and configures Backrest; `migrate` runs `server/pg/cli.ts bootstrap`
-and `migrate`. The server reads any variable from a file as `NAME_FILE`
+The image also carries the stack's startup (`stack/`): `start.ts` runs inside
+the `wirehub` and `worker` services before the server and the worker —
+`bootstrap.ts` generates every secret into the `secrets` volume, `garage-init.ts`
+sets up Garage and has it create the S3 keys, then the database roles, the
+migrations (under an advisory lock) and the one-time file-catalog adoption
+(`docs/self-hosting.md`, "Startup"). The same scripts still run as the
+`init-services` profile's one-shots, and `backup-init.ts` (profile `backup`)
+stages the backup scripts and configures Backrest. The server reads any variable from a file as `NAME_FILE`
 (`server/env.ts`, applied by `server/boot-env.ts` before anything else).
 
 The catalog lives in the `catalog` volume (seeded from the image's starter
@@ -136,6 +139,9 @@ changes, opens each to a field-level diff, and restores an earlier state.
 | `GET /api/history/records/:subject` | one record's entries; a subject is named as its edit lock is: `design:<id>`, `definition:<kind>:<id>` (also `vocab:<list>`, `build:<name>`) |
 | `GET /api/history/entries/:id` | one entry: every record it changed, before and after; with `?subject=`, that record's parts and their current versions (`current`) |
 | `POST /api/history/records/:subject/restore` | `{ entry, current }`: the design (and its drawing details) or library record back to its state right after `entry` |
+| `GET /api/history/checkpoints` | agent checkpoints: each personal API token that made changes, with its change-set count and span (database only); `GET /api/history?token=` lists one token's change sets |
+| `GET /api/history/checkpoints/:token` | one checkpoint: its change sets, every design and library record it changed, what undoing each would do (`restore`, `remove` a record it created, `none`), why one cannot (`blocked`: changed by someone else since, earlier state not recorded) and their current versions |
+| `POST /api/history/checkpoints/:token/restore` | `{ from?, current }`: every record back to its state before the token's first change, as **one** new change set by the person who asks — through the design and definition routes (validation, role, edit locks), all or nothing; refused (409) while any record is blocked or a quoted version moved. Not draft work: a `drafts:write` grant cannot undo |
 
 Every answer carries `capabilities`: where the history comes from and what
 it can do. On the database backend it is the change sets (every save, its

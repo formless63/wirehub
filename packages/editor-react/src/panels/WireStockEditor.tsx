@@ -48,6 +48,7 @@ import {
 } from '../library.ts';
 import { distinctValues, useCatalogValues } from '../catalog-values.ts';
 import { CostFields } from './CostFields.tsx';
+import { MassPerLengthFields } from './MassFields.tsx';
 import { Choice, Field, FormSection, MmField, RowTools, SrcField } from './fields.tsx';
 import { PartNumberField } from './PartNumberField.tsx';
 import { Pick as VocabPick } from './Pick.tsx';
@@ -355,7 +356,7 @@ function ConductorFields(props: {
         say="Shown on the schematic beside the band."
         value={draft.label}
         onChange={(value) => set('label', value)}
-        placeholder="Video R centre conductor"
+        placeholder="Signal centre conductor"
         wide
       />
     </div>
@@ -538,7 +539,7 @@ function CoreBlock(props: {
           say="The words the key prints beside it."
           value={core.label}
           onChange={(value) => set('label', value)}
-          placeholder="Video R coax (red)"
+          placeholder="Signal coax (red)"
         />
         <Choice
           label="Built as"
@@ -636,25 +637,7 @@ export function WireStockEditor(props: WireStockEditorProps): JSX.Element {
               autoFocus
               wide
             />
-            <Field
-              label="Id"
-              say={
-                props.idLocked
-                  ? 'Fixed: every design that uses this stock refers to it by this id.'
-                  : 'Short name used in files and links. Lowercase words joined by hyphens.'
-              }
-              value={draft.id}
-              onChange={(value) =>
-                onChange({
-                  ...draft,
-                  id: value,
-                  // the root group is the stock itself; keep them together until
-                  // someone deliberately says otherwise
-                  ...(draft.structureId === draft.id ? { structureId: value } : {}),
-                })
-              }
-              placeholder="mini-coax"
-            />
+
             <PartNumberField
               say="What you would order the reel by."
               value={draft.partNumber}
@@ -697,6 +680,17 @@ export function WireStockEditor(props: WireStockEditorProps): JSX.Element {
             onChange={(cost) => {
               const { cost: _drop, ...rest } = draft;
               onChange({ ...rest, ...(cost === undefined ? {} : { cost }) });
+            }}
+          />
+        </FormSection>
+
+        <FormSection title="Mass" say="Optional. The BOM and mass.json weigh each cut length by it; a stock without one is listed, never counted as zero.">
+          <MassPerLengthFields
+            key={draft.id}
+            value={draft.massPerLength}
+            onChange={(massPerLength) => {
+              const { massPerLength: _drop, ...rest } = draft;
+              onChange({ ...rest, ...(massPerLength === undefined ? {} : { massPerLength }) });
             }}
           />
         </FormSection>
@@ -926,7 +920,7 @@ export function WireStockEditor(props: WireStockEditorProps): JSX.Element {
                 >
                   <span>Lay order source</span>
                   <input
-                    value={draft.lay.src}
+                    value={draft.lay.src ?? ''}
                     onChange={(event) => set('lay', { ...draft.lay!, src: event.target.value })}
                     placeholder="the sheet's cross-section — “Adhere to color order shown. CCW: White, Yellow, Red…”"
                   />

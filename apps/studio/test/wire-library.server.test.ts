@@ -44,11 +44,13 @@ describe('/api/wire-library', () => {
     expect((await call('PUT', '/api/wire-library/strip-practice', [])).status).toBe(405);
   });
 
-  it('adds a cited part and refuses an uncited or duplicate one', async () => {
+  it('adds a part, keeps an uncited one with a finding, and refuses a duplicate', async () => {
     const part: WirePart = { kind: 'conductor', id: 'c-test', label: 'Test', material: 'tinned copper', strands: 7, strandMm: 0.1, src: 'bench' };
     expect((await call('POST', '/api/wire-library/parts', { part })).status).toBe(201);
     expect((await store.read()).parts.some((p) => p.id === 'c-test')).toBe(true);
     expect((await call('POST', '/api/wire-library/parts', { part })).status).toBe(409);
-    expect((await call('POST', '/api/wire-library/parts', { part: { ...part, id: 'c-other', src: '' } })).status).toBe(400);
+    const uncited = await call('POST', '/api/wire-library/parts', { part: { ...part, id: 'c-other', src: '' } });
+    expect(uncited.status).toBe(201);
+    expect(uncited.headers?.['X-WireHub-Findings']).toContain('warning');
   });
 });

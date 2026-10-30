@@ -30,6 +30,8 @@ function isModulePath(path: string): boolean {
   return path.startsWith('/api/modules/');
 }
 import { isModelPath, MAX_MODEL_REQUEST_BYTES } from './models/api.ts';
+import { isKnowledgeUploadPath } from './knowledge.ts';
+import { isPrintUploadPath } from './print/files.ts';
 import { runtimeEnv } from './runtime-settings.ts';
 import { importUploadLimit, importUploadRefusal, isImportPath, startImportUpload } from './jobs/api.ts';
 import { parseModuleIoPath } from './module-io.ts';
@@ -206,7 +208,7 @@ async function handleJson(
   let text: string;
   try {
     // a model upload (50a.55) is a base64 file, bigger than any document
-    const limit = isModelPath(path) || isImportPath(path) ? MAX_MODEL_REQUEST_BYTES : MAX_JSON_BODY_BYTES;
+    const limit = isModelPath(path) || isImportPath(path) || isKnowledgeUploadPath(path) || isPrintUploadPath(path) ? MAX_MODEL_REQUEST_BYTES : MAX_JSON_BODY_BYTES;
     const read = await readLimited(request, limit);
     if (!read.ok) {
       const refusal = tooLargeRefusal(limit);
@@ -236,6 +238,9 @@ async function handleJson(
   }
   try {
     const ifMatch = request.headers.get('if-match');
+    const ifNoneMatch = request.headers.get('if-none-match');
+    // the lock tokens a route that writes several designs checks itself (`design-tags.ts`)
+    const lockHeader = request.headers.get(LOCK_HEADER);
     // the login gate (when mounted) recorded who this request is from
     const user = signedInUser(request);
     // edit locks: `/api/locks/*`, and the 423 for a
@@ -267,11 +272,13 @@ async function handleJson(
           path,
           ...(body === undefined ? {} : { body }),
           ...(user === undefined ? {} : { user }),
-          ...(ifMatch === null ? {} : { headers: { 'if-match': ifMatch } }),
+          ...(ifMatch === null && ifNoneMatch === null && lockHeader === null ? {} : { headers: { ...(ifMatch === null ? {} : { 'if-match': ifMatch }), ...(ifNoneMatch === null ? {} : { 'if-none-match': ifNoneMatch }), ...(lockHeader === null ? {} : { [LOCK_HEADER]: lockHeader }) } }),
         },
         deps,
       ),
     );
+    // a released render the caller already has (If-None-Match): no body
+    if (response.status === 304) return new Response(null, { status: 304, headers: { 'cache-control': 'no-store', ...(response.headers ?? {}) } });
     if (response.bytes !== undefined) {
       return new Response(Buffer.from(response.bytes), {
         status: response.status,
@@ -320,17 +327,10 @@ export function mountWorkbenchApi(
     // an importer's file as raw bytes (no base64, no JSON): always a job
     const io = parseModuleIoPath(path);
     if (io?.kind === 'import' && method === 'PUT') return handleImportUpload(io, c.req.raw, deps, backup);
-    // module routes, the history, the design library (`?designs=`) and the documents and exports
-    // (`?rev=`, `?format=`, `?explode=` …) take their options as a query string; a dry run is `?dryRun=1`
+    // every route gets its query string (`?designs=`, `?rev=`, `?dryRun=1`, `/api/jobs?kind=&limit=` …), as the
+    // dev server's middleware passes `req.url`: handlers read the options they know and ignore the rest
     const search = new URL(c.req.url).search;
-    const withQuery =
-      isModulePath(path) ||
-      path === '/api/history' ||
-      path.startsWith('/api/history/') ||
-      path === '/api/assemblies' ||
-      /^\/api\/designs\/[^/]+\/(documents|exports)\//.test(path) ||
-      new URLSearchParams(search).get('dryRun') === '1';
-    return handleJson(method, withQuery ? `${path}${search}` : path, c.req.raw, deps, backup);
+    return handleJson(method, `${path}${search}`, c.req.raw, deps, backup);
   };
   // what changed, as server-sent events (B6): ahead of compression, which would buffer the stream
   app.get('/api/events', (c) => {

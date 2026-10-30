@@ -114,7 +114,8 @@ describe('Save', () => {
   it('turns a refused design into sentences, and writes nothing', async () => {
     const adapter = host();
     const broken = structuredClone(REAL);
-    broken.instances.connectors.push({ id: 'j99', def: 'no-such-connector' });
+    // two parts under one id: the one kind of problem a save refuses
+    broken.instances.connectors.push({ id: REAL.instances.connectors[0]!.id, def: 'no-such-connector' });
 
     const result = await saveDesign(adapter, broken);
     expect(result.ok).toBe(false);
@@ -122,9 +123,9 @@ describe('Save', () => {
     expect(result.problem.message).toContain(REAL.id);
     expect(result.problem.hint).toContain('untouched');
     expect(result.problem.details.length).toBeGreaterThan(0);
-    expect(result.problem.details.join(' ')).toContain('no-such-connector');
+    expect(result.problem.details.join(' ')).toContain('duplicate instance id');
     // plain language only: no codes, no JSON
-    expect(result.problem.details.join(' ')).not.toContain('unknown-def');
+    expect(result.problem.details.join(' ')).not.toContain('duplicate-instance-id');
     expect(result.problem.details.join(' ')).not.toContain('{');
     expect(adapter.stored.get(REAL.id)).toEqual(REAL);
   });
@@ -159,15 +160,10 @@ describe('New', () => {
     expect(created?.joints).toEqual([]);
   });
 
-  it('insists on knowing where the information comes from', async () => {
+  it('creates a draft that does not say where its information comes from yet', async () => {
     const adapter = host();
     const result = await createDesign(adapter, { id: 'fresh-cable', label: 'Fresh', src: '  ' });
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.problem.message).toContain('where its information comes from');
-    expect(result.problem.hint).toBeDefined();
-    // refused before it ever reached the host
-    expect(adapter.calls).toEqual([]);
+    expect(result.ok).toBe(true);
   });
 
   it('refuses an unusable id without a round trip, and says what a usable one is', async () => {

@@ -48,6 +48,8 @@ export interface PersistenceAdapter {
    * not ceremony: it is what makes a stray or replayed call harmless.
    */
   remove(id: string, confirm: string): Promise<Outcome<{ id: string }>>;
+  /** the design's saved version numbers, when the host keeps versions (a design with any is retired, not deleted) */
+  savedVersions?(id: string): Promise<Outcome<number[]>>;
 }
 
 /* ------------------------------------------------------------------ *

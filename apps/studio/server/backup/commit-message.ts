@@ -15,7 +15,7 @@
  */
 
 import { parseSubject, subjectLabel } from '../../src/history/types.ts';
-import type { StudioUser } from '../me.ts';
+import { actorName, type StudioUser } from '../me.ts';
 
 export interface GitIdentity {
   name: string;
@@ -30,7 +30,8 @@ export const STUDIO_COMMITTER: GitIdentity = { name: 'WireHub', email: 'studio@l
 /** The signed-in person (Better Auth session) — else the fixed local identity. */
 export function commitAuthor(user: StudioUser | undefined): GitIdentity {
   if (user === undefined || user.source !== 'session' || user.email === undefined || user.email.trim() === '') return LOCAL_AUTHOR;
-  const name = user.name.trim() === '' ? user.email : user.name.trim();
+  const shown = actorName(user) ?? user.name;
+  const name = shown.trim() === '' ? user.email : shown.trim();
   return { name: oneLine(name), email: oneLine(user.email.trim()) };
 }
 
@@ -105,6 +106,23 @@ export function describeSave(request: SaveRequest): string {
     const subject = parseSubject(parts[1]);
     const entry = field(request.body, 'entry');
     return oneLine(`restore ${subject === undefined ? parts[1] : subjectLabel(subject)}${entry === undefined ? '' : ` to change ${entry.length === 40 ? entry.slice(0, 12) : entry}`}`);
+  }
+  // undoing an agent checkpoint: /api/history/checkpoints/<token>/restore
+  if (head === 'history' && parts[0] === 'checkpoints' && parts[1] !== undefined && parts[2] === 'restore') {
+    return oneLine(`undo the changes made with API token ${parts[1].slice(0, 8)}`);
+  }
+  // adopting a newer revision across designs: /api/adopt/<kind>/<id> { to, designs }
+  if (head === 'adopt' && method === 'POST') {
+    const designs = (request.body as { designs?: unknown } | undefined)?.designs;
+    const n = Array.isArray(designs) ? designs.length : 0;
+    return oneLine(`adopt ${field(request.body, 'to') ?? parts[1] ?? 'a newer revision'} in ${n} design${n === 1 ? '' : 's'}`);
+  }
+  // bulk tagging: /api/design-tags { designs, add, remove }
+  if (head === 'design-tags' && method === 'POST') {
+    const b = (request.body ?? {}) as { designs?: unknown; add?: unknown; remove?: unknown };
+    const n = Array.isArray(b.designs) ? b.designs.length : 0;
+    const words = (v: unknown, sign: string): string[] => (Array.isArray(v) ? v.filter((t): t is string => typeof t === 'string').map((t) => `${sign}${t}`) : []);
+    return oneLine(`tag ${n} design${n === 1 ? '' : 's'}: ${[...words(b.add, '+'), ...words(b.remove, '-')].join(', ')}`.slice(0, 200));
   }
   let kind = KINDS[head] ?? singular(head);
   let action = VERBS[method] ?? method.toLowerCase();

@@ -25,6 +25,7 @@ import type { ModuleRegistry } from '@wirehub/modules';
 import { allowedRailModules } from '../modules.browser.ts';
 import { CodeModulesSettings } from './CodeModulesSettings.tsx';
 import { StoreSourcesSettings } from './StoreSourcesSettings.tsx';
+import { ModuleSettings } from './ModuleSettings.tsx';
 
 /** a registry view that shows one module's panels, so a list groups them by module */
 function onlyModule(registry: ModuleRegistry, id: string): ModuleRegistry {
@@ -62,7 +63,7 @@ function BuiltinModules(): JSX.Element {
         return (
           <div key={m.id} className="border-b border-line pb-3" data-module={m.id}>
             <h3 className="m-0 text-sm font-medium">
-              {m.label} <span className="text-faint">{m.id} {m.version}{m.license === undefined ? '' : ` · ${m.license}`}</span>
+              {m.label} <span className="text-faint">{m.version}{m.license === undefined ? '' : ` · ${m.license}`}</span>
             </h3>
             {pages.length === 0 ? null : (
               <nav aria-label={`${m.label} pages`} className="my-1 flex flex-wrap gap-2" data-testid={`module-pages-${m.id}`}>
@@ -73,11 +74,7 @@ function BuiltinModules(): JSX.Element {
                 ))}
               </nav>
             )}
-            {panels.length === 0 ? null : (
-              <Link to="/settings" search={{ section: 'module-settings' }} className="text-xs underline">
-                Settings
-              </Link>
-            )}
+            <ModuleSettings only={m.id} quiet />
             {wantsRail ? (
               <div className="mt-1">
                 <Switch
@@ -93,6 +90,8 @@ function BuiltinModules(): JSX.Element {
           </div>
         );
       })}
+      {/* settings of modules that are not built in (a runtime code module) */}
+      <ModuleSettings except={registry.modules.map((m) => m.id)} quiet />
     </section>
   );
 }

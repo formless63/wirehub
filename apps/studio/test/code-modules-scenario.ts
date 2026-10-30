@@ -123,7 +123,7 @@ export async function codeModuleScenario(backend: CodeBackend): Promise<string[]
   const trustKey = store.publisherPublicKey;
   const consent = { code: 'example@0.1.0' };
 
-  expect((await call('nothing installed', 'GET', '/api/code-modules')).body).toMatchObject({ apiVersion: '1.6', allowed: { env: true, settings: true, effective: true }, modules: [] });
+  expect((await call('nothing installed', 'GET', '/api/code-modules')).body).toMatchObject({ apiVersion: '1.7', allowed: { env: true, settings: true, effective: true }, modules: [] });
 
   // refused, nothing written: unsigned, untrusted, the wrong key, an editor, an API this hub does not run
   const unsigned = await call('unsigned', 'POST', '/api/packs/install', { zip: b64(fixture.variant(() => {}, { sign: false })), trustKey });
@@ -143,7 +143,7 @@ export async function codeModuleScenario(backend: CodeBackend): Promise<string[]
   expect(future.body.error).toMatch(/module API 2\.0/);
   const newer = await call('api 1.9', 'POST', '/api/packs/install', { zip: b64(fixture.variant((_f, m) => (m.module.apiVersion = '1.9'))), trustKey });
   expect(newer.status).toBe(422);
-  expect(newer.body.error).toMatch(/newer than this hub's 1\.6/);
+  expect(newer.body.error).toMatch(/newer than this hub's 1\.7/);
   // a module that does more than it declared
   const sneaky = await call('undeclared point', 'POST', '/api/packs/install', { zip: b64(fixture.variant((_f, m) => (m.module.extensionPoints = m.module.extensionPoints.filter((p: string) => p !== 'routes')))), trustKey, apply: true, consent });
   expect(sneaky.status).toBe(409);
@@ -152,7 +152,7 @@ export async function codeModuleScenario(backend: CodeBackend): Promise<string[]
   // the preview: what the module may do, and the consent it needs
   const preview = await call('preview', 'POST', '/api/packs/install', { zip: b64(fixture.zip), trustKey });
   expect(preview.status, JSON.stringify(preview.body)).toBe(200);
-  expect(preview.body.code).toMatchObject({ module: { id: 'example', version: '0.1.0', apiVersion: '1.6' }, apply: 'live', consent: 'example@0.1.0', trust: { via: 'pinned', keys: [{ key: trustKey }] } });
+  expect(preview.body.code).toMatchObject({ module: { id: 'example', version: '0.1.0', apiVersion: '1.7' }, apply: 'live', consent: 'example@0.1.0', trust: { via: 'pinned', keys: [{ key: trustKey }] } });
   expect(preview.body.code.permissions).toEqual(['server-code', 'browser-code', 'routes', 'writes', 'jobs', 'sign-in']);
   expect(preview.body.code.warning).toMatch(/runs code in your hub/);
   const noConsent = await call('no consent', 'POST', '/api/packs/install', { zip: b64(fixture.zip), trustKey, apply: true });
@@ -187,9 +187,12 @@ export async function codeModuleScenario(backend: CodeBackend): Promise<string[]
   expect((await call('route', 'GET', '/api/modules/example/status')).body).toEqual({ module: 'example', ok: true });
   const design = await call('read design', 'GET', '/api/designs/de9-crossover');
   const etag = (design as { headers?: Record<string, string> }).headers?.['ETag'] ?? '';
-  const refused = await backend.send({ method: 'PUT', path: '/api/designs/de9-crossover', body: { ...design.body, label: 'TODO name this' }, headers: { 'if-match': etag }, user: OWNER });
-  expect(refused.status).toBe(422);
-  expect(JSON.stringify(refused.body)).toContain('example/todo-label');
+  // the rule's finding is saved with the draft (saving is not approval); then the draft goes back
+  const kept = await backend.send({ method: 'PUT', path: '/api/designs/de9-crossover', body: { ...design.body, label: 'TODO name this' }, headers: { 'if-match': etag }, user: OWNER });
+  expect(kept.status).toBe(200);
+  expect(JSON.stringify((await call('rule finding', 'GET', '/api/designs/de9-crossover/issues')).body)).toContain('example/todo-label');
+  const back = await backend.send({ method: 'PUT', path: '/api/designs/de9-crossover', body: design.body, headers: { 'if-match': (kept as { headers?: Record<string, string> }).headers?.['ETag'] ?? '' }, user: OWNER });
+  expect(back.status).toBe(200);
   const exported = await call('exporter', 'GET', '/api/modules/example/_export/joints-csv?design=de9-crossover');
   expect(exported.status).toBe(200);
   expect(text(exported.bytes)).toMatch(/^a,b,note\n/);

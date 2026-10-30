@@ -29,6 +29,8 @@ import {
   type Known,
   type RecordDiff,
   type Subject,
+  KNOWLEDGE_DOC,
+  knowledgeDocPath,
 } from '../../src/history/types.ts';
 import { LOCKABLE_DEFINITION_KINDS } from '../../src/locks/records.ts';
 import { execGit, type GitRunner } from '../backup/git.ts';
@@ -110,6 +112,8 @@ function touchOfPath(path: string, status: string): HistoryTouch {
   if (m !== null) return { subject: `vocab:${m[1]}`, label: `list ${m[1]}`, kind: 'vocab', op, part: 'record' };
   m = /^builds\/([^/]+)\.json$/.exec(path);
   if (m !== null) return { subject: `build:${m[1]}`, label: `build ${m[1]}`, kind: 'builds', op, part: 'record' };
+  m = KNOWLEDGE_DOC.exec(path);
+  if (m !== null) return { subject: `${m[1] === 'notes' ? 'note' : 'project'}:${m[2]}`, label: `${m[1] === 'notes' ? 'note' : 'project'} ${m[2]}`, kind: 'other', op, part: 'record' };
   if (['wire-parts.json', 'wire-recipes.json', 'models.json'].includes(path)) return { subject: `other:${path}`, label: otherLabel('catalog-file', path), kind: 'library', op };
   return { subject: `other:${path}`, label: otherLabel('catalog-file', path), kind: 'other', op };
 }
@@ -130,6 +134,9 @@ function subjectPaths(subject: Subject): { part: string; path: string; element?:
       return [{ part: 'record', path: `vocab/${subject.list}.json` }];
     case 'build':
       return [{ part: 'record', path: `builds/${subject.name}.json` }];
+    case 'note':
+    case 'project':
+      return [{ part: 'record', path: knowledgeDocPath(subject).slice('data/'.length) }];
   }
 }
 

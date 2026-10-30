@@ -120,7 +120,9 @@ export function landingWords(landing: Landing): { head: string; sub: string } {
       : el.kind === 'pigtail'
         ? el.mass
           ? 'one ground connection from the whole copper mass'
-          : 'braids trimmed ~80 %, twisted together'
+          : el.name === 'Drain'
+            ? 'the bare drain wire'
+            : 'braids trimmed ~80 %, twisted together'
         : 'braid, on its own';
   return { head, sub };
 }
@@ -469,9 +471,9 @@ export function stripFigure(end: SegmentEnd, cableSide: 'left' | 'right'): strin
       body.push(wirePath(d, { element: { kind: 'pigtail', id: group.pigtail, members: [], mass: row.mass !== undefined, name: '' } }));
       const braids = group.rows.filter((r) => r.element.kind !== 'drain').map((r) => r.element.name.replace(/ braid$/, ''));
       const drain = group.rows.some((r) => r.element.kind === 'drain');
-      const words = row.mass !== undefined ? `Shield mass (${row.mass} copper screens)` : `${braids.join(', ')} braid${braids.length === 1 ? '' : 's'}${drain ? ' + drain' : ''}`;
+      const words = row.mass !== undefined ? row.element.name : group.rows.length === 1 && drain ? 'Drain' : `${braids.join(', ')} braid${braids.length === 1 ? '' : 's'}${drain ? ' + drain' : ''}`;
       if (group.n !== undefined) body.push(marker(stubEnd, y, group.n, true, 1.9));
-      body.push(txt(labelX, y + 1, `${words} — twist`, 2.9, { anchor }));
+      body.push(txt(labelX, y + 1, words === 'Drain' ? words : `${words} — twist`, 2.9, { anchor }));
       return;
     }
     if (t.kind === 'through') {

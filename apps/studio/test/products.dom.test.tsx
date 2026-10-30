@@ -70,7 +70,7 @@ describe('products', () => {
     expect(create.getAttribute('data-variant')).toBe('primary');
     fireEvent.click(create);
     await vi.waitFor(() => expect(screen.getByRole('tab',{name:'Families'}).getAttribute('aria-selected')).toBe('true'));
-    expect(await screen.findByRole('textbox',{name:'Product record'})).toBeTruthy();
+    expect(await screen.findByRole('textbox',{name:'Product name'})).toBeTruthy();
   });
 
   it('offers an immediate creation action when the product catalog is empty', async () => {
@@ -81,7 +81,32 @@ describe('products', () => {
     mount('/products');
     const create = await screen.findByRole('button', { name: 'Create your first product' });
     fireEvent.click(create);
-    expect(await screen.findByRole('textbox', { name: 'Product record' })).toBeTruthy();
+    expect(await screen.findByRole('textbox', { name: 'Product name' })).toBeTruthy();
+  });
+
+  it('creates a family through fields without JSON or an internal key', async () => {
+    await serve(); mount('/products');
+    fireEvent.click(await screen.findByRole('button', { name: 'New product…' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Product name' }), { target: { value: 'Workshop family' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Source' }), { target: { value: 'Synthetic test' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
+    await screen.findByTestId('product-page');
+    const stored = (await handleWorkbenchRequest({ method: 'GET', path: '/api/products/workshop-family' }, deps)).body as { product: ProductFamily };
+    expect(stored.product).toMatchObject({ label: 'Workshop family', src: 'Synthetic test', variants: [] });
+  });
+
+  it('removes deleted option selections from variants when editing a family', async () => {
+    await serve(); mount('/products/dc-leads');
+    await screen.findByTestId('product-page');
+    fireEvent.click(screen.getByRole('button', { name: 'Edit product…' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove value' })[0]!);
+    expect(screen.getByRole('combobox', { name: 'Variant 1 Colour' }).textContent).toContain('Not specified');
+    fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
+    await vi.waitFor(async () => {
+      const stored = (await handleWorkbenchRequest({ method: 'GET', path: '/api/products/dc-leads' }, deps)).body as { product: ProductFamily };
+      expect(stored.product.options?.[0]?.values).toEqual([{ id: 'red', label: 'Red' }]);
+      expect(stored.product.variants[0]?.options).toEqual({});
+    });
   });
 
   it('lists the families and shows the lineup', async () => {
@@ -93,6 +118,7 @@ describe('products', () => {
     fireEvent.mouseDown(screen.getByRole('tab', { name: 'Lineup' }), { button: 0 });
     const lineup = await screen.findByTestId('lineup');
     expect(await within(lineup).findByText('CBL-00090-01')).toBeTruthy();
+    expect(await within(lineup).findByText('Colour: Black')).toBeTruthy();
   });
 
   it('shows membership in the list and header and searches aliases in Quick open', async () => {
@@ -128,6 +154,8 @@ describe('products', () => {
     mount('/products/dc-leads');
     const page = await screen.findByTestId('product-page');
     expect(page.textContent).toContain('CBL-00090-01');
+    expect(screen.getByRole('alert').textContent).toContain("variant 'Indicator lead'");
+    expect(screen.getByRole('alert').textContent).not.toContain('dc-led-lead');
     fireEvent.click(screen.getByRole('button', { name: 'Add a variant…' }));
     await pickOption('Variant design', 'JST XH 2-pin → flying leads, DC pigtail lead');
     fireEvent.change(screen.getByLabelText('Variant number'), { target: { value: 'CBL-00090-02' } });
@@ -135,8 +163,8 @@ describe('products', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
     await vi.waitFor(async () => {
       const stored = (await handleWorkbenchRequest({ method: 'GET', path: '/api/products/dc-leads' }, deps)).body as { product: ProductFamily };
-      expect(stored.product.variants.map((v) => [v.id, v.partNumber, v.options?.['colour']])).toEqual([
-        ['led', 'CBL-00090-01', 'black'],
+      expect(stored.product.variants.map((v) => [v.design, v.partNumber, v.options?.['colour']])).toEqual([
+        ['dc-led-lead', 'CBL-00090-01', 'black'],
         ['dc-pigtail-lead', 'CBL-00090-02', 'red'],
       ]);
     });

@@ -99,7 +99,7 @@ describe('installing a pack', () => {
     const components = JSON.parse(readFileSync(join(catalogDir, 'components.json'), 'utf8')) as { id: string }[];
     expect(components.at(-1)?.id).toBe('r-60');
     expect(readInstalledPacks(catalogDir).packs).toEqual([
-      { id: 'demo', version: '1.0.0', license: 'CC0-1.0', added: plan.added },
+      { id: 'demo', name: 'Demo', version: '1.0.0', license: 'CC0-1.0', added: plan.added },
     ]);
     const after = readFileSync(join(catalogDir, 'components.json'), 'utf8');
     expect(installPack(catalogDir, packDir).alreadyInstalled).toBe(true);

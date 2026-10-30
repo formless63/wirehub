@@ -5,7 +5,7 @@ exports[`dc-led-lead > the CSV exports match their snapshots > bom.csv 1`] = `
 Connectors,CON-00010,"JST XH 2-pin housing, DC (1 = +V)",1,ea,Destination end · LED module connector,j2,,2 pins · attaches: w1@b
 Connectors,CON-00011,"Terminal block, 4-way, 5.08 mm",1,ea,Source end · supply terminal block,j1,,4 pins · attaches: w1@a
 "Contacts, seals & plugs",MEC-00003,"Crimp socket contact, 2.5 mm pitch XH-series, 30–22 AWG, tin",2,ea,Destination end · LED module connector,j2:1 j2:2,,0.05–0.33 mm² (30–22 AWG) · in j2
-Wire,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",3,ft,wire run,w1,,Ø 3.5 mm
+Wire,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",3.28,ft,wire run,w1,,Ø 3.5 mm
 Shells & hardware,MEC-00002,"Heat-shrink sleeve 6 mm, 40 mm long",1,ea,unspecified,m1,,
 Discrete parts,CMP-00001,"Resistor 150 Ω, 0.25 W",1,ea,Source end,r1,,
 "
@@ -17,8 +17,8 @@ net-pin,net/net-2/j1.2,net-2,ground,j1.2,,on-net,,,,,
 net-pin,net/net-2/j2.2,net-2,ground,j2.2,,on-net,,,,,
 continuity,path/j1:1->j2:1,,,j1.1,j2.1,resistance,150,ohm,,,r1 (150 Ω)
 isolation,isolation/power vs ground/j2:1|j2:2,,,j2.1,j2.2,open,10,Mohm,100,1,power vs ground (b)
-open,open/j1:3,,,j1.3 (3),,open,,,,,"unused-pin: Terminal block, 4-way, 5.08 mm pin 3 carries no connection in this design."
-open,open/j1:4,,,j1.4 (4),,open,,,,,"unused-pin: Terminal block, 4-way, 5.08 mm pin 4 carries no connection in this design."
+open,open/j1:3,,,J1 pin 3,,open,,,,,"unused-pin: Terminal block, 4-way, 5.08 mm pin 3 carries no connection in this design."
+open,open/j1:4,,,J1 pin 4,,open,,,,,"unused-pin: Terminal block, 4-way, 5.08 mm pin 4 carries no connection in this design."
 "
 `;
 
@@ -127,13 +127,13 @@ exports[`dc-led-lead > the CSV exports match their snapshots > continuity.json 1
     {
       "id": "open/j1:3",
       "kind": "unused-pin",
-      "point": "j1.3 (3)",
+      "point": "J1 pin 3",
       "why": "Terminal block, 4-way, 5.08 mm pin 3 carries no connection in this design."
     },
     {
       "id": "open/j1:4",
       "kind": "unused-pin",
-      "point": "j1.4 (4)",
+      "point": "J1 pin 4",
       "why": "Terminal block, 4-way, 5.08 mm pin 4 carries no connection in this design."
     }
   ]
@@ -172,7 +172,7 @@ exports[`dc-pigtail-lead > the CSV exports match their snapshots > bom.csv 1`] =
 "section,part_number,description,quantity,unit,location,instances,variation_pn,notes
 Connectors,CON-00010,"JST XH 2-pin housing, DC (1 = +V)",1,ea,Source end · device connector,j1,,2 pins · attaches: w1@a
 "Contacts, seals & plugs",MEC-00003,"Crimp socket contact, 2.5 mm pitch XH-series, 30–22 AWG, tin",2,ea,Source end · device connector,j1:1 j1:2,,0.05–0.33 mm² (30–22 AWG) · in j1
-Wire,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",1,ft,wire run,w1,,Ø 3.5 mm
+Wire,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",0.98,ft,wire run,w1,,Ø 3.5 mm
 "
 `;
 
@@ -328,8 +328,8 @@ net-pin,net/net-2/j1.2,net-2,ground,j1.2,,on-net,,,,,
 net-pin,net/net-2/lead-1/j1.2,net-2,ground,lead-1/j1.2,,on-net,,,,,
 net-pin,net/net-2/lead-2/j1.2,net-2,ground,lead-2/j1.2,,on-net,,,,,
 isolation,isolation/power vs ground/lead-1/j1:1|lead-1/j1:2,,,lead-1/j1.1,lead-1/j1.2,open,10,Mohm,100,1,power vs ground (a)
-open,open/j1:3,,,j1.3 (3),,open,,,,,"unused-pin: Terminal block, 4-way, 5.08 mm pin 3 carries no connection in this design."
-open,open/j1:4,,,j1.4 (4),,open,,,,,"unused-pin: Terminal block, 4-way, 5.08 mm pin 4 carries no connection in this design."
+open,open/j1:3,,,J1 pin 3,,open,,,,,"unused-pin: Terminal block, 4-way, 5.08 mm pin 3 carries no connection in this design."
+open,open/j1:4,,,J1 pin 4,,open,,,,,"unused-pin: Terminal block, 4-way, 5.08 mm pin 4 carries no connection in this design."
 "
 `;
 
@@ -456,13 +456,13 @@ exports[`dc-y-from-leads > the CSV exports match their snapshots > continuity.js
     {
       "id": "open/j1:3",
       "kind": "unused-pin",
-      "point": "j1.3 (3)",
+      "point": "J1 pin 3",
       "why": "Terminal block, 4-way, 5.08 mm pin 3 carries no connection in this design."
     },
     {
       "id": "open/j1:4",
       "kind": "unused-pin",
-      "point": "j1.4 (4)",
+      "point": "J1 pin 4",
       "why": "Terminal block, 4-way, 5.08 mm pin 4 carries no connection in this design."
     }
   ]
@@ -497,9 +497,9 @@ Connectors,CON-00010,"JST XH 2-pin housing, DC (1 = +V)",1,ea,Destination end ·
 Connectors,CON-00011,"Terminal block, 4-way, 5.08 mm",1,ea,Source end · supply terminal block,j1,,4 pins · attaches: w1@a
 "Contacts, seals & plugs",MEC-00003,"Crimp socket contact, 2.5 mm pitch XH-series, 30–22 AWG, tin",2,ea,Destination end · channel 1 plug,j2:1 j2:2,,0.05–0.33 mm² (30–22 AWG) · in j2
 "Contacts, seals & plugs",MEC-00003,"Crimp socket contact, 2.5 mm pitch XH-series, 30–22 AWG, tin",2,ea,Destination end · channel 2 plug,j3:1 j3:2,,0.05–0.33 mm² (30–22 AWG) · in j3
-Wire,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",5,ft,stem,w1,,Ø 5 mm
-Wire,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",1,ft,channel 1 leg,w2,,Ø 3.5 mm
-Wire,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",1,ft,channel 2 leg,w3,,Ø 3.5 mm
+Wire,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",4.92,ft,stem,w1,,Ø 5 mm
+Wire,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",0.98,ft,channel 1 leg,w2,,Ø 3.5 mm
+Wire,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",0.98,ft,channel 2 leg,w3,,Ø 3.5 mm
 Shells & hardware,MEC-00001,Moulded Y splitter body,1,ea,unspecified,m1,,
 "
 `;
@@ -518,8 +518,8 @@ isolation,isolation/power vs ground/j2:1|j2:2,,,j2.1,j2.2,open,10,Mohm,100,1,pow
 isolation,isolation/power vs ground/j2:1|j3:2,,,j2.1,j3.2,open,10,Mohm,100,1,power vs ground (b)
 isolation,isolation/power vs ground/j2:2|j3:1,,,j2.2,j3.1,open,10,Mohm,100,1,power vs ground (b)
 isolation,isolation/power vs ground/j3:1|j3:2,,,j3.1,j3.2,open,10,Mohm,100,1,power vs ground (b)
-open,open/w1:drain@a,,,w1 drain @a (Drain),,open,,,,,unterminated: drain is not terminated at either end of w1: this design carries the conductor but does not use it. Design note 1 covers it.
-open,open/w1:drain@b,,,w1 drain @b (Drain),,open,,,,,unterminated: drain is not terminated at either end of w1: this design carries the conductor but does not use it.
+open,open/w1:drain@a,,,W1 drain (source end),,open,,,,,unterminated: Not terminated at either end: this design carries the conductor but does not use it. Design note 1 covers it.
+open,open/w1:drain@b,,,W1 drain (destination end),,open,,,,,unterminated: Not terminated at either end: this design carries the conductor but does not use it.
 "
 `;
 
@@ -689,14 +689,14 @@ exports[`dc-y-splitter > the CSV exports match their snapshots > continuity.json
     {
       "id": "open/w1:drain@a",
       "kind": "unterminated",
-      "point": "w1 drain @a (Drain)",
-      "why": "drain is not terminated at either end of w1: this design carries the conductor but does not use it. Design note 1 covers it."
+      "point": "W1 drain (source end)",
+      "why": "Not terminated at either end: this design carries the conductor but does not use it. Design note 1 covers it."
     },
     {
       "id": "open/w1:drain@b",
       "kind": "unterminated",
-      "point": "w1 drain @b (Drain)",
-      "why": "drain is not terminated at either end of w1: this design carries the conductor but does not use it."
+      "point": "W1 drain (destination end)",
+      "why": "Not terminated at either end: this design carries the conductor but does not use it."
     }
   ]
 }
@@ -775,12 +775,12 @@ net-pin,net/net-7/j2.4,net-7,other,j2.4,,on-net,,,,,
 net-pin,net/net-7/j2.6,net-7,other,j2.6,,on-net,,,,,
 net-pin,net/net-8/j2.7,net-8,other,j2.7,,on-net,,,,,
 net-pin,net/net-8/j2.8,net-8,other,j2.8,,on-net,,,,,
-open,open/w1:drain@b,,,w1 drain @b (Drain),,open,,,,,"cut-end: drain is terminated at the other end of w1 and deliberately open here — the house drain/shield policy, not a missed joint. Design note 1 covers it."
-open,open/w1:pair-2.b@a,,,w1 pair-2.b @a,,open,,,,,unterminated: pair-2.b is not terminated at either end of w1: this design carries the conductor but does not use it. Design note 2 covers it.
-open,open/w1:pair-2.b@b,,,w1 pair-2.b @b,,open,,,,,unterminated: pair-2.b is not terminated at either end of w1: this design carries the conductor but does not use it. Design note 2 covers it.
-open,open/j1:9,,,j1.9 (9),,open,,,,,"unused-pin: DE-9 female, pins by number pin 9 carries no connection in this design."
-open,open/j2:9,,,j2.9 (9),,open,,,,,"unused-pin: DE-9 female, pins by number pin 9 carries no connection in this design."
-open,open/j2:shell,,,j2.shell (Shell),,open,,,,,"unused-pin: DE-9 female, pins by number pin shell carries no connection in this design."
+open,open/w1:drain@b,,,W1 drain (destination end),,open,,,,,"cut-end: Terminated at the other end and deliberately open here — the house drain/shield policy, not a missed joint. Design note 1 covers it."
+open,open/w1:pair-2.b@a,,,W1 pair 2 · orange (source end),,open,,,,,unterminated: Not terminated at either end: this design carries the conductor but does not use it. Design note 2 covers it.
+open,open/w1:pair-2.b@b,,,W1 pair 2 · orange (destination end),,open,,,,,unterminated: Not terminated at either end: this design carries the conductor but does not use it. Design note 2 covers it.
+open,open/j1:9,,,J1 pin 9,,open,,,,,"unused-pin: DE-9 female, pins by number pin 9 carries no connection in this design."
+open,open/j2:9,,,J2 pin 9,,open,,,,,"unused-pin: DE-9 female, pins by number pin 9 carries no connection in this design."
+open,open/j2:shell,,,J2 shell,,open,,,,,"unused-pin: DE-9 female, pins by number pin shell carries no connection in this design."
 "
 `;
 
@@ -1044,37 +1044,37 @@ exports[`de9-crossover > the CSV exports match their snapshots > continuity.json
     {
       "id": "open/w1:drain@b",
       "kind": "cut-end",
-      "point": "w1 drain @b (Drain)",
-      "why": "drain is terminated at the other end of w1 and deliberately open here — the house drain/shield policy, not a missed joint. Design note 1 covers it."
+      "point": "W1 drain (destination end)",
+      "why": "Terminated at the other end and deliberately open here — the house drain/shield policy, not a missed joint. Design note 1 covers it."
     },
     {
       "id": "open/w1:pair-2.b@a",
       "kind": "unterminated",
-      "point": "w1 pair-2.b @a",
-      "why": "pair-2.b is not terminated at either end of w1: this design carries the conductor but does not use it. Design note 2 covers it."
+      "point": "W1 pair 2 · orange (source end)",
+      "why": "Not terminated at either end: this design carries the conductor but does not use it. Design note 2 covers it."
     },
     {
       "id": "open/w1:pair-2.b@b",
       "kind": "unterminated",
-      "point": "w1 pair-2.b @b",
-      "why": "pair-2.b is not terminated at either end of w1: this design carries the conductor but does not use it. Design note 2 covers it."
+      "point": "W1 pair 2 · orange (destination end)",
+      "why": "Not terminated at either end: this design carries the conductor but does not use it. Design note 2 covers it."
     },
     {
       "id": "open/j1:9",
       "kind": "unused-pin",
-      "point": "j1.9 (9)",
+      "point": "J1 pin 9",
       "why": "DE-9 female, pins by number pin 9 carries no connection in this design."
     },
     {
       "id": "open/j2:9",
       "kind": "unused-pin",
-      "point": "j2.9 (9)",
+      "point": "J2 pin 9",
       "why": "DE-9 female, pins by number pin 9 carries no connection in this design."
     },
     {
       "id": "open/j2:shell",
       "kind": "unused-pin",
-      "point": "j2.shell (Shell)",
+      "point": "J2 shell",
       "why": "DE-9 female, pins by number pin shell carries no connection in this design."
     }
   ]
@@ -1107,7 +1107,7 @@ w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pair-1.b,core,bl
 w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pair-2.a,core,white,j1.5,,j2.5,,1830,
 w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pair-2.b,core,orange,,,,,1830,
 w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",drain,drain,,,,,,1830,Drain
-w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pigtail:shield,pigtail,,j1.shell,,,,1830,Shield mass
+w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pigtail:shield,pigtail,,j1.shell,,,,1830,Drain
 "
 `;
 
@@ -1115,7 +1115,7 @@ exports[`de9-terminal-board > the CSV exports match their snapshots > bom.csv 1`
 "section,part_number,description,quantity,unit,location,instances,variation_pn,notes
 Boards,PCA-00001,"Terminal adapter board, one terminated pair (synthetic)",1,ea,Destination end,u1,,integrated: terminal-block-4
 Connectors,CON-00013,"DE-9 male, pins by number",1,ea,Source end · line connector,j1,,10 pins · attaches: w1@a
-Wire,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",3,ft,wire run,w1,,Ø 5 mm
+Wire,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",3.28,ft,wire run,w1,,Ø 5 mm
 Shells & hardware,SHL-00001,DE-9 metal backshell with strain relief,1,ea,Source end,m1,,attaches: j1
 "
 `;
@@ -1131,12 +1131,12 @@ net-pin,net/net-4/u1.tb.1,net-4,other,u1.tb.1,,on-net,,,,,
 net-pin,net/net-5/j1.shell,net-5,ground,j1.shell,,on-net,,,,,
 net-pin,net/net-5/u1.tb.4,net-5,ground,u1.tb.4,,on-net,,,,,
 continuity,path/j1:3->j1:8,,,j1.3,j1.8,resistance,120,ohm,,,R1 120 Ω
-open,open/w1:pair-2.b@b,,,w1 pair-2.b @b,,open,,,,,"cut-end: pair-2.b is terminated at the other end of w1 and deliberately open here — the house drain/shield policy, not a missed joint. Design note 1 covers it."
-open,open/j1:1,,,j1.1 (1),,open,,,,,"unused-pin: DE-9 male, pins by number pin 1 carries no connection in this design."
-open,open/j1:2,,,j1.2 (2),,open,,,,,"unused-pin: DE-9 male, pins by number pin 2 carries no connection in this design."
-open,open/j1:4,,,j1.4 (4),,open,,,,,"unused-pin: DE-9 male, pins by number pin 4 carries no connection in this design."
-open,open/j1:7,,,j1.7 (7),,open,,,,,"unused-pin: DE-9 male, pins by number pin 7 carries no connection in this design."
-open,open/j1:9,,,j1.9 (9),,open,,,,,"unused-pin: DE-9 male, pins by number pin 9 carries no connection in this design."
+open,open/w1:pair-2.b@b,,,W1 pair 2 · orange (destination end),,open,,,,,"cut-end: Terminated at the other end and deliberately open here — the house drain/shield policy, not a missed joint. Design note 1 covers it."
+open,open/j1:1,,,J1 pin 1,,open,,,,,"unused-pin: DE-9 male, pins by number pin 1 carries no connection in this design."
+open,open/j1:2,,,J1 pin 2,,open,,,,,"unused-pin: DE-9 male, pins by number pin 2 carries no connection in this design."
+open,open/j1:4,,,J1 pin 4,,open,,,,,"unused-pin: DE-9 male, pins by number pin 4 carries no connection in this design."
+open,open/j1:7,,,J1 pin 7,,open,,,,,"unused-pin: DE-9 male, pins by number pin 7 carries no connection in this design."
+open,open/j1:9,,,J1 pin 9,,open,,,,,"unused-pin: DE-9 male, pins by number pin 9 carries no connection in this design."
 "
 `;
 
@@ -1328,37 +1328,37 @@ exports[`de9-terminal-board > the CSV exports match their snapshots > continuity
     {
       "id": "open/w1:pair-2.b@b",
       "kind": "cut-end",
-      "point": "w1 pair-2.b @b",
-      "why": "pair-2.b is terminated at the other end of w1 and deliberately open here — the house drain/shield policy, not a missed joint. Design note 1 covers it."
+      "point": "W1 pair 2 · orange (destination end)",
+      "why": "Terminated at the other end and deliberately open here — the house drain/shield policy, not a missed joint. Design note 1 covers it."
     },
     {
       "id": "open/j1:1",
       "kind": "unused-pin",
-      "point": "j1.1 (1)",
+      "point": "J1 pin 1",
       "why": "DE-9 male, pins by number pin 1 carries no connection in this design."
     },
     {
       "id": "open/j1:2",
       "kind": "unused-pin",
-      "point": "j1.2 (2)",
+      "point": "J1 pin 2",
       "why": "DE-9 male, pins by number pin 2 carries no connection in this design."
     },
     {
       "id": "open/j1:4",
       "kind": "unused-pin",
-      "point": "j1.4 (4)",
+      "point": "J1 pin 4",
       "why": "DE-9 male, pins by number pin 4 carries no connection in this design."
     },
     {
       "id": "open/j1:7",
       "kind": "unused-pin",
-      "point": "j1.7 (7)",
+      "point": "J1 pin 7",
       "why": "DE-9 male, pins by number pin 7 carries no connection in this design."
     },
     {
       "id": "open/j1:9",
       "kind": "unused-pin",
-      "point": "j1.9 (9)",
+      "point": "J1 pin 9",
       "why": "DE-9 male, pins by number pin 9 carries no connection in this design."
     }
   ]
@@ -1391,7 +1391,7 @@ w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pair-1.b,core,bl
 w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pair-2.a,core,white,j1.5,,u1.GND,,1000,
 w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pair-2.b,core,orange,j1.6,,,,1000,
 w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",drain,drain,,,,,,1000,Drain
-w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pigtail:shield,pigtail,,j1.shell,,,,1000,Shield mass
-w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pigtail:shield,pigtail,,,,u1.SHLD,,1000,Shield mass
+w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pigtail:shield,pigtail,,j1.shell,,,,1000,Drain
+w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pigtail:shield,pigtail,,,,u1.SHLD,,1000,Drain
 "
 `;

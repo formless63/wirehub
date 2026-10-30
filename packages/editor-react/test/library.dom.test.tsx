@@ -288,9 +288,9 @@ describe('a record from an installed pack', () => {
 
   it('is read-only, says which pack it came from, and forks to a copy of your own', async () => {
     const inner = host();
-    const fork = vi.fn(async (kind: 'components', id: string, newId: string) => {
+    const fork = vi.fn(async (kind: 'components', id: string, newId: string, label?: string) => {
       const source = inner.stored.get(kind)?.find((record) => record.id === id) as { id: string };
-      const copy = { ...source, id: newId, derivedFrom: { pack: 'demo', id, version: '1.0.0' } };
+      const copy = { ...source, id: newId, label, derivedFrom: { pack: 'demo', id, version: '1.0.0' } };
       inner.stored.set(kind, [...(inner.stored.get(kind) ?? []), copy as never]);
       return { ok: true as const, value: copy as never };
     });
@@ -304,16 +304,19 @@ describe('a record from an installed pack', () => {
     };
     const selected: (string | undefined)[] = [];
     render(<Library db={db} definitions={adapter} kind="components" selectedId={target.id} onSelectId={(id) => selected.push(id)} />);
-    await screen.findByText(/From pack demo 1\.0\.0 — read-only/);
-    // the form is disabled
-    expect(document.querySelector('fieldset[disabled]')).not.toBeNull();
+    // the head says which pack (its version in the tooltip); the record shows facts only: no form, no Edit, no Save
+    const chip = await screen.findByText('demo · read-only');
+    expect(chip.getAttribute('title')).toContain('demo pack 1.0.0');
+    expect(document.querySelector('form')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
     fireEvent.click(await screen.findByRole('button', { name: 'Fork to edit' }));
-    const idField = await screen.findByLabelText('Id for your copy');
-    expect((idField as HTMLInputElement).value).toBe(`${target.id}-local`);
-    fireEvent.change(idField, { target: { value: `${target.id}-mine` } });
+    const idField = await screen.findByLabelText('Name for your copy');
+    expect((idField as HTMLInputElement).value).toBe(`${target.label} (copy)`);
+    fireEvent.change(idField, { target: { value: 'My resistor' } });
     fireEvent.click(screen.getByTestId('fork-dialog-ok'));
-    await waitFor(() => expect(fork).toHaveBeenCalledWith('components', target.id, `${target.id}-mine`));
-    await waitFor(() => expect(selected).toContain(`${target.id}-mine`));
+    await waitFor(() => expect(fork).toHaveBeenCalledWith('components', target.id, 'my-resistor', 'My resistor'));
+    await waitFor(() => expect(selected).toContain('my-resistor'));
   });
 });
 
@@ -327,8 +330,10 @@ it('a deleted part comes back when Undo is pressed', async () => {
   expect(id).toBeDefined();
   const undoable = vi.spyOn(notify, 'undoable').mockImplementation((() => 'toast') as never);
   render(<Library db={db} definitions={h} kind="components" selectedId={id!} />);
+  // Delete sits with Save once the record is open for editing
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Delete…' }));
-  fireEvent.click(await screen.findByRole('button', { name: `Delete ${id}` }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Delete' })); // the dialog names the part in its title; the button is plain
   await waitFor(() => expect(h.stored.get('components')!.some((r) => r.id === id)).toBe(false));
   await waitFor(() => expect(undoable).toHaveBeenCalled());
   expect(undoable.mock.calls[0]![0]).toMatch(/^Deleted /);

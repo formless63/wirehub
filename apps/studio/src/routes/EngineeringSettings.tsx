@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 
 import { engineeringKey, engineeringQuery, saveEngineering, type EngineeringView } from '../settings.browser.ts';
 import { useStudio } from '../studio-context.tsx';
-import { Button, Input } from '@wirehub/editor-react';
+import { Button, HelpTip, Input } from '@wirehub/editor-react';
 
 interface Draft {
   test: Record<string, string>;
@@ -116,7 +116,7 @@ export function EngineeringSettings(): JSX.Element {
   if (query.data === undefined) return <div className="mt-6 text-faint">{query.isError ? '' : 'Loading…'}</div>;
   return (
     <form
-      className="mt-8 flex max-w-xl flex-col gap-4 border-t border-line pt-4"
+      className="flex max-w-xl flex-col gap-5"
       data-testid="engineering-settings"
       onSubmit={(e) => {
         e.preventDefault();
@@ -124,11 +124,13 @@ export function EngineeringSettings(): JSX.Element {
       }}
     >
       <section className="flex flex-col gap-1.5">
-        <h2 className="text-sm font-semibold">Testing</h2>
-        <p className="text-faint">
-          Default continuity test parameters for every design; a design's own values still win. Empty keeps the built-in value
-          {fromEnv === undefined ? '' : '. A parameter the server sets wins and is read-only here'}.
-        </p>
+        <h3 className="settings-group-title">
+          Testing
+          <HelpTip label="About test defaults">
+            Default continuity test parameters for every design; a design's own values still win. Empty keeps the built-in value
+            {fromEnv === undefined ? '' : '. A parameter the server sets wins and is read-only here'}.
+          </HelpTip>
+        </h3>
         {TEST_PARAMETER_KEYS.map((k) =>
           input(
             `${TEST_PARAMETER_LABELS[k].label} (${TEST_PARAMETER_LABELS[k].unit})`,
@@ -141,8 +143,10 @@ export function EngineeringSettings(): JSX.Element {
       </section>
 
       <section className="flex flex-col gap-1.5">
-        <h2 className="text-sm font-semibold">Electrical rules</h2>
-        <p className="text-faint">Warnings on a design that declares currents: conductor gauge, contact rating, voltage drop. Nothing is checked where the current, area, length or rating is not declared.</p>
+        <h3 className="settings-group-title">
+          Electrical rules
+          <HelpTip label="About electrical rules">Warnings on a design that declares currents: conductor gauge, contact rating, voltage drop. Nothing is checked where the current, area, length or rating is not declared.</HelpTip>
+        </h3>
         <label className="flex items-center gap-2">
           <input type="checkbox" aria-label="Electrical rules on" checked={draft.rules.enabled} disabled={readOnly} onChange={(e) => setDraft({ ...draft, rules: { ...draft.rules, enabled: e.target.checked } })} />
           <span>Check electrical rules</span>
@@ -154,17 +158,22 @@ export function EngineeringSettings(): JSX.Element {
       </section>
 
       <section className="flex flex-col gap-1.5">
-        <h2 className="text-sm font-semibold">Costing</h2>
-        <p className="text-faint">
-          The currency prices are read in when a part's price names none, and the BOM total is printed in. The labour rate prices each design's labour minutes. A BOM shows cost only where parts are priced.
-        </p>
+        <h3 className="settings-group-title">
+          Costing
+          <HelpTip label="About costing">The currency prices are read in when a part's price names none, and the BOM total is printed in. The labour rate prices each design's labour minutes. A BOM shows cost only where parts are priced.</HelpTip>
+        </h3>
         {input('Currency (ISO code)', draft.costing.currency, (v) => setDraft({ ...draft, costing: { ...draft.costing, currency: v } }), 'USD')}
         {input('Labour rate (per hour)', draft.costing.labourRatePerHour, (v) => setDraft({ ...draft, costing: { ...draft.costing, labourRatePerHour: v } }), '')}
       </section>
 
-      <section className="flex flex-col gap-1.5">
-        <h2 className="text-sm font-semibold">Release approvals</h2>
-        <p className="text-faint">When on, a saved version is submitted for approval and approved or rejected with a comment; the approved version is the released one, and documents say who approved it.</p>
+      <details className="settings-subgroup" data-testid="release-approvals" open={draft.approvals.enabled}>
+        <summary>
+          <span>Release approvals (optional)</span>
+          <span className="text-2xs font-normal text-faint">{draft.approvals.enabled ? 'On' : 'Off'}</span>
+        </summary>
+        <div className="flex flex-col gap-1.5 pb-2">
+        {/* the (?) sits in the body: a button inside <summary> is a nested control */}
+        <span className="self-start"><HelpTip label="About release approvals">Off by default: versions are released without a review. When on, a saved version is submitted for approval and approved or rejected with a comment; the approved version is the released one, and documents say who approved it.</HelpTip></span>
         <label className="flex items-center gap-2">
           <input type="checkbox" aria-label="Approvals on" checked={draft.approvals.enabled} disabled={readOnly} onChange={(e) => setDraft({ ...draft, approvals: { ...draft.approvals, enabled: e.target.checked } })} />
           <span>Require approval for releases</span>
@@ -173,7 +182,8 @@ export function EngineeringSettings(): JSX.Element {
           <input type="checkbox" aria-label="Editors may approve" checked={draft.approvals.editors} disabled={readOnly || !draft.approvals.enabled} onChange={(e) => setDraft({ ...draft, approvals: { ...draft.approvals, editors: e.target.checked } })} />
           <span>Editors may approve (owners always can)</span>
         </label>
-      </section>
+        </div>
+      </details>
 
       <div>
         <Button type="submit" disabled={readOnly || busy} variant="primary">

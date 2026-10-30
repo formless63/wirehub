@@ -25,6 +25,7 @@ import {
   deriveCable,
   describeOverride,
   deviceLibraryIssues,
+  integrityIssues,
   inferCableRecipe,
   policyInForce,
   recipeDrift,
@@ -147,7 +148,8 @@ async function putList(deps: WorkbenchDeps, name: ListName, body: unknown, ifMat
   const ids = new Set(list.map((r) => (r as { id: string }).id));
   const fromPacks = ((db[key] ?? []) as { id: string }[]).filter((r) => owners.has(r.id) && !ids.has(r.id));
   const next: Db = { ...db, [key]: [...list, ...fromPacks] };
-  const errors = deviceLibraryIssues(next).filter((i) => i.severity === 'error');
+  // a port naming a pinout not in the library yet is a finding; only ambiguous ids refuse
+  const errors = integrityIssues(deviceLibraryIssues(next));
   if (errors.length > 0) return fail(422, `That ${name} list cannot be used: ${errors[0]!.message}${errors.length > 1 ? ` (and ${errors.length - 1} more)` : ''}.`, 'Nothing was saved.', { issues: errors });
   // where a pack was merged into the catalog, its records sit in this document: the ones the body does not mention stay
   const kept = local.filter((r) => owners.has(String(r['id'])) && !ids.has(String(r['id'])));

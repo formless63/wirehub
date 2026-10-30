@@ -82,6 +82,12 @@ export interface ImportedDepiction {
    * an existing depiction is kept.
    */
   replaces?: readonly string[];
+  /**
+   * Terminals an update renamed, old id → new (an importer's "update
+   * existing" mode): an existing depiction that is kept moves its anchors to
+   * the new ids, and drops the anchors of terminals the update removed.
+   */
+  renamed?: Record<string, string>;
 }
 
 export interface ImportResult {
@@ -168,6 +174,23 @@ export interface ContinuityData {
   isolation: { id: string; a: string; b: string; end: string; rule: string; netA?: string; netB?: string }[];
   /** deliberate opens */
   opens: { id: string; kind: string; point: string; why: string }[];
+  /**
+   * Through board nets (additive; present only when a placed board has native
+   * nets): what each probe pair reaches across a board's own nets, hop by hop,
+   * and what the trace could not claim. A `kind` of `active` is a declared
+   * passage through silicon: never copper.
+   */
+  boardTrace?: {
+    paths: {
+      id: string;
+      from: string;
+      to: string;
+      kind: 'copper' | 'passive' | 'active';
+      boards: string[];
+      hops: { kind: 'copper' | 'passive' | 'active' | 'unknown'; carrier: string; description: string }[];
+    }[];
+    findings: { kind: string; code: string; where: string; message: string }[];
+  };
 }
 
 export interface ExporterContribution {

@@ -137,7 +137,10 @@ describe('finding a design by part number', () => {
     const dialog = await openPalette();
     fireEvent.change(within(dialog).getByPlaceholderText('Search…'), { target: { value: 'PCA-00001' } });
     await waitFor(() => expect(within(dialog).getByText('DE-9 → terminal adapter board, terminated pair')).toBeDefined());
-    expect(within(dialog).getByText(`PCA-00001 · ${A}`)).toBeDefined();
+    // the design's row shows the PN that matched; its id only on hover
+    const row = within(dialog).getByText('DE-9 → terminal adapter board, terminated pair').closest<HTMLElement>('[cmdk-item]')!;
+    expect(within(row).getByText('PCA-00001')).toBeDefined();
+    expect(row.textContent).not.toContain(A);
     expect(within(dialog).queryByText('Terminal block → JST XH 2-pin, LED supply lead with series resistor')).toBeNull();
   });
 });

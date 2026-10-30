@@ -39,13 +39,17 @@ import { PartNumbersRoute } from './routes/PartNumbersRoute.tsx';
 import { HistoryRoute } from './routes/HistoryRoute.tsx';
 import { ResolverRoute } from './routes/ResolverRoute.tsx';
 import { ProductRoute, ProductsRoute } from './routes/ProductsRoute.tsx';
+import { FirmwareProjectRoute, FirmwareRoute, validateFirmwareSearch } from './routes/FirmwareRoute.tsx';
+import { ExploreRoute, validateExploreSearch } from './routes/ExploreRoute.tsx';
+import { ProjectRoute, ProjectsRoute } from './routes/ProjectsRoute.tsx';
+import { InventoryRoute } from './routes/InventoryRoute.tsx';
 import { setupNeeded } from './setup.browser.ts';
 import { setSetupMode } from './setup-mode.ts';
 // the Library page loads on first visit, not with the main chunk
 const LibraryRoute = lazyRouteComponent(() => import('./routes/LibraryRoute.tsx'), 'LibraryRoute');
 
 /** The workspace content a cable's URL can ask for; `build` is the default. */
-export type CableView = 'build' | 'schematic' | 'documents';
+export type CableView = 'build' | 'schematic' | 'documents' | 'device';
 
 export interface CableSearch {
   view: CableView;
@@ -55,16 +59,18 @@ export interface CableSearch {
   rev?: string;
   /** a design to place in this cable as a sub-assembly on arrival ("Place in…" in the cable list) */
   place?: string;
+  /** a generated enclosure (shell id) to offer in the device view (the shell record's "Use in design…") */
+  enclosure?: string;
 }
 
 function isCableView(value: unknown): value is CableView {
-  return value === 'build' || value === 'schematic' || value === 'documents';
+  return value === 'build' || value === 'schematic' || value === 'documents' || value === 'device';
 }
 
 /** `/cables`' sortable columns — see `CablesRoute.tsx`. */
-export type CableListSort = 'partNumber' | 'product' | 'source' | 'destination' | 'wire' | 'notes' | 'boards';
+export type CableListSort = 'partNumber' | 'product' | 'source' | 'destination' | 'wire' | 'notes' | 'tags' | 'boards';
 
-const CABLE_LIST_SORTS: readonly CableListSort[] = ['partNumber', 'product', 'source', 'destination', 'wire', 'notes', 'boards'];
+const CABLE_LIST_SORTS: readonly CableListSort[] = ['partNumber', 'product', 'source', 'destination', 'wire', 'notes', 'tags', 'boards'];
 
 function isCableListSort(value: unknown): value is CableListSort {
   return typeof value === 'string' && (CABLE_LIST_SORTS as readonly string[]).includes(value);
@@ -85,12 +91,28 @@ export interface CablesSearch {
   source?: string[];
   /** status chip (matches an entry's `status`: active / development / legacy) */
   status?: string[];
+  /** tags chip (matches any of an entry's design `tags`) */
+  tag?: string[];
+  /** project chip (project ids: the designs a chosen project lists as items) */
+  project?: string[];
+  /** route chip (`make` / `contract` / `buy`, or `none` for a design that does not say) */
+  route?: string[];
+  /** kind chip (`cable` / `subassembly`; absent `kind` is a cable) */
+  kind?: string[];
 }
 
 function stringArray(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) return undefined;
   const strings = value.filter((item): item is string => typeof item === 'string' && item !== '');
   return strings.length === 0 ? undefined : strings;
+}
+
+/** Like `stringArray`, and a single value too, so a hand-written link (`/cables?project=batch-7`) works. */
+function stringList(value: unknown): string[] | undefined {
+  if (typeof value === 'string' && value !== '') return [value];
+  if (typeof value === 'number' && Number.isFinite(value)) return [String(value)];
+  if (!Array.isArray(value)) return undefined;
+  return stringArray(value.map((item) => (typeof item === 'number' ? String(item) : item)));
 }
 
 export const rootRoute = createRootRoute({
@@ -129,6 +151,10 @@ export const cablesRoute = createRoute({
     ...(stringArray(search['board']) !== undefined ? { board: stringArray(search['board']) } : {}),
     ...(stringArray(search['source']) !== undefined ? { source: stringArray(search['source']) } : {}),
     ...(stringArray(search['status']) !== undefined ? { status: stringArray(search['status']) } : {}),
+    ...(stringList(search['tag']) !== undefined ? { tag: stringList(search['tag']) } : {}),
+    ...(stringList(search['project']) !== undefined ? { project: stringList(search['project']) } : {}),
+    ...(stringList(search['route']) !== undefined ? { route: stringList(search['route']) } : {}),
+    ...(stringList(search['kind']) !== undefined ? { kind: stringList(search['kind']) } : {}),
   }),
   component: CablesRoute,
 });
@@ -140,6 +166,7 @@ export const cableRoute = createRoute({
     view: isCableView(search['view']) ? search['view'] : 'build',
     ...(typeof search['sel'] === 'string' && search['sel'] !== '' ? { sel: search['sel'] } : {}),
     ...(typeof search['place'] === 'string' && /^[a-z0-9][a-z0-9-]*$/.test(search['place']) ? { place: search['place'] } : {}),
+    ...(typeof search['enclosure'] === 'string' && /^[a-z0-9][a-z0-9._-]*$/.test(search['enclosure']) ? { enclosure: search['enclosure'] } : {}),
     ...((typeof search['rev'] === 'string' && /^\d{1,6}$/.test(search['rev'])) || (typeof search['rev'] === 'number' && Number.isInteger(search['rev']) && search['rev'] >= 0)
       ? { rev: String(search['rev']) }
       : {}),
@@ -147,9 +174,13 @@ export const cableRoute = createRoute({
   component: CableRoute,
 });
 
-function librarySearch(search: Record<string, unknown>): { pack?: string } {
-  return typeof search['pack'] === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(search['pack'])
-    ? { pack: search['pack'] } : {};
+function librarySearch(search: Record<string, unknown>): { pack?: string; compare?: string } {
+  return {
+    ...(typeof search['pack'] === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(search['pack']) ? { pack: search['pack'] } : {}),
+    // `kinds/id@rev` or `kinds/id@design:rev`: open the record compared with that saved revision, or a
+    // saved design version's frozen copy (a version's "Changed since" link)
+    ...(typeof search['compare'] === 'string' && /^[a-z]+\/[a-z0-9][a-z0-9._-]*@([a-z0-9][a-z0-9._-]*:)?\d{1,6}$/.test(search['compare']) ? { compare: search['compare'] } : {}),
+  };
 }
 
 export const libraryIndexRoute = createRoute({
@@ -224,6 +255,7 @@ export const modulesRoute = createRoute({
 export const jobsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/jobs',
+  validateSearch: (search: Record<string, unknown>): { job?: string } => (typeof search['job'] === 'string' && /^[0-9a-f-]{36}$/.test(search['job']) ? { job: search['job'] } : {}),
   component: JobsRoute,
 });
 
@@ -255,6 +287,8 @@ export const partNumbersRoute = createRoute({
 export const historyRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/history',
+  // ?token=<API token id>: one agent checkpoint (that token's change sets, undone together)
+  validateSearch: (search: Record<string, unknown>): { token?: string } => (typeof search['token'] === 'string' && /^[0-9a-f-]{36}$/i.test(search['token']) ? { token: search['token'] } : {}),
   component: HistoryRoute,
 });
 
@@ -263,6 +297,14 @@ export const resolverRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/resolver',
   component: ResolverRoute,
+});
+
+/** `/explore`: solution exploration — combinations of library parts, valid/invalid/unknown, compared, one picked (docs/explore.md) */
+export const exploreRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/explore',
+  validateSearch: validateExploreSearch,
+  component: function ExplorePage() { return <ExploreRoute search={exploreRoute.useSearch()} />; },
 });
 
 /** `/products`: product families and the lineup (docs/products.md) */
@@ -277,6 +319,31 @@ export const productRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/products/$id',
   component: ProductRoute,
+});
+
+/** `/firmware`: firmware projects per board and board occurrence (docs/firmware.md) */
+export const firmwareRoute = createRoute({ getParentRoute: () => rootRoute, path: '/firmware', validateSearch: validateFirmwareSearch, component: FirmwareRoute });
+/** `/firmware/$id`: one project's source, configuration, occurrences and compiles */
+export const firmwareProjectRoute = createRoute({ getParentRoute: () => rootRoute, path: '/firmware/$id', validateSearch: validateFirmwareSearch, component: FirmwareProjectRoute });
+/** `/projects`: project collections — references to existing records, with notes and files (specs/knowledge.md) */
+export const projectsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/projects',
+  component: ProjectsRoute,
+});
+
+/** `/projects/$id`: one project's items, notes, decisions and files */
+export const projectRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/projects/$id',
+  component: ProjectRoute,
+});
+
+/** `/inventory`: locations, lots, reservations and the ledger (docs/inventory.md) */
+export const inventoryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/inventory',
+  component: InventoryRoute,
 });
 
 /** Session-gated account and people controls, with the same app navigation. */
@@ -326,8 +393,14 @@ const routeTree = rootRoute.addChildren([
   partNumbersRoute,
   historyRoute,
   resolverRoute,
+  exploreRoute,
   productsRoute,
   productRoute,
+  firmwareRoute,
+  firmwareProjectRoute,
+  projectsRoute,
+  projectRoute,
+  inventoryRoute,
   ...devRoutes,
 ]);
 

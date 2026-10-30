@@ -79,6 +79,15 @@ describe('duplicates', () => {
     expect(validateDb(copy).some((i) => i.code === 'connector-part-number-mismatch')).toBe(false);
   });
 
+  it('counts a board\'s revisions and builds as one part, but not two records of one revision', () => {
+    const copy = clone();
+    const board = copy.pcbas[0]!;
+    copy.pcbas = [board, { ...board, id: `${board.id}-next`, revision: `${board.revision}-next` }, { ...board, id: `${board.id}-other-build`, build: 'other build' }];
+    expect(validateDb(copy).filter((i) => i.code === 'pn-duplicate')).toEqual([]);
+    copy.pcbas.push({ ...board, id: `${board.id}-twin` });
+    expect(validateDb(copy).filter((i) => i.code === 'pn-duplicate').map((i) => i.where).sort()).toEqual([`pcbas/${board.id}`, `pcbas/${board.id}-twin`].sort());
+  });
+
   it('flags two designs sharing a number, and a design sharing a part number', () => {
     const [a, b] = designs;
     const report = partNumberReport(db, [{ ...a!, productRef: 'CBL-00001' }, { ...b!, productRef: 'CBL-00001' }], {});

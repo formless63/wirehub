@@ -187,7 +187,16 @@ export function treeWorkbenchDeps(tree: CatalogTree, options: { orgId: string; b
     tree.writeJson('data/assets/index.json', [...records, record].sort((a, b) => codePointCompare(a.id, b.id)));
     return record;
   };
-  const assets = { ...assetsRead, put: (bytes: Buffer, mime: AssetSummary['mime'], originalName: string, src: string) => putAsset(new Uint8Array(bytes), mime, originalName, src) };
+  const removeAssets = (ids: readonly string[]): string[] => {
+    const records = assetIndex();
+    const gone = records.filter((r) => ids.includes(r.id));
+    if (gone.length === 0) return [];
+    // the row goes with its entry; the blob becomes an orphan GC sweeps after a backup (pg/gc.ts)
+    tree.writeJson('data/assets/index.json', records.filter((r) => !ids.includes(r.id)));
+    for (const r of gone) tree.remove(`data/assets/${r.id}.${ASSET_MIME_EXT[r.mime]}`);
+    return gone.map((r) => r.id);
+  };
+  const assets = { ...assetsRead, put: (bytes: Buffer, mime: AssetSummary['mime'], originalName: string, src: string) => putAsset(new Uint8Array(bytes), mime, originalName, src), remove: removeAssets };
 
   const designPath = (id: string): string => `data/designs/${id}.json`;
   const drawing = (id: string): { meta: string; ref: string; legacy: string[] } => ({

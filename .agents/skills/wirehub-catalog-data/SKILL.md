@@ -26,6 +26,7 @@ the validators run. Write a record, then validate it (section 6).
 | design | `designs/<id>.json` | the `CableDesign` (SPEC.md), `src` |
 | bench rule | `bench-rules.json` (array) | `id`, `phase`, `src`, `when?`, `steps[]` (each with `text`, `src`); `docs/modules.md` |
 | validation rule | `validation-rules.json` (array) | `id`, `severity`, `each`, `require`, `message`, `src` (below) |
+| required process | `processes.json` (array) | `id` (kebab, ≤ 100), `label`, `src`; `description?`, `derive?` (`[{ each, where?, note? }]`, ≤ 10), `enabled?` (`docs/processes.md`) |
 | numbering scheme | `part-numbers.json` (one object) | the prefix config, or a declarative definition (below) |
 | device profile | `devices.json` | `id`, `label`, `ports[]` (each `id` and an `interface` or `pins`), `src` (below) |
 | conditioning recipe | `conditioning-recipes.json` | `id`, `label`, `conditioning`, `parts[]` (each a `placement`), `src` |
@@ -38,6 +39,10 @@ Any definition (and any design) may also say how it is sourced: `route` (`make`,
 bought-in one (`docs/products.md`); leave them out of a pack unless the pack is one shop's own data.
 Any definition may also carry an optional `cost` (`unit`, `currency`, `per`, `breaks[]`, `moq`; a price
 per piece, or per metre for a wire stock). Pack data does not need prices; see `docs/interop.md`.
+A connector, body, component, PCBA or mechanical may carry `mass: { g, src? }` and a wire stock
+`massPerLength: { gPerM, src? }`, in grams (per metre) only: convert a datasheet's oz, lb or lb/kft
+first, leave it out when no source states it (absent = unknown), and say where it came from in its `src`
+(`docs/mass.md`). The wrong field for the kind is a `record-mass` error.
 Many records at once can come from a CSV through the Library's **Bulk CSV…** (`modules/csv-library`: a
 `src` on every row, a template per kind, one change set on publish).
 

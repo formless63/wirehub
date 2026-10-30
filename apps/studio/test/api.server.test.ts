@@ -167,15 +167,24 @@ describe('PUT /api/designs/:id', () => {
     expect(store.files.get(REAL.id)).toBe(before);
   });
 
-  it('refuses a design with errors with 422, the issues, and writes nothing', async () => {
+  it('saves a design with design errors, and says so in a findings header', async () => {
+    const draft = structuredClone(REAL);
+    draft.instances.connectors.push({ id: 'j99', def: 'no-such-connector' });
+    const response = await call('PUT', `/api/designs/${REAL.id}`, draft);
+    expect(response.status).toBe(200);
+    expect(response.headers?.['X-WireHub-Findings']).toContain('problem');
+    expect((await store.read(REAL.id))?.instances.connectors.some((c) => c.id === 'j99')).toBe(true);
+  });
+
+  it('refuses a design that cannot be represented with 422, the issues, and writes nothing', async () => {
     const before = store.files.get(REAL.id);
     const broken = structuredClone(REAL);
-    broken.instances.connectors.push({ id: 'j99', def: 'no-such-connector' });
+    broken.instances.connectors.push({ ...broken.instances.connectors[0]! });
 
     const response = await call('PUT', `/api/designs/${REAL.id}`, broken);
     expect(response.status).toBe(422);
     const body = response.body as ApiError;
-    expect(body.issues?.some((issue) => issue.code === 'unknown-def')).toBe(true);
+    expect(body.issues?.some((issue) => issue.code === 'duplicate-instance-id')).toBe(true);
     expect(body.error).toContain(REAL.id);
     expect(body.hint).toContain('Nothing was written');
     expect(store.files.get(REAL.id)).toBe(before);
@@ -192,11 +201,11 @@ describe('PUT /api/designs/:id', () => {
     expect((await call('PUT', '/api/designs/not-yet-a-design', { ...BLANK, id: 'not-yet-a-design' })).status).toBe(404);
   });
 
-  it('names the missing provenance rather than writing a record without it', async () => {
+  it('saves a draft without provenance, with a missing-src finding', async () => {
     const { src: _dropped, ...noSrc } = structuredClone(BLANK);
     const response = await call('PUT', '/api/designs/test-blank', noSrc);
-    expect(response.status).toBe(400);
-    expect((response.body as ApiError).error).toContain('where its information comes from');
+    expect(response.status).toBe(200);
+    expect(response.headers?.['X-WireHub-Findings']).toContain('warning');
   });
 });
 
@@ -298,7 +307,7 @@ describe('POST /api/designs', () => {
 
   it('validates before it writes', async () => {
     const broken = { ...structuredClone(BLANK), id: 'broken-new' };
-    broken.instances.pcbas.push({ id: 'u1', def: 'no-such-board' });
+    broken.instances.pcbas.push({ id: 'u1', def: 'no-such-board' }, { id: 'u1', def: 'no-such-board' });
     expect((await call('POST', '/api/designs', broken)).status).toBe(422);
     expect(store.has('broken-new')).toBe(false);
   });

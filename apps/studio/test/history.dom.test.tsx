@@ -23,6 +23,13 @@ import { known, type HistoryEntry } from '../src/history/types.ts';
 import { HistoryRoute } from '../src/routes/HistoryRoute.tsx';
 import { memoryWriteBackend } from './storage-contract/writes.ts';
 
+// the page reads ?token= and navigates; render it without a router
+vi.mock('@tanstack/react-router', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tanstack/react-router')>()),
+  useSearch: () => ({}),
+  useNavigate: () => () => Promise.resolve(),
+}));
+
 // jsdom gives import.meta.url an http scheme: name the catalog by path
 const ROOT = join(process.cwd(), '..', '..', 'packages', 'catalog');
 const memory = (): WorkbenchDeps => memoryWriteBackend(undefined, ROOT).deps;
@@ -49,7 +56,7 @@ function stubSource(design: { label: string }): { source: HistorySource; queries
       capabilities: async () => DATABASE_HISTORY,
       list: async (query) => {
         queries.push(query);
-        return { entries: entries.filter((e) => query.person === undefined || e.by.name.toLowerCase().includes(query.person.toLowerCase())) };
+        return { entries: entries.filter((e) => query.person === undefined || e.by.name.toLowerCase().includes(query.person.toLowerCase()) || e.by.email === query.person) };
       },
       record: async () => ({ entries }),
       detail: async (id) => ({
@@ -119,12 +126,13 @@ describe('the History page', () => {
     serve(stub.source);
     render(<HistoryRoute />);
     await waitFor(() => expect(screen.getByTestId('history').querySelectorAll('[data-entry]').length).toBe(2));
-    fireEvent.change(screen.getByTestId('history-person'), { target: { value: 'ali' } });
+    // one Who list (people seen, and agents); filters apply at once
+    await pickOption('Who', 'Alice');
     await pickOption('Kind', 'Designs');
-    fireEvent.click(screen.getByRole('button', { name: 'Filter' }));
     await waitFor(() => expect(screen.getByTestId('history').querySelectorAll('[data-entry]').length).toBe(1));
-    expect(stub.queries[stub.queries.length - 1]).toMatchObject({ person: 'ali', kind: 'design' });
-    expect(within(screen.getByTestId('history')).getByText('Alice')).toBeDefined();
+    expect(stub.queries[stub.queries.length - 1]).toMatchObject({ person: 'alice@example.com', kind: 'design' });
+    // the entry left names Alice (the Who select above it shows her too)
+    expect(within(screen.getByTestId('history').querySelector<HTMLElement>('[data-entry]')!).getByText('Alice')).toBeDefined();
   });
 
   it('a hub without history says why', async () => {

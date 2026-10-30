@@ -18,6 +18,7 @@ import type { StudioBackup } from './backup/backup.ts';
 import { defaultWorkbenchDeps } from './default-deps.ts';
 import { defaultDepictionDeps, type DepictionDeps } from './depictions.ts';
 import { mountWorkbenchApi } from './hono-adapter.ts';
+import { mountMcp } from './mcp/mount.ts';
 import { mountStaticApp } from './static.ts';
 import type { inFlightCounter } from './system.ts';
 
@@ -74,6 +75,8 @@ export function createStandaloneApp(options: StandaloneAppOptions): Hono {
   // the login gate first, when there is one: its sign-in routes, then the
   // session check every other route (API and SPA alike) passes through
   if (options.auth !== undefined) mountAuth(app, options.auth, { spaAccountPages: true });
+  // external agents (docs/mcp.md): the MCP endpoint, whose tools call this same app as the caller
+  mountMcp(app, (request) => app.fetch(request));
   // the API first: nothing under `/api/` should ever fall through to the
   // static/SPA route below it
   const deps = options.deps ?? defaultWorkbenchDeps();

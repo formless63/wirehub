@@ -1,0 +1,8 @@
+{
+  "pack": "firmware-esphome",
+  "packVersion": "0.1.0",
+  "esphomeVersion": "2026.9.0",
+  "targets": [
+    { "id": "esphome", "label": "ESPHome YAML (ESP32 / ESP8266, Arduino)", "platform": "esphome@2026.9.0", "framework": "arduino", "board": "from YAML", "sourceKind": "esphome-yaml" }
+  ]
+}

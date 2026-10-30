@@ -82,7 +82,7 @@ export function PhoneDesignSummary({ design, db, id }: { design: CableDesign; db
         <h1 className="m-0 break-words text-base font-medium">{design.label}</h1>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-dim">
           {design.productRef === undefined ? null : <span className="font-mono">{design.productRef}</span>}
-          <span className="font-mono">{design.id}</span>
+
           <span>{design.status ?? 'active'}</span>
         </div>
         <p role="note" data-testid="phone-edit-note" className="m-0 mt-2 text-xs text-warn">

@@ -220,8 +220,11 @@ export function renderTokensPage(): string {
 <input id="tname" name="tname" maxlength="80" required placeholder="laptop scripts">
 <label><input type="checkbox" id="write"> may change the catalog (catalog:write)</label>
 <label><input type="checkbox" id="imports"> may write imported documents (imports)</label>
+<label><input type="checkbox" id="drafts"> draft work only, for an agent (drafts:write): creates and edits designs and library items; never deletes, releases or publishes</label>
+<label for="budget">Write budget (blank: none)</label>
+<input id="budget" name="budget" type="number" min="1" max="10000" placeholder="none">
 <label for="days">Expires after</label>
-<select id="days" name="days"><option>1</option><option selected>7</option><option>30</option><option>90</option></select>
+<select id="days" name="days"><option value="h1">1 hour</option><option value="h8">8 hours</option><option value="1">1 day</option><option value="7" selected>7 days</option><option value="30">30 days</option><option value="90">90 days</option></select>
 <button class="btn primary" type="submit">Create token</button>
 </form>
 <p class="msg ok" id="secret" style="word-break:break-all"></p>
@@ -234,9 +237,10 @@ export function renderTokensPage(): string {
     .replace(
       'var out=document.getElementById',
       `function api(m,b){return fetch('/api/account/tokens'+(m==='DELETE'?'/'+b:''),{method:m,headers:{'content-type':'application/json'},credentials:'same-origin',body:m==='POST'?JSON.stringify(b):undefined}).then(function(r){return r.json().then(function(j){return {ok:r.ok,body:j}})})}
-function load(){fetch('/api/account/tokens',{credentials:'same-origin'}).then(function(r){return r.json()}).then(function(j){var ul=document.getElementById('list');ul.textContent='';(j.tokens||[]).forEach(function(t){var li=document.createElement('li');li.textContent=t.name+' · cst_'+t.env+'_'+t.prefix+'… · '+t.scopes.join(' ')+' · expires '+t.expiresAt.slice(0,10)+(t.revokedAt?' · revoked':'')+(t.lastUsedAt?' · last used '+t.lastUsedAt.slice(0,16):'');if(!t.revokedAt){var b=document.createElement('button');b.className='btn';b.textContent='Revoke';b.onclick=function(){api('DELETE',t.id).then(load)};li.appendChild(b)}ul.appendChild(li)})})}
+function ld(s){var d=new Date(s);if(isNaN(d))return s;function p(n){return (n<10?'0':'')+n}return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())}
+function load(){fetch('/api/account/tokens',{credentials:'same-origin'}).then(function(r){return r.json()}).then(function(j){var ul=document.getElementById('list');ul.textContent='';(j.tokens||[]).forEach(function(t){var li=document.createElement('li');li.textContent=t.name+' · cst_'+t.env+'_'+t.prefix+'… · '+t.scopes.join(' ')+(t.writeBudget?' · '+t.writesUsed+'/'+t.writeBudget+' writes':'')+' · expires '+ld(t.expiresAt)+(t.revokedAt?' · revoked':'')+(t.lastUsedAt?' · last used '+ld(t.lastUsedAt):'');if(!t.revokedAt){var b=document.createElement('button');b.className='btn';b.textContent='Revoke';b.onclick=function(){api('DELETE',t.id).then(load)};li.appendChild(b)}ul.appendChild(li)})})}
 var cr=document.getElementById('create');
-if(cr){load();cr.addEventListener('submit',function(e){e.preventDefault();var scopes=['read'];if(document.getElementById('write').checked)scopes.push('catalog:write');if(document.getElementById('imports').checked)scopes.push('imports');api('POST',{name:cr.tname.value,scopes:scopes,days:Number(cr.days.value)}).then(function(r){if(r.ok){document.getElementById('secret').textContent='Copy it now — it is not shown again: '+r.body.secret;load()}else{say(r.body.error||'Could not create the token.','err')}})})}
+if(cr){load();cr.addEventListener('submit',function(e){e.preventDefault();var scopes=['read'];if(document.getElementById('write').checked)scopes.push('catalog:write');if(document.getElementById('imports').checked)scopes.push('imports');if(document.getElementById('drafts').checked)scopes.push('drafts:write');var d=cr.days.value,req={name:cr.tname.value,scopes:scopes,days:d.charAt(0)==='h'?1:Number(d)};if(d.charAt(0)==='h')req.hours=Number(d.slice(1));if(cr.budget.value!=='')req.writeBudget=Number(cr.budget.value);api('POST',req).then(function(r){if(r.ok){document.getElementById('secret').textContent='Copy it now — it is not shown again: '+r.body.secret;load()}else{say(r.body.error||'Could not create the token.','err')}})})}
 var out=document.getElementById`,
     );
 }

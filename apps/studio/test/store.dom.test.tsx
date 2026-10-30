@@ -84,7 +84,7 @@ describe('Browse store', () => {
     deps = { ...deps, localUser: { name: 'Vera', source: 'session', role: 'viewer' } };
     render(<StoreBrowser />);
     await waitFor(() => expect(row('alpha')).not.toBeNull());
-    expect(screen.getByTestId('store-disclaimer').textContent).toMatch(/published by their authors, who are responsible for their content and licensing/);
+    expect(screen.getByTestId('store-disclaimer').getAttribute('title')).toMatch(/published by their authors, who are responsible for their content and licensing/);
     expect(row('alpha')?.textContent).toContain('licence: CC-BY-4.0');
     expect(row('alpha')?.textContent).toContain('test-domain');
     expect(screen.queryByRole('button', { name: 'Install…' })).toBeNull();
@@ -115,7 +115,7 @@ describe('Browse store', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Install…' }));
     expect((await screen.findByTestId('store-pending')).textContent).not.toContain('Alpha module');
     fireEvent.click(screen.getByRole('button', { name: 'Install' }));
-    await waitFor(() => expect(toasts.map((t) => t.title)).toContain('Installed alpha 1.0.0.'));
+    await waitFor(() => expect(toasts.map((t) => t.title)).toContain('Installed Store alpha 1.0.0.'));
     expect(within(row('alpha')!).queryByRole('link', { name: 'View contents' })).toBeNull();
   });
 
@@ -142,11 +142,11 @@ describe('Browse store', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Install…' })).not.toBeNull());
     fireEvent.click(screen.getByRole('button', { name: 'Install…' }));
     const pending = await screen.findByTestId('store-pending');
-    expect(pending.textContent).toContain('Install alpha 1.0.0');
-    expect(await showAllRecords()).toMatch(/Added Components: .*alpha-r/);
+    expect(pending.textContent).toContain('Install Store alpha 1.0.0');
+    expect(await showAllRecords()).toMatch(/Added Components: 10 resistor/);
     expect(readInstalledPacks(packs).packs).toEqual([]);
     fireEvent.click(screen.getByRole('button', { name: 'Install' }));
-    await waitFor(() => expect(toasts.map((t) => t.title)).toContain('Installed alpha 1.0.0.'));
+    await waitFor(() => expect(toasts.map((t) => t.title)).toContain('Installed Store alpha 1.0.0.'));
     expect(readInstalledPacks(packs).packs[0]).toMatchObject({ id: 'alpha', version: '1.0.0' });
     await waitFor(() => expect(within(row('alpha')!).getByRole('link', { name: 'View contents' }).getAttribute('href')).toBe('/library/connectors?pack=alpha'));
     await waitFor(() => expect(row('alpha')?.textContent).toContain('installed 1.0.0'));
@@ -156,9 +156,9 @@ describe('Browse store', () => {
     render(<StoreBrowser />);
     const update = await screen.findByRole('button', { name: 'Update to 1.1.0…' });
     fireEvent.click(update);
-    expect(await showAllRecords()).toMatch(/Added Components: .*alpha-r2/);
+    expect(await showAllRecords()).toMatch(/Added Components: 2 resistor/);
     fireEvent.click(screen.getByRole('button', { name: 'Update' }));
-    await waitFor(() => expect(toasts.map((t) => t.title)).toContain('Updated alpha 1.1.0.'));
+    await waitFor(() => expect(toasts.map((t) => t.title)).toContain('Updated Store alpha 1.1.0.'));
     expect(readInstalledPacks(packs).packs[0]?.version).toBe('1.1.0');
   });
 
@@ -194,7 +194,7 @@ describe('Browse store', () => {
     expect(pending.textContent).toMatch(/This version was yanked: wrong value/);
     expect(pending.textContent).toMatch(/Signature of publisher tester verified/);
     fireEvent.click(screen.getByRole('button', { name: 'Install' }));
-    await waitFor(() => expect(toasts.map((t) => t.title)).toContain('Installed alpha 1.1.0.'));
+    await waitFor(() => expect(toasts.map((t) => t.title)).toContain('Installed Store alpha 1.1.0.'));
     expect(readInstalledPacks(packs).packs[0]).toMatchObject({ version: '1.1.0', origin: { publisher: 'tester' } });
     await waitFor(() => expect(screen.getAllByRole('alert').map((a) => a.textContent).join(' ')).toMatch(/Installed: 1.1.0 was yanked by Test store: wrong value. Update to 1.0.0 suggested./));
 

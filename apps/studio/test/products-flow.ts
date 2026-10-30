@@ -38,8 +38,8 @@ export async function runProductsFlow({ call, events }: ProductsFlowHooks): Prom
   expect(empty.body.products).toEqual([]);
   const tag = empty.headers?.ETag ?? '';
 
-  // a variant naming a design that does not exist is refused, nothing saved
-  const bad = await call('PUT', '/api/products', { products: [{ ...DC_LEADS, variants: [{ id: 'x', design: 'no-such-design' }] }] }, OWNER, { 'if-match': tag });
+  // two families under one id are refused, nothing saved (a variant naming a missing design is only a finding)
+  const bad = await call('PUT', '/api/products', { products: [DC_LEADS, DC_LEADS] }, OWNER, { 'if-match': tag });
   expect(bad.status).toBe(422);
   expect((await call('PUT', '/api/products', { products: [DC_LEADS] }, OWNER)).status).toBe(428);
 

@@ -88,12 +88,41 @@ readable, the page stays up). A runtime code module can contribute one; it appli
 The other way in is the API: `PUT /api/revisions/:kind/:id` replaces a record's history with one
 built elsewhere (checked first), so a script can import a file share's revision table.
 
+## Adopt a newer revision
+
+A board's revisions are usually records of their own: one part number, a `revision` each
+(`PCA-00001 Rev1` beside `PCA-00001 Rev2`); a mechanical part with a part number and a revision is
+treated the same way. A design places one of them by id, so a newer one changes nothing until the
+design moves to it (`@wirehub/model` `revision-adopt.ts`). Records of other kinds keep their
+revisions as snapshots of one record, and a working copy always uses the record as it is now.
+
+The newest revision still built (not `legacy` or `retired`; revisions in natural order, `Rev9` <
+`Rev10`) is the one designs move to. For each design that places an older one, `adoptImpact` says
+what moving changes:
+
+- terminals added, removed, and **renamed** (an older terminal whose label, else whose pads, match
+  exactly one new terminal): landings on a renamed terminal follow it;
+- landings that would **lose their terminal** (it is gone) or **their pad** (the new terminal does
+  not declare it), and jumper states for a part the newer board no longer has;
+- declared board links added and removed, and the bill-of-materials line.
+
+**Adopt** switches the placements, moves landings onto renamed terminals, and removes what the newer
+board cannot take — each listed beforehand; the validator then reports what is left open (a pigtail
+with no landing). There is no review record: the change set's history entry (`adopt <id> in N
+designs`) and the design's history restore it, and the design's next saved version captures it.
+
 ## In the app
 
 The record's page in the Library has a **Revisions** section: what the record is now (revision N, or
 changed since N), each revision with its note, number, date, author, whether it kept art and a
 model, the versions built with it, **Compare with now**; the outside sources' revisions; and **Save a
 revision…** with a note, an optional name and **give it the next variant number**.
+
+A board (or mechanical part) with a newer revision shows **Newer revision** — the designs that place
+it, each with a one-line summary of what moving changes and the details behind a chevron, **Adopt** per
+design and **Adopt … in all**. The newest revision's page shows **Older revisions in use** with the
+same rows. In a design, the inspector (Issues and Part tabs) shows **Newer revision** for each placed
+part that has one; its Adopt is an ordinary edit (Undo takes it back, Save keeps it).
 
 ## The API
 
@@ -104,6 +133,8 @@ revision…** with a note, an optional name and **give it the next variant numbe
 | `POST /api/revisions/:kind/:id` | `{ note, label?, art?, model?, renumber?, force? }`: save the record as the next revision (refused, 409, when nothing changed since the last unless `force`) |
 | `PUT /api/revisions/:kind/:id` | `{ kind, id, revisions }`: replace the history (If-Match) |
 | `GET /api/revisions/:kind/:id/next-number` | the scheme's next variant of the record's number |
+| `GET /api/adopt/:kind/:id` | `pcbas` or `mechanicals`: the part's revisions, the one to move to (`?to=` another), and per design on an older one its impact and ETag |
+| `POST /api/adopt/:kind/:id` | `{ to, designs: [{ id, from, etag }] }`: switch those designs' working copies in one change set; a design refused (stale, a pack's) is listed in `refused` and the rest are adopted; one someone holds an edit lock on refuses the whole request (423) |
 
 The history is a catalog document written through the unit of work, on files and on Postgres.
 

@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'rea
 
 import type { ArtworkAdapter } from '../artwork.ts';
 import { sourceRevisionModels } from '../asset-coverage.ts';
-import { Button } from '../ui/index.ts';
+import { Button, Section } from '../ui/index.ts';
 import type { ModelLinkView, ModelsAdapter } from '../models.ts';
 import { compareSideId, type RevisionsAdapter, type RevisionsView, type SaveRevisionInput } from '../revisions.ts';
 import { ModelPanel, pick2d } from './ModelPanel.tsx';
@@ -28,7 +28,7 @@ export function RevisionsSection(props: {
   onCompare?: (a: string, b?: string) => void;
   /** the record changed (a new variant number) */
   onChanged?: () => void;
-}): JSX.Element {
+}): JSX.Element | null {
   const { kind, id } = props;
   const [view, setView] = useState<RevisionsView | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
@@ -39,18 +39,22 @@ export function RevisionsSection(props: {
   const [sourceModels, setSourceModels] = useState<{ revision: string; link: ModelLinkView }[]>([]);
   const [sourceModelError, setSourceModelError] = useState<string>();
   const [selectedSource, setSelectedSource] = useState<ModelLinkView>();
+  // the source-model check has answered (or there is none to make): a read-only record decides whether to show anything only then
+  const [sourceChecked, setSourceChecked] = useState(false);
 
   useEffect(() => {
     setSourceModels([]);
     setSelectedSource(undefined);
     setSourceModelError(undefined);
+    setSourceChecked(props.models === undefined);
     if (props.models === undefined || view === undefined) return;
     let live = true;
     void props.models.list().then((result) => {
       if (!live) return;
       if (result.ok) setSourceModels(sourceRevisionModels(result.value.links, id, view.current.partNumber));
       else setSourceModelError(result.message);
-    }, () => { if (live) setSourceModelError('Source revision models could not be checked.'); });
+      setSourceChecked(true);
+    }, () => { if (live) { setSourceModelError('Source revision models could not be checked.'); setSourceChecked(true); } });
     return () => { live = false; };
   }, [props.models, id, view]);
 
@@ -136,13 +140,29 @@ export function RevisionsSection(props: {
     }
   };
 
+  // a record the viewer cannot change, with no revisions of any kind (saved, supplied by a source, source models): nothing to show or offer
+  // (while that is not known yet it shows nothing either, so it never flashes up and goes again)
+  if (props.readOnly && error === undefined && sourceModelError === undefined && (
+    view === undefined || !sourceChecked
+    || (view.revisions.length === 0 && view.external.length === 0 && view.whereUsed.unrecorded.length === 0 && sourceModels.length === 0)
+  )) return null;
   const usesOf = (rev: number) => view?.whereUsed.byRev[rev] ?? [];
   const now = compareSideId({ kind, id });
   return (
-    <section className="cs-panel cs-revisions" data-testid="revisions" aria-label="Revisions">
-      <h3>
-        Revisions <span className="cs-count">{view?.revisions.length ?? ''}</span>
-      </h3>
+    <Section id="revisions" title="Revisions" testId="revisions" className="cs-revisions" defaultOpen={false} forceOpen={saving !== undefined}
+      summary={view === undefined ? undefined : (
+        <span data-testid="revisions-now">
+          {view.revisions.length === 0 ? '' : `${view.revisions.length} · `}
+          {view.current.rev !== undefined
+            ? `As it is now: revision ${view.current.rev}.`
+            : view.current.changedSince !== undefined
+              ? `Changed since revision ${view.current.changedSince}.`
+              : ''}
+        </span>
+      )}
+      actions={props.readOnly || saving !== undefined || view === undefined ? undefined : (
+        <Button size="xs" onClick={startSave}>Save a revision…</Button>
+      )}>
       {error === undefined ? null : (
         <p className="cs-err" role="alert">
           {error}
@@ -150,14 +170,6 @@ export function RevisionsSection(props: {
       )}
       {view === undefined ? null : (
         <>
-          <p className="cs-small" data-testid="revisions-now">
-            {view.current.rev !== undefined
-              ? `As it is now: revision ${view.current.rev}.`
-              : view.current.changedSince !== undefined
-                ? `Changed since revision ${view.current.changedSince}.`
-                : 'No revision saved yet.'}
-            {view.current.partNumber === undefined ? '' : ` Number ${view.current.partNumber}.`}
-          </p>
           <ol className="cs-revision-list" reversed>
             {[...view.revisions].reverse().map((r) => (
               <li key={r.rev} data-rev={r.rev}>
@@ -231,11 +243,7 @@ export function RevisionsSection(props: {
               </ul>
             </div>
           ))}
-          {props.readOnly ? null : saving === undefined ? (
-            <button type="button" className="cs-quiet" onClick={startSave}>
-              Save a revision…
-            </button>
-          ) : (
+          {props.readOnly || saving === undefined ? null : (
             <div className="cs-revision-save">
               <label className="cs-field is-wide">
                 <span>Note</span>
@@ -262,7 +270,7 @@ export function RevisionsSection(props: {
           )}
         </>
       )}
-    </section>
+    </Section>
   );
 }
 

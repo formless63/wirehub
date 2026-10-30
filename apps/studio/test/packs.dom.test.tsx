@@ -89,7 +89,7 @@ describe('Install pack…', () => {
     }} />);
     const summary = screen.getByRole('region', { name: 'Changes by category' });
     expect(within(summary).getByText('New example designs')).toBeTruthy();
-    expect(within(summary).getByText('Extension lead (extension)')).toBeTruthy();
+    expect(within(summary).getByText('Extension lead')).toBeTruthy();
     const connectors = within(summary).getByRole('row', { name: 'Connectors 1 1 0' });
     expect(connectors.textContent).toContain('Connectors');
     expect(screen.getByText(/already exists with different content/)).toBeTruthy();
@@ -102,23 +102,23 @@ describe('Install pack…', () => {
     const file = new File([JSON.stringify(bundle('10 Ω'))], 'panel.json', { type: 'application/json' });
     fireEvent.change(screen.getByTestId('filedrop-input'), { target: { files: [file] } });
     const pending = await screen.findByTestId('pack-pending');
-    expect(pending.textContent).toContain('Install panel 1.0.0');
+    expect(pending.textContent).toContain('Install Panel 1.0.0');
     expect((await screen.findByTestId('pack-contents')).textContent).toContain('Components');
     expect((screen.getByTestId('pack-contents')).textContent).toContain('No example designs');
     expect(createCatalog(catalogWithPacksSource(dir, packs)).loadDb().components.some((c) => c.id === 'pn-r')).toBe(false);
-    expect(await showAllRecords()).toContain('Added Components: 10 Ω resistor (pn-r)');
+    expect(await showAllRecords()).toContain('Added Components: 10 Ω resistor');
     fireEvent.click(screen.getByRole('button', { name: 'Install' }));
-    await waitFor(() => expect(toasts.map((t) => t.title)).toContain('Installed panel.json.'));
-    expect(toasts.find((t) => t.title === 'Installed panel.json.')?.action?.label).toBe('View');
+    await waitFor(() => expect(toasts.map((t) => t.title)).toContain('Installed Panel.'));
+    expect(toasts.find((t) => t.title === 'Installed Panel.')?.action?.label).toBe('View');
     expect(document.querySelector('[role="status"]')).toBeNull();
-    await screen.findByText(/panel/, { selector: 'b' });
+    await screen.findByText(/Panel/, { selector: 'b' });
     expect(createCatalog(catalogWithPacksSource(dir, packs)).loadDb().components.some((c) => c.id === 'pn-r')).toBe(true);
 
     // something outside the pack uses it: disable is refused and lists the use
     const kits = JSON.parse(readFileSync(join(dir, 'kits.json'), 'utf8')) as unknown[];
     writeFileSync(join(dir, 'kits.json'), `${JSON.stringify([...kits, { id: 'kit-pn', label: 'K', sku: 'KIT-7', contents: [{ part: { kind: 'component', def: 'pn-r' }, qty: 1, src }], src }], null, 2)}\n`);
     fireEvent.click(screen.getByRole('button', { name: 'Disable…' }));
-    expect((await screen.findByTestId('pack-references')).textContent).toContain('kits kit-pn uses pn-r');
+    expect((await screen.findByTestId('pack-references')).textContent).toContain('K still uses a record in this pack');
     expect((screen.getByRole('button', { name: 'Disable pack' }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     // remove the use, then disable
@@ -134,7 +134,7 @@ describe('Install pack…', () => {
     expect(has()).toBe(true);
     // Undo: the pack is back, and was never touched
     toasts.find((t) => t.title === 'Disabled panel.')!.action!.onClick();
-    await screen.findByText(/panel/, { selector: 'b' });
+    await screen.findByText(/Panel/, { selector: 'b' });
     expect(has()).toBe(true);
     // disable again and let the window close (the toast being dismissed ends it early)
     fireEvent.click(screen.getByRole('button', { name: 'Disable…' }));

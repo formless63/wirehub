@@ -29,3 +29,10 @@ export function makePng(size = 4, extra: { type: string; body: string }[] = []):
 }
 
 export const pngDataUri = (png: Buffer): string => `data:image/png;base64,${png.toString('base64')}`;
+
+/** A tiny JPEG with no metadata (frame header, one scan, a few coded bytes): stripping leaves it as it is. */
+export function makeJpeg(width = 4, height = 2): Buffer {
+  const sof = Buffer.from([0xff, 0xc0, 0, 11, 8, height >> 8, height & 0xff, width >> 8, width & 0xff, 1, 1, 0x11, 0]);
+  const sos = Buffer.from([0xff, 0xda, 0, 8, 1, 1, 0, 0, 63, 0]);
+  return Buffer.concat([Buffer.from([0xff, 0xd8]), sof, sos, Buffer.from([0x12, 0x34, 0x56]), Buffer.from([0xff, 0xd9])]);
+}

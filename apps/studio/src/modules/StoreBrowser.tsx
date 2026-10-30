@@ -15,7 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'rea
 
 import { loadMe } from '../me.browser.ts';
 import { applyStoreInstall, listStore, noticeText, previewStoreInstall, reviewText, type PackAnswer, type PackPlan, type StoreIndexView, type StoreNotice, type StorePackView, type StoreReviewView } from '../packs.browser.ts';
-import { PlanView } from './PacksPanel.tsx';
+import { BlockedReason, PlanView } from './PacksPanel.tsx';
 import type { CodePreviewView } from '../code-modules.browser.ts';
 import { CodeConsent } from './CodeConsent.tsx';
 import { useNotify } from '../notify.ts';
@@ -172,7 +172,7 @@ export function StoreBrowser({ initialQuery = '', openPack }: { initialQuery?: s
       const codeNote = pending.code === undefined ? '' : status?.state === 'loaded' ? (pending.code.apply === 'live' ? ' Its code runs now.' : ' Its code runs now; its job queues start after Restart WireHub (Settings).') : ` Its code is not running: ${status?.error ?? 'see Settings, Code modules'}.`;
       const offersScheme = answer.body['offers'] !== undefined && (answer.body['offers'] as { partNumberScheme?: unknown }).partNumberScheme !== undefined;
       const description = `${codeNote}${offersScheme ? ' It offers a part-numbering scheme: an owner can review and switch to it in Settings, Part numbers. Nothing was switched.' : ''}`.trim();
-      notify.success(`${pending.kind === 'update' ? 'Updated' : 'Installed'} ${pending.pack.id} ${pending.version}.`, {
+      notify.success(`${pending.kind === 'update' ? 'Updated' : 'Installed'} ${pending.pack.name} ${pending.version}.`, {
         ...(description === '' ? {} : { description }),
         view: pending.code === undefined ? { to: '/library', pack: pending.pack.id } : { to: '/extensions', tab: 'installed' },
       });
@@ -203,8 +203,8 @@ export function StoreBrowser({ initialQuery = '', openPack }: { initialQuery?: s
       </aside>
       <div className="cs-ext-results">
       {disclaimer === undefined ? null : (
-        <p className="cs-ext-note" data-testid="store-disclaimer" title="A signature proves who published the index, not that its data is right.">
-          {disclaimer}
+        <p className="cs-ext-note truncate" data-testid="store-disclaimer" title={disclaimer}>
+          Published by their authors; not reviewed by WireHub.
         </p>
       )}
       {indexes
@@ -234,7 +234,7 @@ export function StoreBrowser({ initialQuery = '', openPack }: { initialQuery?: s
               <span className="cs-ext-glyph" aria-hidden>{p.name.split(/[\s&/-]+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('')}</span>
               <div className="min-w-0">
                 <h3 className="cs-ext-card-name">{p.name}</h3>
-                <div className="cs-ext-card-sub">{p.id} {p.latest?.version ?? ''}{p.latest === undefined ? '' : ` · ${kb(p.latest.size)}`}{p.installed === undefined ? '' : ` · installed ${p.installed}`}</div>
+                <div className="cs-ext-card-sub">{p.latest?.version ?? ''}{p.latest === undefined ? '' : ` · ${kb(p.latest.size)}`}{p.installed === undefined ? '' : ` · installed ${p.installed}`}</div>
               </div>
             </div>
             {p.description === undefined ? null : <p className="cs-ext-card-desc">{p.description}</p>}
@@ -311,7 +311,7 @@ export function StoreBrowser({ initialQuery = '', openPack }: { initialQuery?: s
       </div>
       <Drawer
         open={pending !== undefined}
-        title={pending === undefined ? '' : `${pending.kind === 'update' ? 'Update' : 'Install'} ${pending.pack.id} ${pending.version}`}
+        title={pending === undefined ? '' : `${pending.kind === 'update' ? 'Update' : 'Install'} ${pending.pack.name} ${pending.version}`}
         onClose={() => setPending(undefined)}
         testId="store-pending"
         footer={pending === undefined ? undefined : (
@@ -320,6 +320,7 @@ export function StoreBrowser({ initialQuery = '', openPack }: { initialQuery?: s
               {pending.kind === 'update' ? 'Update' : 'Install'}
             </Button>
             <Button onClick={() => setPending(undefined)}>Cancel</Button>
+            {pending.refusal === undefined ? <BlockedReason plan={pending.plan} applicable={pending.applicable} /> : null}
           </>
         )}
       >

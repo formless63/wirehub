@@ -31,6 +31,7 @@ import { readTestParameters, type DrawingMeta, type LengthVariant, type SheetSet
 
 import { assetDataUri, decodeImageDataUri, fileAssetStore, memoryAssetStore, type AssetStore } from './assets.ts';
 import { writeFileAtomic } from './atomic-write.ts';
+import { stripPhotoMetadata } from './image-metadata.ts';
 import { recordWrite } from './write-journal.ts';
 import type { Awaitable } from './storage/change-set.ts';
 import { hubCatalogSource } from './catalog-files.ts';
@@ -309,7 +310,7 @@ function readSheetSettings(value: unknown, problems: string[]): SheetSettings | 
   return Object.keys(sheet).length === 0 ? undefined : sheet;
 }
 
-/** A photo upload: a PNG/JPEG data URI under 2.5 MB (it has to fit the 4 MB body limit as base64), or `null` to remove. */
+/** A photo upload: a PNG/JPEG data URI under 2.5 MB (it has to fit the 4 MB body limit as base64), metadata stripped, or `null` to remove. */
 export function readPhoto(value: unknown):
   | { ok: true; photo: { mime: 'image/png' | 'image/jpeg'; bytes: Buffer } | undefined }
   | { ok: false; problem: string } {
@@ -320,5 +321,11 @@ export function readPhoto(value: unknown):
   const decoded = decodeImageDataUri(body.photo);
   if (decoded === undefined) return { ok: false, problem: 'Only PNG and JPEG photos can go on a drawing.' };
   if (decoded.bytes.length > 2.5 * 1024 * 1024) return { ok: false, problem: 'That photo is over 2.5 MB — shrink it first.' };
-  return { ok: true, photo: decoded };
+  // stored without its metadata (EXIF/GPS, XMP, comments …), losslessly, by what the bytes are; fails closed
+  const b = decoded.bytes;
+  const mime = b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 ? 'image/png' : b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff ? 'image/jpeg' : undefined;
+  if (mime === undefined) return { ok: false, problem: 'That file is not a PNG or JPEG photo.' };
+  const stripped = stripPhotoMetadata(b, mime, 2.5 * 1024 * 1024);
+  if (stripped === undefined || !stripped.ok) return { ok: false, problem: stripped?.reason ?? 'That photo could not be read.' };
+  return { ok: true, photo: { mime, bytes: stripped.bytes } };
 }

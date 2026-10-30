@@ -195,6 +195,13 @@ export function signalText(ref: SignalRef | null | undefined): string {
   return typeof ref === 'string' ? ref : ref.oneOf.join('|');
 }
 
+/** A signal ref as people read it: each id's vocabulary label (`+5 V`), `|` between "one of". */
+export function signalLabelText(vocab: Vocab | undefined, ref: SignalRef | null | undefined): string {
+  if (ref === undefined || ref === null) return '';
+  const ids = typeof ref === 'string' ? [ref] : ref.oneOf;
+  return ids.map((id) => vocab?.['signals']?.entries.find((e) => e.id === id)?.label ?? id).join(' | ');
+}
+
 /** The inverse of `signalText`; blank is no signal. */
 export function signalRefOf(text: string): SignalRef | undefined {
   const ids = text

@@ -188,6 +188,7 @@ export type {
 } from './library.ts';
 export { Library } from './panels/Library.tsx';
 export type { LibraryProps } from './panels/Library.tsx';
+export { VocabularyBrowse } from './panels/VocabularyBrowse.tsx';
 /* the Library's tables and naming rule */
 export { facetOptions, filterRows, isInferred, libraryColumns, libraryRows, loadColumnPrefs, partNumberCell, rowMatches, saveColumnPrefs, shellFits, sortRows, toggleColumn, visibleColumns } from './library-table.ts';
 export type { ColumnPrefs, LibraryCell, LibraryColumn, LibraryFlag, LibraryRow, LibrarySort, LibraryTableContext } from './library-table.ts';
@@ -244,6 +245,7 @@ export {
   layFor,
   memoryWireLibraryAdapter,
   otherEndReading,
+  recipeFindings,
   recipeProblems,
   recolourCore,
   removeCore,
@@ -610,7 +612,11 @@ export { ModelPanel } from './panels/ModelPanel.tsx';
 export type { ModelPanelProps } from './panels/ModelPanel.tsx';
 export { MODEL_ACCEPT, MODEL_KINDS, MODEL_SOURCE_LABEL, isModelFileName } from './models.ts';
 export { buildParametricGlb, parametricModelFile } from './parametric-model.ts';
-export type { ModelLinkView, ModelsAdapter, ModelSourceKind, ModelUploadStats, StoredModel, ViewPreset } from './models.ts';
+export { DeviceViewer } from './panels/DeviceViewer.tsx';
+export { ModelViewer } from './panels/ModelViewer.tsx';
+export type { ModelViewer3dProps } from './panels/ModelViewer3d.tsx';
+export type { DeviceModelFile, DeviceSection, DeviceViewer3dProps } from './panels/DeviceViewer3d.tsx';
+export type { ModelCoverAdapter, ModelCoverCamera, ModelCoverCapture, ModelLinkView, ModelsAdapter, ModelSourceKind, ModelUploadStats, StoredModel, ViewPreset } from './models.ts';
 
 export { BoardComponentsSection } from './panels/BoardComponentsSection.tsx';
 export type { BoardComponentsSectionProps } from './panels/BoardComponentsSection.tsx';
@@ -622,7 +628,10 @@ export type { AssembliesAdapter } from './assemblies.ts';
 export type { SubassemblyNodeData } from './derive.ts';
 export { RevisionsSection } from './panels/RevisionsSection.tsx';
 export { compareSideId, parseCompareSide } from './revisions.ts';
-export type { CompareSide, RevisionSummary, RevisionsAdapter, RevisionsView, SaveRevisionInput } from './revisions.ts';
+export type { CompareSide, FrozenRecordsAdapter, RevisionSummary, RevisionsAdapter, RevisionsView, SaveRevisionInput } from './revisions.ts';
 export { SourcingFields, sourcingOfExtra, withExtraSourcing, withSourcing } from './panels/SourcingFields.tsx';
 export * from './ui/index.ts';
 export type { DocumentReport } from './panels/Documents.tsx';
+
+export { CoverSlotContext, useCoverSlot, type CoverSlot, type CoverSlotKind } from './cover-slot.ts';
+export { announceRecordChange, useRecordRefresh } from './record-refresh.ts';

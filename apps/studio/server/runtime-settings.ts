@@ -69,8 +69,8 @@ const LIVE = 'Applies at once, in every process of this hub; no restart.';
 export const SETTING_GROUPS: readonly SettingGroup[] = [
   {
     id: 'notifications',
-    title: 'Notifications',
-    intro: 'Alerts (a stale backup, a failing blob store, failed jobs, an API token created …) are logged, and also posted to a webhook when one is set.',
+    title: 'Alerts',
+    intro: 'The hub’s own alerts (a stale backup, a failing blob store, failed jobs, an API token created …) are logged, and also posted to this webhook when one is set.',
     role: 'owner',
     path: 'data/settings/notifications.json',
     applies: LIVE,
@@ -90,13 +90,13 @@ export const SETTING_GROUPS: readonly SettingGroup[] = [
     fields: [
       { key: 'auth.localAccounts', env: 'AUTH_LOCAL_ACCOUNTS', label: 'Email + password accounts', help: 'People invited from People make a password. Turn off only when everyone signs in through the identity provider below.', kind: 'bool', defaultText: 'on with the database backend' },
       { key: 'auth.allowedEmails', env: 'AUTH_ALLOWED_EMAILS', label: 'Allowed emails', help: 'Emails that may sign in without an invitation, with the editor role (comma-separated).', kind: 'list', placeholder: 'you@example.com' },
-      { key: 'github.enabled', env: 'AUTH_GITHUB_ENABLED', label: 'GitHub sign-in', help: 'Enable after setting the client id and encrypted client secret. Register PUBLIC_URL followed by /api/auth/callback/github as the callback URL in GitHub.', kind: 'bool', defaultText: 'off' },
+      { key: 'github.enabled', env: 'AUTH_GITHUB_ENABLED', label: 'GitHub sign-in', help: 'Turn on after setting the client id and secret.', kind: 'bool', defaultText: 'off' },
       { key: 'github.clientId', env: 'AUTH_GITHUB_CLIENT_ID', label: 'GitHub client id', help: 'From the OAuth application you registered with GitHub. Credentials alone do not enable sign-in.', kind: 'text' },
       { key: 'github.clientSecret', env: 'AUTH_GITHUB_CLIENT_SECRET', label: 'GitHub client secret', help: 'Kept encrypted; never shown again. Required when GitHub sign-in is on.', kind: 'text', secret: true },
-      { key: 'google.enabled', env: 'AUTH_GOOGLE_ENABLED', label: 'Google sign-in', help: 'Enable after setting the client id and encrypted client secret. Register PUBLIC_URL followed by /api/auth/callback/google as the callback URL in Google.', kind: 'bool', defaultText: 'off' },
+      { key: 'google.enabled', env: 'AUTH_GOOGLE_ENABLED', label: 'Google sign-in', help: 'Turn on after setting the client id and secret.', kind: 'bool', defaultText: 'off' },
       { key: 'google.clientId', env: 'AUTH_GOOGLE_CLIENT_ID', label: 'Google client id', help: 'From the OAuth application you registered with Google. Credentials alone do not enable sign-in.', kind: 'text' },
       { key: 'google.clientSecret', env: 'AUTH_GOOGLE_CLIENT_SECRET', label: 'Google client secret', help: 'Kept encrypted; never shown again. Required when Google sign-in is on.', kind: 'text', secret: true },
-      { key: 'oidc.issuer', env: 'AUTH_OIDC_ISSUER', label: 'OIDC issuer', help: 'Single sign-on with any OpenID Connect provider (Authentik, Keycloak, Google, Entra …). Register the redirect URI <public address>/api/auth/callback/<provider id>.', kind: 'url', placeholder: 'https://id.example.com' },
+      { key: 'oidc.issuer', env: 'AUTH_OIDC_ISSUER', label: 'OIDC issuer', help: 'Single sign-on with any OpenID Connect provider (Authentik, Keycloak, Google, Entra …).', kind: 'url', placeholder: 'https://id.example.com' },
       { key: 'oidc.clientId', env: 'AUTH_OIDC_CLIENT_ID', label: 'OIDC client id', help: 'From the client you made in the identity provider.', kind: 'text' },
       { key: 'oidc.clientSecret', env: 'AUTH_OIDC_CLIENT_SECRET', label: 'OIDC client secret', help: 'Kept encrypted; never shown again.', kind: 'text', secret: true },
       { key: 'oidc.scopes', env: 'AUTH_OIDC_SCOPES', label: 'OIDC scopes', help: 'Space- or comma-separated.', kind: 'text', defaultText: 'openid email profile' },
@@ -165,6 +165,8 @@ export const OWNER_ONLY_SETTINGS_PATHS: readonly string[] = [
   ...SETTING_GROUPS.filter((g) => g.role === 'owner').map((g) => g.path),
   // the outbound webhook subscriptions (`webhooks/subscriptions.ts`): URLs of outside systems, owner-only like the groups
   'data/settings/webhooks.json',
+  // who may record firmware commissioning (`firmware/commission.ts`): people's sign-in emails
+  'data/settings/commissioning.json',
   // the settings modules declare (`module-settings.ts`): their values and when each module secret was set
   'data/settings/modules.json',
 ];

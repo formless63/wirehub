@@ -15,6 +15,7 @@ import {
   holdersOfNumber,
   knownPartNumbers,
   partNumberHolders,
+  pnRevisionKey,
   type CableDesign,
   type ComponentDefinition,
   type ConnectorDefinition,
@@ -151,7 +152,9 @@ export function partNumberScope(data: PartNumberData, db: Db): PartNumberScope {
     taken: (pn, target) => {
       if (pn.trim() === '') return [];
       const holders = partNumberHolders(db, data.designs ?? [], data.drawings ?? {}, data.scheme);
-      return holdersOfNumber(holders, pn, data.scheme, identityOfTarget(target, db, data.scheme, pn))
+      // another revision of the same board shares its number by design
+      const revision = target.kind === 'pcba' ? pnRevisionKey(target.def.revision, target.def.build) : undefined;
+      return holdersOfNumber(holders, pn, data.scheme, identityOfTarget(target, db, data.scheme, pn), revision)
         .filter((h) => target.kind !== 'connector' || h.where !== `connectors/${target.def.id.trim()}`)
         .map((h) => h.where);
     },

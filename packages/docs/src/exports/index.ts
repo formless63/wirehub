@@ -15,6 +15,8 @@ import type { CableDesign, Db } from '@wirehub/model';
 import { continuityCsv, continuityJson, deriveContinuityExport } from './continuity.ts';
 import { deriveLabels, labelSheetSvg, labelsTable, type LabelSheetOptions } from './labels.ts';
 import { lbxExport } from './lbx.ts';
+import { massJson } from './mass-json.ts';
+import { deriveProcessesExport, processesJson } from './processes-json.ts';
 import { bomTable, crimpListTable, cutListTable, wireListTable, type ExportOptions } from './rows.ts';
 import { sheetFrameFor } from '../sheet-frame.ts';
 import type { TestParameters } from './test-params.ts';
@@ -23,6 +25,8 @@ import { toCsv, toXlsx, XLSX_MIME } from './table.ts';
 export * from './table.ts';
 export * from './rows.ts';
 export * from './continuity.ts';
+export * from './mass-json.ts';
+export * from './processes-json.ts';
 export * from './labels.ts';
 export * from './label-presets.ts';
 export * from './label-templates.ts';
@@ -83,6 +87,17 @@ export const BASE_EXPORTS: readonly ExportFormat[] = [
     }),
   },
   {
+    id: 'mass.json',
+    label: 'Mass (JSON)',
+    description: 'Derived mass of each BOM line and of one unit, from the parts\' recorded masses, with every missing input listed.',
+    group: 'production',
+    render: (design, db, options = {}) => ({
+      mimeType: 'application/json',
+      fileName: `${stem(design, options, 'mass')}.json`,
+      body: massJson(design, db, { ...(options.explode === true ? { explode: true } : {}), ...(options.revisionNumber === undefined ? {} : { revisionNumber: options.revisionNumber }) }),
+    }),
+  },
+  {
     id: 'continuity.csv',
     label: 'Continuity (CSV)',
     description: 'Net-to-pin pairs, expected connections and isolation pairs with the test parameters, for a tester or fixture.',
@@ -102,6 +117,17 @@ export const BASE_EXPORTS: readonly ExportFormat[] = [
       mimeType: 'application/json',
       fileName: `${stem(design, options, 'continuity')}.json`,
       body: continuityJson(deriveContinuityExport(design, db, continuityInputs(options))),
+    }),
+  },
+  {
+    id: 'processes.json',
+    label: 'Required processes (JSON)',
+    description: 'The manufacturing processes the design needs: declared on it or implied by its parts, with where each came from.',
+    group: 'production',
+    render: (design, db, options = {}) => ({
+      mimeType: 'application/json',
+      fileName: `${stem(design, options, 'processes')}.json`,
+      body: processesJson(deriveProcessesExport(design, db, options.revisionNumber === undefined ? {} : { revisionNumber: options.revisionNumber })),
     }),
   },
   { id: 'labels.csv', label: 'Wire labels (CSV)', description: 'Label text and position for each end of each wire run.', group: 'labels', render: csv('labels', (d, db) => labelsTable(deriveLabels(d, db))) },

@@ -3,7 +3,7 @@
 # writes .env from .env.example (beside compose.yaml) with every bootstrap
 # secret filled in, for people who want them in a file they keep — a password
 # manager, a re-deploy onto fresh volumes. Not needed otherwise: with no .env,
-# the bootstrap service generates the same secrets into the `secrets` volume.
+# the app's startup generates the same secrets into the `secrets` volume.
 #
 #   bash setup-env.sh [--force] [dir]     # dir: where compose.yaml is (default: .)
 #

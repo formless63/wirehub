@@ -31,6 +31,7 @@ import {
   hasSubassemblies,
   resolveTerminal,
   subassemblyPorts,
+  terminalName,
   findPcba,
   isGroundSignal,
   kindOfSignal,
@@ -57,6 +58,7 @@ import {
   type PathBehaviour,
 } from './passages.ts';
 import { byKeys, compareStrings } from './text.ts';
+import { deriveBoardTrace, type BoardTraceSection } from './board-trace-spec.ts';
 import { deriveGroundLandings, type GroundLanding } from './landings.ts';
 
 /* ------------------------------------------------------------------ *
@@ -129,8 +131,22 @@ export interface Port {
   net?: string;
 }
 
-function portText(instance: string, terminal: string, label: string | undefined): string {
-  return label === undefined ? `${instance}.${terminal}` : `${instance}.${terminal} ${label}`;
+/**
+ * A probe point as the bench reads it: the designator printed on the part,
+ * then the pin and its label — `J1 pin 7 · TXD`, `U1 Demo board, J1.1 · A`.
+ */
+function portText(design: CableDesign, db: Db, instance: string, terminal: string, label: string | undefined): string {
+  const tag = instance.toUpperCase();
+  const tail = label === undefined || label === '' || label === terminal ? '' : ` · ${label}`;
+  if (design.instances.connectors.some((c) => c.id === instance)) {
+    return terminal === 'shell' ? `${tag} shell` : `${tag} pin ${terminal}${tail}`;
+  }
+  const pcba = design.instances.pcbas.find((p) => p.id === instance);
+  if (pcba !== undefined) {
+    const name = findPcba(db, pcba.def)?.label;
+    return `${tag}${name === undefined ? '' : ` ${name}`}, ${terminal.includes('.') ? terminal.toUpperCase() : `pad ${terminal}`}${tail}`;
+  }
+  return `${tag} ${terminal}${tail}`;
 }
 
 /* ------------------------------------------------------------------ *
@@ -176,7 +192,7 @@ export function designPorts(design: CableDesign, db: Db, nets: Net[]): Port[] {
       terminal: resolved.terminal,
       ...(label === undefined ? {} : { label }),
       ...(role === undefined ? {} : { role }),
-      text: portText(resolved.instance, resolved.terminal, label),
+      text: portText(design, db, resolved.instance, resolved.terminal, label),
       side: sides.get(resolved.instance) ?? 'unassigned',
       signal: classifySignal(db, label, role),
       ...(netOf.has(resolved.key) ? { net: netOf.get(resolved.key) as string } : {}),
@@ -344,6 +360,8 @@ export interface TestSpec {
   };
   /** currents declared in the design: per-conductor ampacity, contact rating and voltage drop (empty when none are declared) */
   electrical: ElectricalReport;
+  /** what probe points reach across boards read from their board files, and what the trace could not claim; absent without such a board */
+  boardTrace?: BoardTraceSection;
   issues: Issue[];
 }
 
@@ -352,8 +370,8 @@ export interface TestSpec {
  * ------------------------------------------------------------------ */
 
 const SIDE_WORD: Readonly<Record<Side, string>> = {
-  a: 'source end (a)',
-  b: 'destination end (b)',
+  a: 'source end',
+  b: 'destination end',
   both: 'both ends',
   unassigned: 'unassigned',
 };
@@ -553,6 +571,8 @@ export function deriveTestSpec(given: CableDesign, givenDb: Db, options: TestSpe
         : `Twist present, on ${row.pad === undefined ? row.landing : `pad ${row.pad}`}, nothing else on it.`,
   }));
 
+  const boardTrace = deriveBoardTrace(design, db, ports);
+
   const violations = isolationChecks.filter((check) => check.violated);
   const nonDcPaths = pathChecks.filter((check) => !check.dcContinuous).length;
 
@@ -580,6 +600,7 @@ export function deriveTestSpec(given: CableDesign, givenDb: Db, options: TestSpe
       commoned: commoning.commoned.length,
     },
     electrical: electricalReport(design, db),
+    ...(boardTrace === undefined ? {} : { boardTrace }),
     issues: flat === undefined ? validateDesign(design, db) : [...validateDesign(given, givenDb), ...flat.issues.filter((i) => i.severity === 'error')],
   };
 }
@@ -795,8 +816,8 @@ function pushCheck(
       ? 'FAIL — these are one net in this design; they must not be.'
       : 'No continuity — meter reads OPEN.',
     rationale: violated
-      ? `${first.text} and ${second.text} are the SAME net (${first.net}) in this design, but ${why}. This is a short, not a check.`
-      : `${first.text} (net ${first.net}, ${ridersA} other terminal(s)) and ${second.text} (net ${second.net}, ${ridersB} other terminal(s)) are separate nets, and must stay separate: ${why}.`,
+      ? `${first.text} and ${second.text} are the SAME net in this design, but ${why}. This is a short, not a check.`
+      : `${first.text} (${ridersA} other terminal${ridersA === 1 ? '' : 's'} on its net) and ${second.text} (${ridersB} other terminal${ridersB === 1 ? '' : 's'}) are separate nets, and must stay separate: ${why}.`,
     ...(first.net === undefined ? {} : { netA: first.net }),
     ...(second.net === undefined ? {} : { netB: second.net }),
     violated,
@@ -967,15 +988,17 @@ function deriveOpens(design: CableDesign, db: Db, nets: Net[]): OpenCheck[] {
           kind: 'open',
           openKind: bothOpen ? 'unterminated' : 'cut-end',
           key: terminal.key,
-          text: `${terminal.instance} ${path}${terminal.end === undefined ? '' : ` @${terminal.end}`}${
-            terminal.label === undefined ? '' : ` (${terminal.label})`
-          }`,
+          text: terminalName(design, db, {
+            instance: terminal.instance,
+            terminal: path,
+            ...(terminal.end === undefined ? {} : { end: terminal.end }),
+          }),
           expected: 'Open circuit — no continuity to anything. Leave it that way.',
           rationale: bothOpen
-            ? `${path} is not terminated at either end of ${terminal.instance}: this design carries the conductor but does not use it.${
+            ? `Not terminated at either end: this design carries the conductor but does not use it.${
                 noteIndex === undefined ? '' : ` Design note ${noteIndex + 1} covers it.`
               }`
-            : `${path} is terminated at the other end of ${terminal.instance} and deliberately open here — the house drain/shield policy, not a missed joint.${
+            : `Terminated at the other end and deliberately open here — the house drain/shield policy, not a missed joint.${
                 noteIndex === undefined
                   ? ' No design note names it; treat as a query for the designer.'
                   : ` Design note ${noteIndex + 1} covers it.`
@@ -1001,7 +1024,7 @@ function deriveOpens(design: CableDesign, db: Db, nets: Net[]): OpenCheck[] {
         kind: 'open',
         openKind: 'unused-pin',
         key,
-        text: `${instance.id}.${pin.id} (${pin.label})`,
+        text: portText(design, db, instance.id, pin.id, pin.label),
         expected: 'Open circuit — this pin is not populated on this build.',
         rationale: `${connector.label} pin ${pin.id} carries no connection in this design.${
           noteIndex === undefined ? '' : ` Design note ${noteIndex + 1} explains why.`

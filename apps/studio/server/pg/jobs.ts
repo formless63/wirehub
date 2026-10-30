@@ -10,7 +10,7 @@
  * create schemas); it creates its tables inside `pgboss` on first start.
  */
 
-import { sql } from 'kysely';
+import { CompiledQuery, sql } from 'kysely';
 import { PgBoss } from 'pg-boss';
 
 import type { WorkbenchDeps } from '../api.ts';
@@ -18,8 +18,9 @@ import type { BlobStore } from '../blobs.ts';
 import { runDeriveJob } from '../jobs/derive.ts';
 import { baseJobHandlers } from '../jobs/handlers.ts';
 import { throttled, type Notifier } from '../notify.ts';
-import { JOB_KINDS, type JobHandlers, type JobKind, type JobOutcome, type JobRequester, type JobRun, type JobRunner, type JobStatus, type JobStore, type PlanFile, type WorkerBeat } from '../jobs/types.ts';
+import { JOB_KINDS, type JobHandlers, type JobKind, type JobOutcome, type JobRequester, type JobRun, type JobRunner, type JobStatus, type JobStore, type PlanFile, type SqlExecutor, type WorkerBeat } from '../jobs/types.ts';
 import { moduleJobHandlers } from '../jobs/module-queues.ts';
+import { toolStageHandlers } from '../jobs/tool-stages.ts';
 import { inOrg, type Db } from './db.ts';
 import { watchAudit } from './audit-watch.ts';
 import { runBackupJob, runBlobGcJob } from './gc.ts';
@@ -29,6 +30,9 @@ import { describeMirror, gitMirrorConfigFromEnv, runGitMirrorJob } from '../hist
 import { backupMaxAgeHours } from '../runtime-settings.ts';
 
 export const BOSS_SCHEMA = 'pgboss';
+
+/** A running job's lease: renewed every 30 s (`LEASE_RENEW_MS`) by the process running it; 2 min without a renewal is a dead process. */
+export const JOB_LEASE_SECONDS = 120;
 
 /** pg-boss queue names allow no colon: a module's `<module>:<queue>` kind is the queue `<module>.<queue>`. */
 export const bossQueueName = (kind: string): string => kind.replace(':', '.');
@@ -77,7 +81,8 @@ export function pgJobStore(db: Db, orgId: string): JobStore {
       return row === undefined ? undefined : toRun(row);
     });
   return {
-    async create(kind, request, by) {
+    transactional: true,
+    async create(kind, request, by, within) {
       const body = { ...request, ...(by === undefined ? {} : { requestedBy: by }) };
       return inOrg(db, orgId, async (tx) => {
         const row = (
@@ -85,7 +90,32 @@ export function pgJobStore(db: Db, orgId: string): JobStore {
             INSERT INTO studio.job_run AS j (org_id, kind, status, request) VALUES (${orgId}::uuid, ${kind}, 'queued', ${JSON.stringify(body)}::jsonb)
             RETURNING ${COLUMNS}`.execute(tx)
         ).rows[0]!;
-        return toRun(row);
+        const job = toRun(row);
+        // the queue send joins this transaction: a failed send rolls the row back, so no row waits for a send that never happened
+        if (within !== undefined) {
+          const exec: SqlExecutor = { executeSql: async (text, values) => ({ rows: (await tx.executeQuery(CompiledQuery.raw(text, values ?? []))).rows as unknown[] }) };
+          await within(job, exec);
+        }
+        return job;
+      });
+    },
+    async renew(id) {
+      await inOrg(db, orgId, async (tx) => {
+        await sql`UPDATE studio.job_run SET lease_until = now() + make_interval(secs => ${JOB_LEASE_SECONDS}) WHERE id = ${id}::uuid AND status = 'running'`.execute(tx);
+      });
+    },
+    async reconcile() {
+      return inOrg(db, orgId, async (tx) => {
+        // a row from before leases (lease_until null) counts from when it started
+        const rows = (
+          await sql<JobRow>`
+            UPDATE studio.job_run AS j SET status = 'interrupted', finished_at = now(),
+                   error = 'Interrupted: the process running this job stopped (a crash or a restart) before it finished.'
+             WHERE j.status = 'running'
+               AND coalesce(j.lease_until, j.started_at + make_interval(secs => ${JOB_LEASE_SECONDS})) < now()
+            RETURNING ${COLUMNS}`.execute(tx)
+        ).rows;
+        return rows.map(toRun);
       });
     },
     get: (id) => (/^[0-9a-f-]{36}$/.test(id) ? one(id) : Promise.resolve(undefined)),
@@ -104,7 +134,7 @@ export function pgJobStore(db: Db, orgId: string): JobStore {
       return inOrg(db, orgId, async (tx) => {
         const row = (
           await sql<JobRow>`
-            UPDATE studio.job_run AS j SET status = 'running', started_at = now() WHERE j.id = ${id}::uuid AND j.status = 'queued'
+            UPDATE studio.job_run AS j SET status = 'running', started_at = now(), lease_until = now() + make_interval(secs => ${JOB_LEASE_SECONDS}) WHERE j.id = ${id}::uuid AND j.status = 'queued'
             RETURNING ${COLUMNS}`.execute(tx)
         ).rows[0];
         return row === undefined ? undefined : toRun(row);
@@ -117,7 +147,9 @@ export function pgJobStore(db: Db, orgId: string): JobStore {
     },
     async finish(id, outcome: JobOutcome) {
       await inOrg(db, orgId, async (tx) => {
-        await sql`UPDATE studio.job_run SET status = 'done', result = ${JSON.stringify(outcome.result)}::jsonb, finished_at = now() WHERE id = ${id}::uuid`.execute(tx);
+        // a job cancelled while it ran stays cancelled, and keeps no plan
+        const done = await sql`UPDATE studio.job_run SET status = 'done', result = ${JSON.stringify(outcome.result)}::jsonb, finished_at = now() WHERE id = ${id}::uuid AND status <> 'cancelled'`.execute(tx);
+        if (Number(done.numAffectedRows ?? 0) === 0) return;
         for (const f of outcome.files ?? []) {
           await sql`
             INSERT INTO studio.job_file (job_id, path, status, before_etag, content, sha256)
@@ -132,7 +164,7 @@ export function pgJobStore(db: Db, orgId: string): JobStore {
     },
     async fail(id, error) {
       await inOrg(db, orgId, async (tx) => {
-        await sql`UPDATE studio.job_run SET status = 'failed', error = ${error.slice(0, 4000)}, finished_at = now() WHERE id = ${id}::uuid`.execute(tx);
+        await sql`UPDATE studio.job_run SET status = 'failed', error = ${error.slice(0, 4000)}, finished_at = now() WHERE id = ${id}::uuid AND status <> 'cancelled'`.execute(tx);
       });
     },
     async files(id) {
@@ -156,6 +188,18 @@ export function pgJobStore(db: Db, orgId: string): JobStore {
              SET change_set_id = (SELECT s.id FROM studio.change_set s WHERE s.catalog_version = ${version}::bigint ORDER BY s.id DESC LIMIT 1),
                  result = coalesce(result, '{}'::jsonb) || jsonb_build_object('publishedVersion', ${version}::text)
            WHERE id = ${id}::uuid`.execute(tx);
+      });
+    },
+    async cancel(id, by) {
+      if (!/^[0-9a-f-]{36}$/.test(id)) return undefined;
+      return inOrg(db, orgId, async (tx) => {
+        const row = (
+          await sql<JobRow>`
+            UPDATE studio.job_run AS j SET status = 'cancelled', finished_at = now(), error = ${by === undefined ? 'Cancelled.' : `Cancelled by ${by}.`}
+             WHERE j.id = ${id}::uuid AND j.status IN ('queued', 'running')
+            RETURNING ${COLUMNS}`.execute(tx)
+        ).rows[0];
+        return row === undefined ? undefined : toRun(row);
       });
     },
     async lastDone(kind) {
@@ -203,23 +247,34 @@ export async function startBoss(url: string, role: 'studio' | 'worker', log: (li
 /** The studio's runner on Postgres: the job's row is written; pg-boss tells the worker its id. */
 export function bossJobRunner(boss: () => Promise<PgBoss>, orgId: () => string): JobRunner {
   const moduleQueues = new Map<string, Promise<void>>();
+  const prepare = async (kind: string): Promise<PgBoss> => {
+    const sender = await boss();
+    // A live install can enqueue before the worker receives its registry notification, or while it is offline.
+    if (kind.includes(':')) {
+      let ready = moduleQueues.get(kind);
+      if (ready === undefined) {
+        ready = sender.createQueue(bossQueueName(kind), { retryLimit: 0, expireInSeconds: 1800, deleteAfterSeconds: 7 * 24 * 3600 })
+          .then(() => undefined).catch((error: unknown) => { moduleQueues.delete(kind); throw error; });
+        moduleQueues.set(kind, ready);
+      }
+      await ready;
+    }
+    return sender;
+  };
+  // a delayed job (a webhook's retry backoff) is held by the queue until its time
+  const timing = (options: { delayMs?: number } | undefined): { startAfter?: number } => (options?.delayMs === undefined || options.delayMs <= 0 ? {} : { startAfter: Math.ceil(options.delayMs / 1000) });
   return {
     describe: 'the background worker',
+    async prepare(kind) {
+      await prepare(kind);
+    },
     async submit(job, options) {
-      const payload: BossPayload = { id: job.id, org: orgId() };
+      const sender = await prepare(job.kind);
+      await sender.send(bossQueueName(job.kind), { id: job.id, org: orgId() } satisfies BossPayload as unknown as object, timing(options));
+    },
+    async submitWithin(job, exec, options) {
       const sender = await boss();
-      // A live install can enqueue before the worker receives its registry notification, or while it is offline.
-      if (job.kind.includes(':')) {
-        let ready = moduleQueues.get(job.kind);
-        if (ready === undefined) {
-          ready = sender.createQueue(bossQueueName(job.kind), { retryLimit: 0, expireInSeconds: 1800, deleteAfterSeconds: 7 * 24 * 3600 })
-            .then(() => undefined).catch((error: unknown) => { moduleQueues.delete(job.kind); throw error; });
-          moduleQueues.set(job.kind, ready);
-        }
-        await ready;
-      }
-      // a delayed job (a webhook's retry backoff) is held by the queue until its time
-      await sender.send(bossQueueName(job.kind), payload as unknown as object, options?.delayMs === undefined || options.delayMs <= 0 ? {} : { startAfter: Math.ceil(options.delayMs / 1000) });
+      await sender.send(bossQueueName(job.kind), { id: job.id, org: orgId() } satisfies BossPayload as unknown as object, { ...timing(options), db: exec });
     },
   };
 }
@@ -325,6 +380,8 @@ export function pgJobHandlers(options: HousekeepingOptions): JobHandlers {
     ...pgHousekeepingHandlers(options),
     // the queues modules registered through an integration (§3.13)
     ...moduleJobHandlers(options.deps.modules, options.deps),
+    // native tool packs (board outputs, firmware, enclosures): only where a runner is configured (the worker), so the heartbeat says which stages run
+    ...toolStageHandlers({ deps: options.deps, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), env: options.env ?? process.env }),
   };
 }
 

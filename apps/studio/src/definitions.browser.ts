@@ -12,6 +12,8 @@
  * and a next step, because that is what the screen has to show.
  */
 
+import { toast } from 'sonner';
+import { findingsOf, withFindings } from './save-findings.ts';
 import type {
   DefinitionKind,
   DefinitionList,
@@ -28,13 +30,11 @@ interface ApiError {
   issues?: Issue[];
 }
 
-function unreachable<T>(error: unknown): Outcome<T> {
+function unreachable<T>(_error: unknown): Outcome<T> {
   return {
     ok: false,
     message: 'WireHub could not reach the server.',
-    hint: `Nothing was changed. Start the dev server and try again. (${
-      error instanceof Error ? error.message : String(error)
-    })`,
+    hint: 'Try again when your connection to the hub is restored.',
   };
 }
 
@@ -68,7 +68,7 @@ export async function request<T>(
       : {
           ok: false,
           message: 'The server answered with something WireHub could not read.',
-          hint: `Nothing was changed. Check the terminal running WireHub. (HTTP ${response.status})`,
+          hint: `Try again, or contact your hub administrator. (HTTP ${response.status})`,
         };
   }
 
@@ -96,6 +96,15 @@ function definitionUrl(base: string, kind: DefinitionKind, id?: string, action?:
  * `persistence.browser.ts`'s. A definition's version is per `kind/id`, so the
  * map is keyed on the same string `definitionUrl` builds.
  */
+/** a record save that kept findings: one quiet toast naming them (the save itself went through) */
+function announceFindings(label: string) {
+  return <T,>(outcome: T): T => {
+    const line = findingsOf(outcome as never);
+    if (line !== undefined) toast.warning(`Saved ${label} with ${line}`);
+    return outcome;
+  };
+}
+
 export function workbenchDefinitions(base = '/api'): DefinitionsAdapter {
   const versions = new Map<string, string>();
   const versionKey = (kind: DefinitionKind, id: string): string => `${kind}/${id}`;
@@ -120,23 +129,24 @@ export function workbenchDefinitions(base = '/api'): DefinitionsAdapter {
       return { ok: true, value: list };
     },
 
+    // the Library shows its own "Saved"; the server's findings for the save (modules included) toast here
     save: (kind, record) =>
-      request<DefinitionRecord>(
+      withFindings((onResponse) => request<DefinitionRecord>(
         definitionUrl(base, kind, record.id),
         {
           method: 'PUT',
           body: record,
           ...(ifMatchOf(kind, record.id) === undefined ? {} : { headers: ifMatchOf(kind, record.id) }),
         },
-        remember(kind, record.id),
-      ),
+        onResponse,
+      ), remember(kind, record.id)).then(announceFindings(record.label ?? record.id)),
 
     create: (kind, record) =>
-      request<DefinitionRecord>(
+      withFindings((onResponse) => request<DefinitionRecord>(
         definitionUrl(base, kind),
         { method: 'POST', body: record },
-        remember(kind, record.id),
-      ),
+        onResponse,
+      ), remember(kind, record.id)).then(announceFindings(record.label ?? record.id)),
 
     remove: (kind, id, confirm) =>
       request<{ deleted: string }>(definitionUrl(base, kind, id), {
@@ -147,7 +157,7 @@ export function workbenchDefinitions(base = '/api'): DefinitionsAdapter {
         return result.ok ? { ok: true, value: { id: result.value.deleted } } : result;
       }),
 
-    fork: (kind, id, newId) => request<DefinitionRecord>(definitionUrl(base, kind, id, 'fork'), { method: 'POST', body: { id: newId } }, remember(kind, newId)),
+    fork: (kind, id, newId, label) => request<DefinitionRecord>(definitionUrl(base, kind, id, 'fork'), { method: 'POST', body: { id: newId, ...(label === undefined ? {} : { label }) } }, remember(kind, newId)),
 
     usage: (kind, id) => request<DefinitionUsage>(definitionUrl(base, kind, id, 'usage')),
   };

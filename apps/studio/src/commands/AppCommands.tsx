@@ -12,11 +12,26 @@ import { useMatches, useNavigate } from '@tanstack/react-router';
 import { cableRoute, type CableSearch, type CableView } from '../router.tsx';
 import { useStudio } from '../studio-context.tsx';
 import { useRegisterCommands, type AppCommand } from './registry.tsx';
+import { ALL_PAGES } from '../shell/navigation.ts';
+
+/** extra words a page answers to in the palette */
+const PAGE_KEYWORDS: Readonly<Record<string, readonly string[]>> = {
+  '/cables': ['design list', 'home', 'cables'],
+  '/library': ['connectors', 'components', 'wire stocks', 'boards', 'parts'],
+  '/part-numbers': ['pn', 'duplicate', 'unnumbered', 'numbering', 'health'],
+  '/inventory': ['stock', 'lots', 'locations', 'workshop', 'reservations'],
+  '/firmware': ['workshop', 'esphome', 'platformio', 'flash'],
+  '/jobs': ['workshop', 'import', 'tool runs', 'queue'],
+  '/explore': ['alternatives', 'combinations', 'configurations'],
+  '/resolver': ['find', 'devices', 'connect'],
+  '/account/tokens': ['mcp', 'api', 'agent', 'token'],
+};
 
 const VIEWS: readonly { key: CableView; label: string }[] = [
   { key: 'build', label: 'Build' },
   { key: 'schematic', label: 'Schematic' },
   { key: 'documents', label: 'Documents' },
+  { key: 'device', label: 'Device' },
 ];
 
 /** No visual output — `useRegisterCommands` is the only effect. */
@@ -31,18 +46,13 @@ export function AppCommands(): null {
 
   const commands = useMemo<AppCommand[]>(() => {
     const list: AppCommand[] = [
-      {
-        id: 'nav.cables',
-        title: 'Go to Designs',
-        keywords: ['design list', 'home'],
-        run: () => void navigate({ to: '/cables' }),
-      },
-      {
-        id: 'nav.library',
-        title: 'Go to Library',
-        keywords: ['connectors', 'components', 'wire stocks', 'boards', 'parts'],
-        run: () => void navigate({ to: '/library' }),
-      },
+      // every page, sub-pages included (`shell/navigation.ts`): the palette reaches all of them
+      ...ALL_PAGES.map((page): AppCommand => ({
+        id: `nav.${page.to.slice(1).replace(/\//g, '.')}`,
+        title: `Go to ${page.title}`,
+        keywords: [...(PAGE_KEYWORDS[page.to] ?? []), ...(page.hint === undefined ? [] : [page.hint.toLowerCase()])],
+        run: () => void navigate({ to: page.to }),
+      })),
       {
         id: 'nav.setup',
         title: 'Set up domain modules',
@@ -50,13 +60,7 @@ export function AppCommands(): null {
         run: () => void navigate({ to: '/setup' }),
       },
       {
-        id: 'nav.partNumbers',
-        title: 'Part-number report (duplicates, unnumbered, disagreements)',
-        keywords: ['part numbers', 'pn', 'duplicate', 'unnumbered', 'health'],
-        run: () => void navigate({ to: '/part-numbers' }),
-      },
-      {
-        id: 'nav.settings',
+        id: 'nav.settings.identity',
         title: 'Hub settings (organisation, logo, rights line)',
         keywords: ['branding', 'organisation', 'logo', 'title block', 'identity'],
         run: () => void navigate({ to: '/settings' }),

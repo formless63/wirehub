@@ -100,13 +100,29 @@ by it too (`docs/validation-rules.md`). The cable list shows a `MAKE` / `CM` / `
 Library a flag, and the lineup a column. The editor's Notes tab sets a design's route; each part
 editor has a Sourcing section.
 
+## Cables and sub-assemblies
+
+A design's optional `kind` says what it documents:
+
+- `cable` (the default when `kind` is absent): a finished cable;
+- `subassembly`: a partial build, such as stock cut and stripped to length or one half of a cable.
+  It is always finished into a cable and never sold on its own.
+
+Any other value is an error (`invalid-kind`). The field is part of the design, so every saved
+version carries it: `GET /api/designs/:id/versions/:rev` returns it as `design.kind`. A receiver
+should read an absent `kind` as `cable`. The editor's Notes tab sets it. The Designs list marks a
+sub-assembly `SUB` and filters by **Kind** (`?kind=subassembly`). Validation rules read it as
+`design.kind`.
+
 ## In the app
 
 - **Products** (`/products`, the rail): the families with their number, variants and problems,
   **New product…**, and the **Lineup** tab with JSON and CSV downloads.
 - **A family's page** (`/products/<id>`): its variants with their designs, numbers, lengths, options,
   released revisions, costs and routes; **Add a variant…** (pick a design, **Suggest** a number,
-  pick options), **Merge** other families in, **Split** variants off, **Edit as JSON…**.
+  pick options), **Merge** other families in, **Split** variants off, and **Edit product…**.
+  Product and variant names, numbers, options, status and notes are ordinary fields. Internal
+  keys are assigned automatically; **Advanced: edit JSON** remains optional.
 
 ## The API
 

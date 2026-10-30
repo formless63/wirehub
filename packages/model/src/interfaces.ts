@@ -25,6 +25,7 @@
 import { recordMetaIssues, type RecordMeta } from './provenance.ts';
 import type { ConnectorDefinition, ConnectorGender, ConnectorPin, Db, Issue } from './model.ts';
 import type { HousingSpec } from './crimp.ts';
+import type { RecordMass } from './mass.ts';
 import { signalIds, vocabEntry, type SignalEntry, type SignalRef, type Vocab } from './vocab.ts';
 
 /* ------------------------------------------------------------------ *
@@ -48,8 +49,10 @@ export interface ConnectorBody extends RecordMeta {
   label: string;
   /** vocab `families` id */
   family: string;
-  /** vocab `genders` id — open, like `ConnectorGender` */
-  gender: ConnectorGender;
+  /** grams per piece (`mass.ts`); a connector on this body without a `mass` of its own weighs this */
+  mass?: RecordMass;
+  /** vocab `genders` id — open, like `ConnectorGender`; absent: not known yet (a draft body, a finding until it is set) */
+  gender?: ConnectorGender;
   /** in the order a connector built on this body lists its pins */
   positions: BodyPosition[];
   /** the opposite-gender body this one mates with, when the catalog has it */
@@ -291,6 +294,7 @@ function duplicates(ids: readonly string[]): string[] {
  *   gender, its body the other;
  * - `interface-body-unknown`, `interface-position-unknown`: an interface that
  *   assigns a position none of its bodies has;
+ * - `body-gender-unknown` (warning): a draft body saved before its gender was known;
  * - `body-mates`: a mate that is unknown or the same gender (error), or one
  *   that does not mate back (warning — a pair is written one side at a time;
  *   the DIN-8 262°/270° hazard is a body fact: they never mate);
@@ -322,10 +326,11 @@ export function validateInterfaces(db: Db): Issue[] {
     for (const id of duplicates(body.positions.map((p) => p.id))) {
       issues.push(issue('duplicate-terminal-id', `body '${body.id}' has duplicate position '${id}'`, where));
     }
+    if (body.gender === undefined) issues.push(issue('body-gender-unknown', `body '${body.id}' has no gender yet: plug (male) or socket (female)`, where, 'warning'));
     if (body.mates !== undefined) {
       const mate = bodyById.get(body.mates);
       if (mate === undefined) issues.push(issue('body-mates', `body '${body.id}' mates with unknown body '${body.mates}'`, where));
-      else if (mate.gender === body.gender) issues.push(issue('body-mates', `body '${body.id}' mates with '${mate.id}', which is also ${body.gender}`, where));
+      else if (mate.gender !== undefined && mate.gender === body.gender) issues.push(issue('body-mates', `body '${body.id}' mates with '${mate.id}', which is also ${body.gender}`, where));
       // one-sided is a warning, not an error: a pair is written one body at a
       // time, and no single write can make both sides agree (
       // writes the second side straight after the first)
@@ -377,7 +382,7 @@ export function validateInterfaces(db: Db): Issue[] {
     if (!iface.bodies.includes(body.id)) {
       issues.push(issue('connector-interface-body', `interface '${iface.id}' is not found on body '${body.id}'`, where));
     }
-    if (connector.gender !== undefined && connector.gender !== body.gender) {
+    if (connector.gender !== undefined && body.gender !== undefined && connector.gender !== body.gender) {
       issues.push(issue('connector-gender-mismatch', `connector '${connector.id}' is ${connector.gender}, its body '${body.id}' is ${body.gender}`, where));
     }
     // An independently stocked connector (body + pinout) may have its own number.

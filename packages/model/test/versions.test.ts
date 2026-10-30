@@ -108,7 +108,7 @@ describe('diff', () => {
     expect(diff.fields).toEqual(['label']);
     expect(diff.joints.removed.length).toBeGreaterThan(0);
     expect(diff.instances.removed.map((i) => i.id)).toEqual(['u1']);
-    expect(diff.definitions.removed).toContain('connector terminal-block-4');
+    expect(diff.definitions.removed).toContain('connector Terminal block, 4-way, 5.08 mm'); // by name, as the user knows it
     expect(diffLines(diff)[0]).toBe('~ label');
     expect(diffLines(diffVersions(before, before))).toEqual([]);
   });

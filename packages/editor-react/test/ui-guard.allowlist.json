@@ -25,12 +25,6 @@
     "packages/editor-react/src/panels/KitEditor.tsx": {
       "native-select": 2
     },
-    "packages/editor-react/src/panels/ModelPanel.tsx": {
-      "native-select": 2
-    },
-    "packages/editor-react/src/panels/NewCableWizard.tsx": {
-      "native-select": 2
-    },
     "packages/editor-react/src/panels/PcbaEditor.tsx": {
       "native-select": 1
     },
@@ -60,8 +54,6 @@
     "packages/editor-react/src/panels/fields.tsx": "Native select kept for now: its tests drive it with fireEvent.change, so the swap to the ui Select is its own change with the tests rewritten (follow-up bead)",
     "packages/editor-react/src/panels/Inspector.tsx": "Native select kept for now: its tests drive it with fireEvent.change, so the swap to the ui Select is its own change with the tests rewritten (follow-up bead)",
     "packages/editor-react/src/panels/KitEditor.tsx": "Native select kept for now: its tests drive it with fireEvent.change, so the swap to the ui Select is its own change with the tests rewritten (follow-up bead)",
-    "packages/editor-react/src/panels/ModelPanel.tsx": "Native select kept for now: its tests drive it with fireEvent.change, so the swap to the ui Select is its own change with the tests rewritten (follow-up bead); one of the three is a multi-row listbox (size attribute), which Select does not model",
-    "packages/editor-react/src/panels/NewCableWizard.tsx": "Native select kept for now: its tests drive it with fireEvent.change, so the swap to the ui Select is its own change with the tests rewritten (follow-up bead)",
     "packages/editor-react/src/panels/PcbaEditor.tsx": "Native select kept for now: its tests drive it with fireEvent.change, so the swap to the ui Select is its own change with the tests rewritten (follow-up bead)",
     "packages/editor-react/src/panels/Pick.tsx": "Native select kept for now: its tests drive it with fireEvent.change, so the swap to the ui Select is its own change with the tests rewritten (follow-up bead)",
     "packages/editor-react/src/panels/RecordCompare.tsx": "Native select kept for now: its tests drive it with fireEvent.change, so the swap to the ui Select is its own change with the tests rewritten (follow-up bead)",

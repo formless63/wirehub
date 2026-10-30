@@ -80,7 +80,7 @@ export function ModulePanels({ registry, slot, context, framed = false }: { regi
       {slotModules(registry, slot).map((id) => {
         const module = registry.module(id);
         return (
-          <ModuleSlot key={id} module={id} label={module?.label ?? id} slot={slot} requiresSetup={(module?.settings ?? []).some((setting) => setting.required === true)}>
+          <ModuleSlot key={id} module={id} label={module?.label ?? 'Extension'} slot={slot} requiresSetup={(module?.settings ?? []).some((setting) => setting.required === true)}>
             {render(panels.filter((p) => p.module === id))}
           </ModuleSlot>
         );

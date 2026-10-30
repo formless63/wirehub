@@ -191,6 +191,15 @@ export function placedDesign(db: Db, sub: Pick<SubassemblyInstance, 'id' | 'def'
   return { ok: true, placed: { design: version.design, db: frozenDb(version.definitions, db), rev: sub.rev } };
 }
 
+/**
+ * The design a sub-assembly places, opened, or undefined: a pinned reference opens that saved
+ * version (never the newer working copy), a floating one the working copy.
+ */
+export function openPlaced(db: Db, sub: Pick<SubassemblyInstance, 'id' | 'def' | 'rev'>): PlacedDesign | undefined {
+  const result = placedDesign(db, sub);
+  return result?.ok === true ? result.placed : undefined;
+}
+
 /* ------------------------------------------------------------------ *
  * Ports
  * ------------------------------------------------------------------ */

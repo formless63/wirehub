@@ -25,10 +25,11 @@
 
 import { LibraryNavigationGuard } from './LibraryNavigationGuard.tsx';
 import type { JSX } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useMatches, useNavigate } from '@tanstack/react-router';
-import { LIBRARY_KINDS, Library, Page, RevisionsSection, type BoardJourneyHost, type DefinitionKind, type LibraryKind } from '@wirehub/editor-react';
-import { isRevisionKind } from '@wirehub/model';
+import { useQueryClient } from '@tanstack/react-query';
+import { DEFINITION_LABELS, LIBRARY_KINDS, Library, Page, RevisionsSection, Tab, TabList, Tabs, VocabularyBrowse, type BoardJourneyHost, type DefinitionKind, type LibraryKind } from '@wirehub/editor-react';
+import { isRevisionKind, type Db } from '@wirehub/model';
 
 import { RouteHeader } from '../shell/RouteHeader.tsx';
 import { useStudio } from '../studio-context.tsx';
@@ -43,6 +44,8 @@ import { definitionRecord } from '../locks/records.ts';
 import { browserDepictions } from '../depictions.browser.ts';
 import { useModules } from '../modules/ModulesContext.tsx';
 import { ImportMenu } from '../modules/ImportMenu.tsx';
+import { routesIn } from '../modules/placement.ts';
+import { allowedRailModules } from '../modules.browser.ts';
 import { ModulePanels } from '../modules/slots.tsx';
 import { HistoryButton } from '../history/HistoryPanel.tsx';
 import { definitionNoun } from '../history/types.ts';
@@ -50,6 +53,25 @@ import { helpForLibraryKind } from '../help.ts';
 import { useDocsBase } from '../hooks/useDocsBase.ts';
 import { useIsNarrow } from '../hooks/useIsNarrow.ts';
 import { CompareHost } from '../modules/CompareHost.tsx';
+import { RecordCover } from '../RecordCover.tsx';
+import { BoardOutputs } from '../BoardOutputs.tsx';
+import { BoardCheck } from '../BoardCheck.tsx';
+import { BoardFirmware } from '../FirmwareLinks.tsx';
+import { AdoptRevisionSection } from '../adopt/AdoptRevision.tsx';
+import { frozenRecords } from '../versions/frozen-records.ts';
+import { NotesPanel } from '../knowledge/NotesPanel.tsx';
+import { StockPanel } from '../inventory/StockPanel.tsx';
+import { OffersPanel } from '../inventory/OffersPanel.tsx';
+import { BoardEnclosures } from '../enclosures/BoardEnclosures.tsx';
+import { EnclosurePanel } from '../enclosures/EnclosurePanel.tsx';
+import { PrintPanel } from '../print/PrintPanel.tsx';
+import { RecordSections } from '../shell/RecordSections.tsx';
+import { modelCoverAdapter } from '../cover-capture.ts';
+
+function recordLabel(db: Db, kind: Exclude<LibraryKind, 'kits'>, id: string): string {
+  const list: readonly { id: string; label?: string }[] = kind === 'mechanicals' ? (db.mechanicals ?? []) : db[kind];
+  return list.find((r) => r.id === id)?.label ?? definitionNoun(kind);
+}
 
 const KIND_FROM_URL: Readonly<Record<string, LibraryKind>> = {
   connectors: 'connectors',
@@ -74,6 +96,8 @@ const KIND_TO_URL: Readonly<Record<LibraryKind, string>> = {
   kits: 'kits',
 };
 
+const VOCAB_TAB = (onSelect: () => void): readonly { id: string; label: string; onSelect: () => void }[] => [{ id: 'vocabulary', label: 'Vocabulary', onSelect }];
+
 function kindOfUrl(value: string | undefined): LibraryKind {
   return (value !== undefined && KIND_FROM_URL[value]) || 'connectors';
 }
@@ -90,21 +114,41 @@ export function LibraryRoute(): JSX.Element {
   // did not match
   const matches = useMatches();
   const params = (matches[matches.length - 1]?.params ?? {}) as { kind?: string; id?: string };
-  const search = (matches[matches.length - 1]?.search ?? {}) as { pack?: string };
+  const search = (matches[matches.length - 1]?.search ?? {}) as { pack?: string; compare?: string };
   const packFilter = search.pack;
   const kind = kindOfUrl(params.kind);
   // the wire builder's parts library — only the Library reads it
   const wireLibrary = useMemo(() => workbenchWireLibrary(), []);
   const vendorDocuments = useMemo(() => workbenchDocuments(), []);
   // each record's 3D model
-  const models = useMemo(() => workbenchModels(), []);
+  // a new adapter makes the open record's 3D panel re-read its link (a generated enclosure replaces it)
+  const [modelsEpoch, setModelsEpoch] = useState(0);
+  const models = useMemo(() => workbenchModels(), [modelsEpoch]);
+  const queryClient = useQueryClient();
+  const modelCover = useMemo(() => modelCoverAdapter(queryClient), [queryClient]);
   const revisions = useMemo(() => workbenchRevisions(), []);
   const selectedId = params.id;
   // the compare view: a module's, or the base's field diff — `Library`'s Compare actions open it
   const [compare, setCompare] = useState<{ a: string; b?: string } | undefined>(undefined);
+  // `?compare=kinds/id@rev` or `kinds/id@design:rev` (a saved version's "Changed since" link): that revision, or the version's frozen copy, against the record now
+  useEffect(() => {
+    if (search.compare !== undefined) setCompare({ a: search.compare, b: search.compare.slice(0, search.compare.lastIndexOf('@')) });
+  }, [search.compare]);
   // a board's page walks its journey: builds are read and saved here (an
   // importer module may add the import step — docs/modules.md)
-  const boardJourney = useMemo((): BoardJourneyHost => ({ builds: workbenchBuilds() }), []);
+  // "Update from file": the library-import page of the module that reads board files, told which board (`?update=`)
+  const boardPage = useMemo(() => {
+    const readers = new Set(modules.importers().filter((i) => i.accepts.includes('.kicad_pcb')).map((i) => i.module));
+    return routesIn(modules, 'library-import', allowedRailModules).find((r) => readers.has(r.module));
+  }, [modules]);
+  const boardEditable = studio.me?.role !== 'viewer';
+  const boardJourney = useMemo((): BoardJourneyHost => ({
+    builds: workbenchBuilds(),
+    ...(boardPage === undefined ? {} : { onImport: (board) => { if (board.id !== undefined) void navigate({ href: `/m/${boardPage.module}/${boardPage.path}?update=${encodeURIComponent(board.id)}` }); } }),
+    // the KiCad check under Import; "Update from this file" opens the update with the stored board file
+    sourceCheck: (board) => <BoardCheck board={board} editable={boardEditable}
+      {...(boardPage === undefined ? {} : { onUseFile: () => void navigate({ href: `/m/${boardPage.module}/${boardPage.path}?update=${encodeURIComponent(board.id)}&source=stored` }) })} />,
+  }), [boardPage, navigate, boardEditable]);
 
   const onKindChange = useCallback(
     (next: LibraryKind): void => {
@@ -155,6 +199,22 @@ export function LibraryRoute(): JSX.Element {
   }, [modules, studio.onDefinitionsChange]);
 
   // edit locks: the selected definition is the record; a new one locks nothing
+  // Library › Vocabulary: the controlled lists, read-only (`/library/vocabulary`)
+  if (params.kind === 'vocabulary') {
+    return (
+      <Page>
+        <RouteHeader title="Library" />
+        <Tabs value="vocabulary" onValueChange={(next) => { if (next !== 'vocabulary') void navigate({ to: '/library/$kind', params: { kind: KIND_TO_URL[next as LibraryKind] } }); }}>
+          <TabList aria-label="parts library" className="cs-library-tabs px-4">
+            {LIBRARY_KINDS.map((entry) => <Tab key={entry} value={entry}>{DEFINITION_LABELS[entry]}</Tab>)}
+            <Tab value="vocabulary">Vocabulary</Tab>
+          </TabList>
+        </Tabs>
+        <VocabularyBrowse vocab={studio.db.vocab} />
+      </Page>
+    );
+  }
+
   return (
     <Page>
     <RouteHeader title="Library" secondary={<Link to="/part-numbers" className="cs-ui-btn no-underline" title="Numbers used twice, parts without a number, numbers the scheme objects to">Numbering</Link>} />
@@ -167,7 +227,8 @@ export function LibraryRoute(): JSX.Element {
           const search = pack === undefined ? {} : { pack };
           void navigate({ to: '/library/$kind', params: { kind: KIND_TO_URL[kind] }, search });
         }}
-        rowMarker={(rowKind, id) => <LockMarker record={definitionRecord(rowKind, id)} />}
+        rowMarker={(rowKind, id) => <>{rowKind !== 'pcbas' && rowKind !== 'wires' && rowKind !== 'mechanicals' ? null : <RecordCover key={id} kind={rowKind} id={id} label={(rowKind === 'pcbas' ? studio.db.pcbas : rowKind === 'wires' ? studio.db.wires : studio.db.mechanicals ?? []).find((r) => r.id === id)?.label ?? 'Unavailable item'} compact />}<LockMarker record={definitionRecord(rowKind, id)} /></>}
+        recordPreview={({ kind, id, label }) => kind !== 'pcbas' && kind !== 'wires' && kind !== 'mechanicals' ? null : <><RecordCover key={`${kind}/${id}`} kind={kind} id={id} label={label} editable={!phone && studio.me?.role !== 'viewer'} /></>}
         db={studio.db}
         loading={!studio.dbReady}
         definitions={phone ? undefined : studio.definitions}
@@ -179,6 +240,7 @@ export function LibraryRoute(): JSX.Element {
         artworkAdapter={studio.artwork}
         assets={studio.assets}
         models={models}
+        modelCover={modelCover}
         wireLibrary={wireLibrary}
         vendorDocuments={vendorDocuments}
         kind={kind}
@@ -194,38 +256,54 @@ export function LibraryRoute(): JSX.Element {
         moduleExtras={(record: { kind: LibraryKind; id: string }) =>
           modules.panels('library-detail').length === 0 ? null : <ModulePanels registry={modules} slot="library-detail" context={{ db: studio.db, record, readOnly: false }} framed />
         }
-        detailExtras={(record: { kind: LibraryKind; id: string }) => (
-          <>
-            {/* the record's change history: who changed what, and restore an earlier state */}
-            {phone ? null : (
-            <div className="cs-row" data-testid="library-history">
-              <HistoryButton subject={definitionRecord(record.kind, record.id)} label={`${definitionNoun(record.kind)} ${record.id}`} onRestored={studio.onDefinitionsChange} />
-            </div>
-            )}
-            {/* the record's saved revisions: where each is used, compare, save the next (docs/revisions.md) */}
-            {isRevisionKind(record.kind) ? (
-              <RevisionsSection
-                key={`${record.kind}/${record.id}`}
-                kind={record.kind}
-                id={record.id}
-                revisions={revisions}
-                artwork={studio.artwork}
-                models={models}
-                readOnly={phone || studio.me?.role === 'viewer'}
-                onCompare={(a, b) => setCompare({ a, ...(b === undefined ? {} : { b }) })}
-                onChanged={() => studio.onDefinitionsChange()}
-              />
-            ) : null}
-          </>
-        )}
+        detailExtras={(record: { kind: LibraryKind; id: string; readOnly?: boolean }) => {
+          const viewer = studio.me?.role === 'viewer';
+          const shell = record.kind === 'mechanicals' ? (studio.db.mechanicals ?? []).find((m) => m.id === record.id) : undefined;
+          const board = record.kind === 'pcbas' ? studio.db.pcbas.find((b) => b.id === record.id) : undefined;
+          // one section pattern (shell/RecordSections.tsx), ordered by what matters for the kind:
+          // a board's outputs and firmware, a shell's enclosure and print, then stock, revisions, notes
+          return (
+            <RecordSections key={`${record.kind}/${record.id}`} tools={phone ? undefined : (
+              <span data-testid="library-history"><HistoryButton subject={definitionRecord(record.kind, record.id)} label={record.kind === 'kits' ? studio.db.kits?.find((k) => k.id === record.id)?.label ?? 'Kit' : recordLabel(studio.db, record.kind, record.id)} onRestored={studio.onDefinitionsChange} /></span>
+            )}>
+              {board === undefined || phone ? null : <BoardOutputs id={board.id} editable={!viewer} />}
+              {board === undefined ? null : <BoardFirmware board={board.id} />}
+              {board === undefined || phone ? null : <BoardEnclosures board={board} db={studio.db} definitions={studio.definitions} readOnly={viewer}
+                onCreated={studio.onDefinitionsChange} onOpen={(id) => onOpenRecord('mechanicals', id)} />}
+              {shell?.enclosure === undefined || phone ? null : <EnclosurePanel key={shell.id} record={shell} db={studio.db} definitions={studio.definitions}
+                readOnly={viewer} onSaved={studio.onDefinitionsChange} onGenerated={() => { setModelsEpoch((n) => n + 1); void queryClient.invalidateQueries({ queryKey: ['print', shell.id] }); }} />}
+              {shell === undefined || phone ? null : <PrintPanel id={shell.id} readOnly={viewer} />}
+              {/* designs on an older revision of this part, with what moving changes and Adopt (docs/revisions.md) */}
+              {record.kind === 'pcbas' || record.kind === 'mechanicals' ? <AdoptRevisionSection kind={record.kind} id={record.id} readOnly={phone || viewer} onOpen={(id) => onOpenRecord(record.kind, id)} /> : null}
+              {/* what is in stock of it (docs/inventory.md); kits are not stocked */}
+              {record.kind === 'kits' ? null : <StockPanel item={{ kind: record.kind, id: record.id }} label={recordLabel(studio.db, record.kind, record.id)} readOnly={phone || viewer} />}
+              {record.kind === 'kits' ? null : <OffersPanel item={{ kind: record.kind, id: record.id }} dim={record.kind === 'wires' ? 'length' : 'count'} readOnly={phone || viewer} />}
+              {/* the record's saved revisions: where each is used, compare, save the next (docs/revisions.md) */}
+              {isRevisionKind(record.kind) ? (
+                <RevisionsSection
+                  kind={record.kind}
+                  id={record.id}
+                  revisions={revisions}
+                  artwork={studio.artwork}
+                  models={models}
+                  readOnly={phone || viewer || record.readOnly === true}
+                  onCompare={(a, b) => setCompare({ a, ...(b === undefined ? {} : { b }) })}
+                  onChanged={() => studio.onDefinitionsChange()}
+                />
+              ) : null}
+              <NotesPanel record={definitionRecord(record.kind, record.id)} readOnly={phone || viewer} />
+            </RecordSections>
+          );
+        }}
         {...(partNumbers === undefined ? {} : { partNumbers })}
         {...(partNumbers?.designs === undefined ? {} : { designs: partNumbers.designs })}
         art={art}
+        extraTabs={VOCAB_TAB(() => void navigate({ to: '/library/$kind', params: { kind: 'vocabulary' } }))}
         onOpenDesign={(id) => void navigate({ to: '/cables/$id', params: { id } })}
       />
       </LibraryNavigationGuard>
       </EditLockScope>
-      {compare === undefined ? null : <CompareHost registry={modules} db={studio.db} a={compare.a} {...(compare.b === undefined ? {} : { b: compare.b })} revisions={revisions} artwork={studio.artwork} models={models} onClose={() => setCompare(undefined)} />}
+      {compare === undefined ? null : <CompareHost registry={modules} db={studio.db} a={compare.a} {...(compare.b === undefined ? {} : { b: compare.b })} revisions={revisions} artwork={studio.artwork} models={models} frozen={frozenRecords} onClose={() => setCompare(undefined)} />}
     </div>
     </Page>
   );

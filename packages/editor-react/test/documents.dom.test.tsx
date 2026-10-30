@@ -16,6 +16,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CableEditor } from '../src/CableEditor.tsx';
 import {
   DocumentsPane,
+  SIDECAR_AUTOSAVE_MS,
   keepFramePlace,
   printDocumentFrame,
   type DocumentsProps,
@@ -384,7 +385,7 @@ describe('<CableEditor> — Canvas | Documents', () => {
     });
     try {
       render(<DocumentsPane design={design} db={db} saved={design} debounceMs={10} />);
-      const ids = ['bom.csv', 'wire-list.csv', 'cut-list.csv', 'crimp-list.csv', 'production.xlsx', 'continuity.csv', 'continuity.json', 'labels.csv', 'labels.svg', 'labels.lbx'];
+      const ids = ['bom.csv', 'wire-list.csv', 'cut-list.csv', 'crimp-list.csv', 'production.xlsx', 'mass.json', 'processes.json', 'continuity.csv', 'continuity.json', 'labels.csv', 'labels.svg', 'labels.lbx'];
       fireEvent.keyDown(screen.getByRole('button', { name: 'Export…' }), { key: 'ArrowDown' });
       const formats = screen.getAllByRole('menuitem').map((item) => item.textContent!);
       expect(formats).toHaveLength(ids.length);
@@ -484,7 +485,7 @@ describe('<CableEditor> — Canvas | Documents', () => {
     const last = derive.mock.calls[derive.mock.calls.length - 1]!;
     expect(last[0]).toBe('test-spec');
     expect(last[3]).toMatchObject({ testParameters: { isolationVolts: 500 }, testDefaults: { isolationVolts: 250 } });
-    await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Save' })));
+    await act(async () => void (await vi.advanceTimersByTimeAsync(SIDECAR_AUTOSAVE_MS)));
     expect(save).toHaveBeenCalledWith(design.id, { test: { isolationVolts: 500 } });
   });
 
@@ -508,7 +509,7 @@ describe('<CableEditor> — Canvas | Documents', () => {
     const last = derive.mock.calls[derive.mock.calls.length - 1]!;
     expect(last[3]).toMatchObject({ document: { number: 'DOC-9' }, generatedAt: expect.stringMatching(/^\d{4}\.\d{2}\.\d{2}$/) });
 
-    await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Save' })));
+    await act(async () => void (await vi.advanceTimersByTimeAsync(SIDECAR_AUTOSAVE_MS)));
     expect(save).toHaveBeenCalledWith(design.id, { partNumber: 'CBL-00101-3X', sheet: { number: 'DOC-9', stampDate: true } });
 
     // the drawing sheet has its own title block; no options row there
@@ -549,7 +550,7 @@ describe('<CableEditor> — Canvas | Documents', () => {
     fireEvent.change(number, { target: { value: 'DOC-9' } });
     act(() => void vi.advanceTimersByTime(10));
 
-    await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Save' })));
+    await act(async () => void (await vi.advanceTimersByTimeAsync(SIDECAR_AUTOSAVE_MS)));
 
     // the field this form typed into is kept; the field the version save
     // touched is picked up — no person had to do anything
@@ -585,7 +586,7 @@ describe('<CableEditor> — Canvas | Documents', () => {
     fireEvent.change(number, { target: { value: 'DOC-9' } });
     act(() => void vi.advanceTimersByTime(10));
 
-    await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Save' })));
+    await act(async () => void (await vi.advanceTimersByTimeAsync(SIDECAR_AUTOSAVE_MS)));
 
     // no silent retry when it genuinely conflicts — nothing was written
     expect(save).toHaveBeenCalledTimes(1);
@@ -621,7 +622,7 @@ describe('<CableEditor> — Canvas | Documents', () => {
 
     fireEvent.change(screen.getByRole('textbox', { name: 'Document number' }), { target: { value: 'DOC-9' } });
     act(() => void vi.advanceTimersByTime(10));
-    await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Save' })));
+    await act(async () => void (await vi.advanceTimersByTimeAsync(SIDECAR_AUTOSAVE_MS)));
     expect(container.querySelector('.cs-drawing-conflict')).not.toBeNull();
 
     await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'use the disk value' })));

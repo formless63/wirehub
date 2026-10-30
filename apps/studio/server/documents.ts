@@ -20,13 +20,13 @@
 
 import { isDesignId } from '@wirehub/catalog';
 import { BASE_EXPORTS, LABEL_PRESET_IDS, LBX_PRINTER_IDS, registeredLabelTemplates, PAPER_IDS, baseExport, parsePaper, parseScale, readTestParameters, type DrawingArt, type RevisionRow, type DrawingMeta, type FormatOptions, type TestParameters } from '@wirehub/docs';
-import { knownPartNumbers, releasedRevision, versionDb, versionSummary, type CableDesign, type Db, type DesignVersionFile, type KnownPartNumber, type PartNumberScheme, type VersionSummary } from '@wirehub/model';
+import { knownPartNumbers, releasedRevision, stableJson, versionDb, versionSummary, type CableDesign, type Db, type DesignVersionFile, type KnownPartNumber, type PartNumberScheme, type VersionSummary } from '@wirehub/model';
 import type { DepictionSource } from '@wirehub/render-svg';
 
 import type { ApiResponse } from './api.ts';
 import type { DesignStore } from './designs.ts';
 import type { DrawingStore } from './drawings.ts';
-import { type ApprovalFacts, type PdfProvenance, DEFAULT_FORMAT, DOCUMENT_FORMATS, DOCUMENT_KINDS, isDocumentFormat, isDocumentKind, releaseMeta, renderDocument, withBranding } from './render/index.ts';
+import { type ApprovalFacts, type PdfProvenance, DEFAULT_FORMAT, DOCUMENT_FORMATS, DOCUMENT_KIND_FORMATS, DOCUMENT_KINDS, isDocumentFormat, isDocumentKind, releaseMeta, renderDocument, withBranding } from './render/index.ts';
 import { approvalPolicy, BRANDING_PATH, brandingView, effectiveTestDefaults, type BrandingRecord } from './settings.ts';
 import { brandingArt } from '../module-art.ts';
 import type { AssetStore } from './assets.ts';
@@ -41,6 +41,7 @@ import { partNumberSchemeOf, type SchemeDeps } from './part-number-scheme.ts';
 import { isWireSpecFormat, renderWireSpec, WIRE_SPEC_FORMATS } from './render/wire-spec.ts';
 import type { WireLibraryStore } from './wire-library.ts';
 import type { Awaitable } from './storage/change-set.ts';
+import { DOCUMENT_CACHE_VERSION, sha256Hex, type CachedDocument, type DocumentCache } from './document-cache.ts';
 
 export const DOCUMENT_ROUTES = [
   'GET    /api/designs/:id/documents/:kind',
@@ -70,6 +71,8 @@ export interface DocumentDeps extends SchemeDeps {
   pdfEngine?: PdfEngine;
   /** the live settings: the PDF engine named in Settings when the host handed none over */
   runtimeSettings?: RuntimeSettings;
+  /** released renders by render key (`document-cache.ts`); absent: a revision is rendered on every request */
+  documentCache?: DocumentCache;
 }
 
 function fail(status: number, error: string, hint?: string): ApiResponse {
@@ -91,7 +94,7 @@ export function testDefaultsFromEnv(env: Readonly<Record<string, string | undefi
   return Object.keys(read.parameters).length === 0 ? undefined : read.parameters;
 }
 
-interface Loaded {
+export interface Loaded {
   design: CableDesign;
   db: Db;
   drawing: DrawingMeta;
@@ -103,40 +106,44 @@ interface Loaded {
   version?: DesignVersionFile;
 }
 
-async function load(deps: DocumentDeps, id: string, rev: string | null): Promise<Loaded | ApiResponse> {
-  const working = await deps.designs.read(id);
-  if (working === undefined) return fail(404, `There is no design called '${id}'.`, 'Pick one from GET /api/designs.');
-  const live = await deps.loadDb();
-  const sidecar = deps.drawings === undefined ? undefined : await deps.drawings.read(id);
-  const drawing: DrawingMeta = sidecar?.meta ?? {};
-  const photo = sidecar?.photo;
-  const keepsRevisions = deps.versions !== undefined;
-  if (rev === null || rev === '') {
-    // a design placing sub-assemblies reads them from the design library
-    return { design: working, db: await withDesignLibrary(deps, working, live), drawing, ...(photo === undefined ? {} : { photo }), target: keepsRevisions ? 'working' : undefined };
-  }
+/** The revision a `rev` names: a number, `latest`, or `released` (the latest approved revision with approvals on, else the latest saved). */
+export async function resolveRevision(deps: DocumentDeps, id: string, rev: string): Promise<number | ApiResponse> {
   if (deps.versions === undefined) return fail(501, 'This hub does not keep saved revisions.', 'Leave out ?rev= to render the working copy.');
-  let number: number;
   if (rev === 'latest') {
     const all = await deps.versions.revisions(id);
     const last = all[all.length - 1];
     if (last === undefined) return fail(404, `'${id}' has no saved revision.`, 'Save a version first, or leave out ?rev=.');
-    number = last;
-  } else if (rev === 'released') {
-    // the approved release: the latest approved revision (approvals on), else the latest saved
-    const policy = await approvalPolicy(deps.docs);
-    const summaries: VersionSummary[] = [];
-    for (const n of await deps.versions.revisions(id)) {
-      const f = await deps.versions.read(id, n);
-      if (f !== undefined) summaries.push(versionSummary(f));
-    }
-    const released = releasedRevision(summaries, policy.enabled);
-    if (released === undefined) return fail(404, `'${id}' has no ${policy.enabled ? 'approved' : 'saved'} revision.`, 'Approve a saved version first, or leave out ?rev=.');
-    number = released;
-  } else if (/^\d{1,6}$/.test(rev)) number = Number(rev);
-  else return fail(400, `'${rev}' is not a revision number.`, 'Use a whole number such as 2, or latest.');
-  const file = await deps.versions.read(id, number);
+    return last;
+  }
+  if (rev === 'released') {
+    const { released, approvalsOn } = await releasedOf(deps, id);
+    if (released === undefined) return fail(404, `'${id}' has no ${approvalsOn ? 'approved' : 'saved'} revision.`, 'Approve a saved version first, or leave out ?rev=.');
+    return released;
+  }
+  if (/^\d{1,6}$/.test(rev)) return Number(rev);
+  return fail(400, `'${rev}' is not a revision number.`, 'Use a whole number such as 2, or latest.');
+}
+
+/** The approved release: the latest approved revision (approvals on), else the latest saved. */
+export async function releasedOf(deps: DocumentDeps, id: string): Promise<{ released?: number; approvalsOn: boolean }> {
+  const policy = await approvalPolicy(deps.docs);
+  const summaries: VersionSummary[] = [];
+  for (const n of (await deps.versions?.revisions(id)) ?? []) {
+    const f = await deps.versions?.read(id, n);
+    if (f !== undefined) summaries.push(versionSummary(f));
+  }
+  const released = releasedRevision(summaries, policy.enabled);
+  return { ...(released === undefined ? {} : { released }), approvalsOn: policy.enabled };
+}
+
+/** A saved revision as the sheets render it: its own design and frozen definitions, the drawing sidecar of today. */
+export async function loadRevision(deps: DocumentDeps, id: string, number: number, known?: DesignVersionFile): Promise<Loaded | ApiResponse> {
+  const file = known ?? (await deps.versions?.read(id, number));
   if (file === undefined) return fail(404, `'${id}' has no saved Rev ${number}.`, 'GET /api/designs/:id/versions lists the revisions.');
+  const live = await deps.loadDb();
+  const sidecar = deps.drawings === undefined ? undefined : await deps.drawings.read(id);
+  const drawing: DrawingMeta = sidecar?.meta ?? {};
+  const photo = sidecar?.photo;
   const policy = await approvalPolicy(deps.docs);
   const frozen = { ...file.design, id };
   return {
@@ -149,6 +156,23 @@ async function load(deps: DocumentDeps, id: string, rev: string | null): Promise
     version: file,
     ...(policy.enabled ? { approvals: { ...(file.approval === undefined ? {} : { approval: file.approval }) } } : {}),
   };
+}
+
+async function load(deps: DocumentDeps, id: string, rev: string | null): Promise<Loaded | ApiResponse> {
+  if (!(await deps.designs.has(id))) return fail(404, `There is no design called '${id}'.`, 'Pick one from GET /api/designs.');
+  if (rev === null || rev === '') {
+    const working = await deps.designs.read(id);
+    if (working === undefined) return fail(404, `There is no design called '${id}'.`, 'Pick one from GET /api/designs.');
+    const live = await deps.loadDb();
+    const sidecar = deps.drawings === undefined ? undefined : await deps.drawings.read(id);
+    const drawing: DrawingMeta = sidecar?.meta ?? {};
+    const photo = sidecar?.photo;
+    // a design placing sub-assemblies reads them from the design library
+    return { design: working, db: await withDesignLibrary(deps, working, live), drawing, ...(photo === undefined ? {} : { photo }), target: deps.versions !== undefined ? 'working' : undefined };
+  }
+  const number = await resolveRevision(deps, id, rev);
+  if (typeof number !== 'number') return number;
+  return await loadRevision(deps, id, number);
 }
 
 /** The artwork the sheets draw: the store's (uploaded boards too) when the hub keeps one, a revision's own copy over it. `undefined`: the catalog tree, as before. */
@@ -214,7 +238,7 @@ function positive(value: string | null, name: string): number | undefined | ApiR
 }
 
 /** The response headers that say how a PDF was made (`docs/exports.md`): the renderer, and why the browser engine was not used when it could have been. */
-export function pdfHeaders(pdf: PdfProvenance | undefined): Record<string, string> {
+export function pdfHeaders(pdf: { renderer: string; fallback?: string } | undefined): Record<string, string> {
   if (pdf === undefined) return {};
   // a header is ASCII on one line
   const ascii = (text: string): string => text.replace(/[^\x20-\x7e]/g, '?').slice(0, 400);
@@ -242,13 +266,193 @@ function file(output: { mimeType: string; fileName: string; body: string | Uint8
     bytes,
     contentType: output.mimeType,
     headers: {
-      'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename="${output.fileName.replace(/[^A-Za-z0-9._-]/g, '_')}"`,
+      'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename="${downloadName(output.fileName)}"`,
       // a rendered sheet is a document, never a page that runs anything
       'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox",
       'X-Content-Type-Options': 'nosniff',
       ...extraHeaders,
     },
   };
+}
+
+/** The file name a download carries (`Content-Disposition`). */
+export function downloadName(fileName: string): string {
+  return fileName.replace(/[^A-Za-z0-9._-]/g, '_');
+}
+
+/** Sheets a browser shows in place; everything else downloads. */
+function inlineMedia(mimeType: string): boolean {
+  return mimeType.startsWith('text/html') || mimeType === 'image/svg+xml' || mimeType === 'application/pdf';
+}
+
+/** The date a saved revision prints in a date stamp: the approval's when it is approved, else when it was saved (`YYYY.MM.DD`). */
+export function stampDate(file: Pick<DesignVersionFile, 'savedAt' | 'approval'>): string {
+  const at = file.approval?.state === 'approved' ? file.approval.at : file.savedAt;
+  return at.slice(0, 10).replace(/-/g, '.');
+}
+
+/* ------------------------------------------------------------------ *
+ * Released renders: render keys and the document cache (`docs/document-manifest.md`)
+ * ------------------------------------------------------------------ */
+
+/** A stable, quoted content tag: the sha256 of the value's key-sorted JSON (backend-independent). */
+export function stableTag(value: unknown): string {
+  return `"${sha256Hex(new TextEncoder().encode(stableJson(value))).slice(0, 32)}"`;
+}
+
+/**
+ * The name a revision render has in the manifest (`documents/<kind>.<format>`, `exports/<id>`) when
+ * the request asks with default options only (`rev`, and `format` for a document); otherwise
+ * `undefined`, and the render is made per request as before.
+ */
+export function revisionRenderName(section: 'documents' | 'exports', name: string, query: URLSearchParams): string | undefined {
+  const rev = query.get('rev');
+  if (rev === null || rev === '') return undefined;
+  const allowed = section === 'documents' ? ['rev', 'format'] : ['rev'];
+  for (const key of query.keys()) if (!allowed.includes(key)) return undefined;
+  if (query.getAll('rev').length > 1 || query.getAll('format').length > 1) return undefined;
+  if (section === 'exports') return baseExport(name) === undefined ? undefined : `exports/${name}`;
+  if (!isDocumentKind(name)) return undefined;
+  const format = query.get('format') ?? DEFAULT_FORMAT[name];
+  return isDocumentFormat(format) && DOCUMENT_KIND_FORMATS[name].includes(format) ? `documents/${name}.${format}` : undefined;
+}
+
+/** Everything a saved revision's renders may depend on, but the name: the render key's inputs. */
+export interface RenderContext {
+  id: string;
+  rev: number;
+  file: DesignVersionFile;
+  /** the version file's content tag (approval included) */
+  versionEtag: string;
+  inputs: {
+    drawing: string;
+    branding: string;
+    engineering: string;
+    approvalsOn: boolean;
+    pdfEngine: 'browser' | 'none';
+    modules: string[];
+  };
+}
+
+async function readTag(read: () => Promise<unknown>): Promise<string> {
+  try {
+    return stableTag((await read()) ?? null);
+  } catch {
+    return stableTag(null);
+  }
+}
+
+export async function renderContextOf(deps: DocumentDeps, id: string, file: DesignVersionFile): Promise<RenderContext> {
+  const sidecar = deps.drawings === undefined ? undefined : await deps.drawings.read(id);
+  // the sidecar's revision follows the latest save: left out, so a newer revision does not move this one's key
+  const { revision: _revision, ...meta } = sidecar?.meta ?? {};
+  const photo = sidecar?.photo === undefined ? null : sha256Hex(new TextEncoder().encode(sidecar.photo));
+  const modules = (deps.modules as { modules?: readonly { id: string; version: string }[] } | undefined)?.modules ?? [];
+  return {
+    id,
+    rev: file.rev,
+    file,
+    versionEtag: stableTag(file),
+    inputs: {
+      drawing: stableTag({ meta, photo }),
+      branding: await readTag(async () => deps.docs?.read(BRANDING_PATH)),
+      engineering: await readTag(async () => effectiveTestDefaults(deps)),
+      approvalsOn: (await approvalPolicy(deps.docs)).enabled,
+      pdfEngine: pdfEngineOf(deps) === undefined ? 'none' : 'browser',
+      modules: modules.map((m) => `${m.id}@${m.version}`).sort(),
+    },
+  };
+}
+
+/**
+ * The render key: what a released render is stored under. The hub's own version and live
+ * overlays (today's library, artwork, part numbers) are left out on purpose: the first render of
+ * a revision stays its render until one of these changes (bump `DOCUMENT_CACHE_VERSION` to redo all).
+ */
+export function renderKeyOf(context: RenderContext, name: string): string {
+  return sha256Hex(new TextEncoder().encode(stableJson({
+    key: 'wirehub.render-key/1',
+    cache: DOCUMENT_CACHE_VERSION,
+    design: context.id,
+    rev: context.rev,
+    version: context.versionEtag,
+    name,
+    drawing: context.inputs.drawing,
+    branding: context.inputs.branding,
+    engineering: context.inputs.engineering,
+    approvalsOn: context.inputs.approvalsOn,
+    pdfEngine: context.inputs.pdfEngine,
+    modules: context.inputs.modules,
+  })));
+}
+
+export type Served = { ok: true; doc: CachedDocument; key: string; inline: boolean } | { ok: false; response: ApiResponse };
+
+/** renders in progress per cache and key: two requests for the same render wait for one */
+const inFlight = new WeakMap<DocumentCache, Map<string, Promise<Served>>>();
+
+/**
+ * A saved revision's render by name: from the document cache when it holds the key, else rendered
+ * (from `loader`'s design) and stored (a racing writer's stored copy wins). Without a cache it is
+ * rendered each time, with the same key and hash headers.
+ */
+export async function serveRevision(deps: DocumentDeps, context: RenderContext, name: string, loader: () => Promise<Loaded | ApiResponse>): Promise<Served> {
+  const key = renderKeyOf(context, name);
+  const cache = deps.documentCache;
+  const inline = name.startsWith('documents/') && !/\.(csv|png|lbx)$/.test(name);
+  if (cache !== undefined) {
+    const hit = await cache.get(key);
+    if (hit !== undefined) return { ok: true, doc: hit, key, inline: inline && inlineMedia(hit.mediaType) };
+  }
+  const run = async (): Promise<Served> => {
+    const loaded = await loader();
+    if ('status' in loaded) return { ok: false, response: loaded };
+    const slash = name.indexOf('/');
+    const section = name.slice(0, slash) as 'documents' | 'exports';
+    const rest = name.slice(slash + 1);
+    const dot = rest.lastIndexOf('.');
+    const query = section === 'documents' ? new URLSearchParams({ rev: String(context.rev), format: rest.slice(dot + 1) }) : new URLSearchParams({ rev: String(context.rev) });
+    const rendered = await renderFor(deps, context.id, loaded, section, section === 'documents' ? rest.slice(0, dot) : rest, query);
+    if (!rendered.ok) return rendered;
+    const bytes = typeof rendered.output.body === 'string' ? new TextEncoder().encode(rendered.output.body) : rendered.output.body;
+    const doc: CachedDocument = {
+      bytes,
+      sha256: sha256Hex(bytes),
+      mediaType: rendered.output.mimeType,
+      fileName: rendered.output.fileName,
+      ...(rendered.pdf === undefined ? {} : { renderer: rendered.pdf.renderer, ...(rendered.pdf.fallback === undefined ? {} : { fallback: rendered.pdf.fallback }) }),
+      renderedAt: new Date().toISOString(),
+    };
+    const stored = cache === undefined ? doc : await cache.putIfAbsent(key, doc, { design: context.id, rev: context.rev });
+    return { ok: true, doc: stored, key, inline: rendered.inline };
+  };
+  if (cache === undefined) return await run();
+  let running = inFlight.get(cache);
+  if (running === undefined) inFlight.set(cache, (running = new Map()));
+  const pending = running.get(key);
+  if (pending !== undefined) return await pending;
+  const started = run();
+  running.set(key, started);
+  try {
+    return await started;
+  } finally {
+    running.delete(key);
+  }
+}
+
+/** A stored revision render as the response: content-hash `ETag`, hash and key headers, `If-None-Match` → 304. */
+export function revisionFile(doc: CachedDocument, key: string, inline: boolean, ifNoneMatch?: string): ApiResponse {
+  const etag = `"sha256:${doc.sha256}"`;
+  const headers: Record<string, string> = {
+    ETag: etag,
+    'X-WireHub-Content-SHA256': doc.sha256,
+    'X-WireHub-Render-Key': key,
+    ...pdfHeaders(doc.renderer === undefined ? undefined : { renderer: doc.renderer, ...(doc.fallback === undefined ? {} : { fallback: doc.fallback }) }),
+  };
+  if (ifNoneMatch !== undefined && ifNoneMatch.split(',').some((t) => t.trim() === '*' || t.trim().replace(/^W\//, '') === etag)) {
+    return { status: 304, body: null, headers };
+  }
+  return file({ mimeType: doc.mediaType, fileName: doc.fileName, body: doc.bytes }, inline, headers);
 }
 
 async function wireSpec(method: string, id: string, query: URLSearchParams, deps: DocumentDeps): Promise<ApiResponse> {
@@ -300,8 +504,8 @@ async function wireSpec(method: string, id: string, query: URLSearchParams, deps
   }
 }
 
-/** `undefined` when the path is not one of the document routes. */
-export async function handleDocumentRequest(method: string, parts: string[], query: URLSearchParams, deps: DocumentDeps): Promise<ApiResponse | undefined> {
+/** `undefined` when the path is not one of the document routes. `headers`: the request's lower-cased headers (`if-none-match`). */
+export async function handleDocumentRequest(method: string, parts: string[], query: URLSearchParams, deps: DocumentDeps, headers?: Record<string, string>): Promise<ApiResponse | undefined> {
   const [, head, id, section, name, ...rest] = parts;
   if (head === 'definitions' && id === 'wires' && parts.length === 5 && rest.length === 0 && parts[4] === 'wire-spec') return wireSpec(method, parts[3] as string, query, deps);
   if (head === 'exports' && id === undefined) {
@@ -320,40 +524,68 @@ export async function handleDocumentRequest(method: string, parts: string[], que
   if (method !== 'GET') return fail(405, `${method} is not something this address accepts.`, 'It answers GET.');
   if (!isDesignId(id)) return fail(400, `${JSON.stringify(id)} cannot be used as a design id.`);
 
+  // a saved revision with default options: served from the document cache by its render key
+  const revisionName = revisionRenderName(section, name, query);
+  if (revisionName !== undefined && deps.versions !== undefined) {
+    if (!(await deps.designs.has(id))) return fail(404, `There is no design called '${id}'.`, 'Pick one from GET /api/designs.');
+    const number = await resolveRevision(deps, id, query.get('rev') as string);
+    if (typeof number !== 'number') return number;
+    const version = await deps.versions.read(id, number);
+    if (version === undefined) return fail(404, `'${id}' has no saved Rev ${number}.`, 'GET /api/designs/:id/versions lists the revisions.');
+    const context = await renderContextOf(deps, id, version);
+    const served = await serveRevision(deps, context, revisionName, () => loadRevision(deps, id, number, version));
+    if (!served.ok) return served.response;
+    return revisionFile(served.doc, served.key, served.inline, headers?.['if-none-match']);
+  }
+
   const loaded = await load(deps, id, query.get('rev'));
   if ('status' in loaded) return loaded;
+  const rendered = await renderFor(deps, id, loaded, section, name, query);
+  return rendered.ok ? file(rendered.output, rendered.inline, pdfHeaders(rendered.pdf)) : rendered.response;
+}
+
+/** A render's bytes and how to send them, or the refusal to send. */
+type Rendered =
+  | { ok: true; output: { mimeType: string; fileName: string; body: string | Uint8Array }; pdf?: PdfProvenance; inline: boolean }
+  | { ok: false; response: ApiResponse };
+
+/** Render one document or export of a loaded design (no cache). */
+async function renderFor(deps: DocumentDeps, id: string, loaded: Loaded, section: 'documents' | 'exports', name: string, query: URLSearchParams): Promise<Rendered> {
+  const refuse = (response: ApiResponse): Rendered => ({ ok: false, response });
   const page = positive(query.get('page'), 'page');
-  if (typeof page === 'object') return page;
+  if (typeof page === 'object') return refuse(page);
   const copies = positive(query.get('copies'), 'copies');
-  if (typeof copies === 'object') return copies;
+  if (typeof copies === 'object') return refuse(copies);
   const quantity = positive(query.get('quantity'), 'quantity');
-  if (typeof quantity === 'object') return quantity;
+  if (typeof quantity === 'object') return refuse(quantity);
   const paperAsked = query.get('paper');
   const paper = paperAsked === null || paperAsked === '' ? null : parsePaper(paperAsked);
-  if (paperAsked !== null && paperAsked !== '' && paper === undefined) return fail(400, `paper must be one of ${PAPER_IDS.join(', ')}, not '${paperAsked}'.`);
+  if (paperAsked !== null && paperAsked !== '' && paper === undefined) return refuse(fail(400, `paper must be one of ${PAPER_IDS.join(', ')}, not '${paperAsked}'.`));
   // the label stock and the QR code, for this print (absent: the hub's settings)
   const presetAsked = query.get('preset');
-  if (presetAsked !== null && presetAsked !== '' && !LABEL_PRESET_IDS.includes(presetAsked)) return fail(400, `preset must be one of ${LABEL_PRESET_IDS.join(', ')}, not '${presetAsked}'.`);
+  if (presetAsked !== null && presetAsked !== '' && !LABEL_PRESET_IDS.includes(presetAsked)) return refuse(fail(400, `preset must be one of ${LABEL_PRESET_IDS.join(', ')}, not '${presetAsked}'.`));
   const preset = presetAsked === null || presetAsked === '' ? undefined : presetAsked;
   const templateAsked = query.get('template');
-  if (templateAsked !== null && templateAsked !== '' && registeredLabelTemplates()[templateAsked] === undefined) return fail(400, `template must be one of ${Object.keys(registeredLabelTemplates()).join(', ')}, not '${templateAsked}'.`);
+  if (templateAsked !== null && templateAsked !== '' && registeredLabelTemplates()[templateAsked] === undefined) return refuse(fail(400, `template must be one of ${Object.keys(registeredLabelTemplates()).join(', ')}, not '${templateAsked}'.`));
   const template = templateAsked === null || templateAsked === '' ? undefined : templateAsked;
   const printerAsked = query.get('printer');
-  if (printerAsked !== null && printerAsked !== '' && !LBX_PRINTER_IDS.includes(printerAsked)) return fail(400, `printer must be one of ${LBX_PRINTER_IDS.join(', ')}, not '${printerAsked}'.`);
+  if (printerAsked !== null && printerAsked !== '' && !LBX_PRINTER_IDS.includes(printerAsked)) return refuse(fail(400, `printer must be one of ${LBX_PRINTER_IDS.join(', ')}, not '${printerAsked}'.`));
   const printer = printerAsked === null || printerAsked === '' ? undefined : printerAsked;
   const qrAsked = query.get('qr');
-  if (qrAsked !== null && !['', '0', '1', 'true', 'false'].includes(qrAsked)) return fail(400, `qr must be 1 or 0, not '${qrAsked}'.`);
+  if (qrAsked !== null && !['', '0', '1', 'true', 'false'].includes(qrAsked)) return refuse(fail(400, `qr must be 1 or 0, not '${qrAsked}'.`));
   const qr = qrAsked === null || qrAsked === '' ? undefined : qrAsked === '1' || qrAsked === 'true';
   const variation = query.get('variation') ?? undefined;
   // the BOM lists each sub-assembly's parts instead of one line for it
   const explode = query.get('explode') === '1' || query.get('explode') === 'true';
   const scaleText = query.get('scale');
   const scale = scaleText === null || scaleText === '' ? undefined : parseScale(scaleText);
-  if (scaleText !== null && scaleText !== '' && scale === undefined) return fail(400, `scale must be a number or a ratio such as 0.5 or 1:2, between 1:100 and 10:1, not '${scaleText}'.`);
+  if (scaleText !== null && scaleText !== '' && scale === undefined) return refuse(fail(400, `scale must be a number or a ratio such as 0.5 or 1:2, between 1:100 and 10:1, not '${scaleText}'.`));
   const meta = releaseMeta(loaded.drawing, loaded.target, loaded.approvals);
   const orgDefaults = await effectiveTestDefaults(deps);
 
-  const wantsProposals = (section === 'documents' && (name === 'bom' || name === 'build-sheet')) || (section === 'exports' && (name === 'bom.csv' || name === 'production.xlsx'));
+  // a saved revision renders without proposals for unnumbered parts: those read today's numbers, not the revision's
+  const revision = typeof loaded.target === 'number';
+  const wantsProposals = !revision && ((section === 'documents' && (name === 'bom' || name === 'build-sheet')) || (section === 'exports' && (name === 'bom.csv' || name === 'production.xlsx')));
   const artwork = section === 'documents' && ['schematic', 'build-sheet', 'bom'].includes(name) ? await artworkOf(deps, loaded) : undefined;
   const partNumbers = wantsProposals ? await partNumbersOf(deps, loaded) : undefined;
   // the title block's organisation, logo and notes: the sheets the browser draws with them
@@ -363,7 +595,7 @@ export async function handleDocumentRequest(method: string, parts: string[], que
 
   if (section === 'exports') {
     const format = baseExport(name);
-    if (format === undefined) return fail(404, `There is no export called '${name}'.`, `Formats: ${BASE_EXPORTS.map((f) => f.id).join(', ')}.`);
+    if (format === undefined) return refuse(fail(404, `There is no export called '${name}'.`, `Formats: ${BASE_EXPORTS.map((f) => f.id).join(', ')}.`));
     const options: FormatOptions = {
       drawing: meta,
       ...(paper === null || paper === undefined ? {} : { paper }),
@@ -382,15 +614,15 @@ export async function handleDocumentRequest(method: string, parts: string[], que
       ...(partNumbers === undefined ? {} : { partNumbers }),
     };
     try {
-      return file(withBranding(branding, () => format.render(loaded.design, loaded.db, options)), false);
+      return { ok: true, output: withBranding(branding, () => format.render(loaded.design, loaded.db, options)), inline: false };
     } catch (error) {
-      return fail(422, `${format.label} could not be made for ${id}.`, error instanceof Error ? error.message : String(error));
+      return refuse(fail(422, `${format.label} could not be made for ${id}.`, error instanceof Error ? error.message : String(error)));
     }
   }
 
-  if (!isDocumentKind(name)) return fail(404, `There is no document called '${name}'.`, `Documents: ${DOCUMENT_KINDS.join(', ')}.`);
+  if (!isDocumentKind(name)) return refuse(fail(404, `There is no document called '${name}'.`, `Documents: ${DOCUMENT_KINDS.join(', ')}.`));
   const asked = query.get('format');
-  if (asked !== null && !isDocumentFormat(asked)) return fail(400, `'${asked}' is not a format.`, `Formats: ${DOCUMENT_FORMATS.join(', ')}.`);
+  if (asked !== null && !isDocumentFormat(asked)) return refuse(fail(400, `'${asked}' is not a format.`, `Formats: ${DOCUMENT_FORMATS.join(', ')}.`));
   const result = await renderDocument({
     kind: name,
     format: asked === null ? DEFAULT_FORMAT[name] : (asked as (typeof DOCUMENT_FORMATS)[number]),
@@ -419,8 +651,9 @@ export async function handleDocumentRequest(method: string, parts: string[], que
     ...(partNumbers === undefined ? {} : { partNumbers }),
     ...(branding === undefined ? {} : { branding }),
     ...(pdfEngineOf(deps) === undefined ? {} : { pdfEngine: pdfEngineOf(deps) as PdfEngine }),
-    today: today(),
+    // a revision is stamped with its release date (approved: the approval's, else when it was saved), never today's
+    today: loaded.version !== undefined && revision ? stampDate(loaded.version) : today(),
   });
-  if (!result.ok) return fail(result.status, result.error, result.hint);
-  return file(result.output, result.output.mimeType.startsWith('text/html') || result.output.mimeType === 'image/svg+xml' || result.output.mimeType === 'application/pdf', pdfHeaders(result.pdf));
+  if (!result.ok) return refuse(fail(result.status, result.error, result.hint));
+  return { ok: true, output: result.output, ...(result.pdf === undefined ? {} : { pdf: result.pdf }), inline: inlineMedia(result.output.mimeType) };
 }

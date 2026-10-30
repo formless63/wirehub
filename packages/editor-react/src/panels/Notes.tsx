@@ -12,10 +12,12 @@
 import { IconPlus, IconTrash } from '@tabler/icons-react';
 import { useEffect, useState, type JSX } from 'react';
 
-import type { Sourcing } from '@wirehub/model';
+import { DESIGN_KIND_LABELS, DESIGN_KINDS, designKind, humanizeNote, type DesignKind, type Sourcing } from '@wirehub/model';
 
 import { classes, useEditorApi } from '../context.ts';
 import { SourcingFields, withSourcing } from './SourcingFields.tsx';
+import { ProcessesFields } from './ProcessesFields.tsx';
+import { Choice } from './fields.tsx';
 import type { EditorState } from '../store.ts';
 
 /** The note the Issues tab's one-click fix adds for a floating end. */
@@ -29,6 +31,8 @@ export function NotesPanel({ state }: { state: EditorState }): JSX.Element {
   // drafts, so typing does not commit (and validate) per keystroke
   const [drafts, setDrafts] = useState<string[]>(notes);
   const [adding, setAdding] = useState(false);
+  // a note reads with names; the stored text (its terminal references for the checks) shows while it is edited
+  const [editing, setEditing] = useState<number | undefined>(undefined);
   const [tagText, setTagText] = useState((state.design.tags ?? []).join(', '));
   useEffect(() => setTagText((state.design.tags ?? []).join(', ')), [state.design.tags]);
   const [labour, setLabour] = useState(state.design.labourMinutes === undefined ? '' : String(state.design.labourMinutes));
@@ -74,13 +78,15 @@ export function NotesPanel({ state }: { state: EditorState }): JSX.Element {
               <textarea
                 className="cs-input cs-note-input"
                 rows={Math.min(6, Math.max(1, Math.ceil(draft.length / 44)))}
-                value={draft}
+                value={editing === index ? draft : humanizeNote(state.design, state.db, draft)}
                 aria-label={`design note ${index + 1}`}
+                onFocus={() => setEditing(index)}
                 onChange={(event) => {
                   const value = event.target.value;
                   setDrafts((was) => was.map((note, i) => (i === index ? value : note)));
                 }}
                 onBlur={() => {
+                  setEditing(undefined);
                   if (draft !== notes[index]) commit(drafts);
                 }}
                 onKeyDown={(event) => {
@@ -128,6 +134,17 @@ export function NotesPanel({ state }: { state: EditorState }): JSX.Element {
             </li>
           ) : null}
         </ol>
+        <Choice
+          label="Kind"
+          say="A cable is a finished cable. A sub-assembly (stock cut and stripped to length, one half of a cable) is always finished into a cable and never sold on its own."
+          value={designKind(state.design)}
+          choices={DESIGN_KINDS.map((k) => ({ value: k, label: DESIGN_KIND_LABELS[k] }))}
+          onChange={(next) => {
+            if (next === designKind(state.design)) return;
+            const { kind: _old, ...rest } = state.design;
+            dispatch({ type: 'apply-design', design: next === 'cable' ? rest : { ...rest, kind: next as DesignKind }, description: `marked the design as a ${DESIGN_KIND_LABELS[next as DesignKind].toLowerCase()}` });
+          }}
+        />
         <label className="cs-field" title="Free tags (comma-separated) the hub's validation rules can select designs by, such as mil-spec or export.">
           <span>Design tags</span>
           <input
@@ -158,6 +175,7 @@ export function NotesPanel({ state }: { state: EditorState }): JSX.Element {
             }}
           />
         </label>
+        <ProcessesFields state={state} />
         {/* how the design is sourced: the route commits at once, the names when focus leaves the block */}
         <div
           className="cs-sourcing"

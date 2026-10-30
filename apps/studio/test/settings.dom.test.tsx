@@ -55,7 +55,7 @@ describe('Hub settings', () => {
     fireEvent.change(screen.getByLabelText('Rights / confidentiality line'), { target: { value: 'Confidential - Acme' } });
     const file = new File([new Uint8Array(makePng(4, [{ type: 'tEXt', body: 'k\0v' }]))], 'logo.png', { type: 'image/png' });
     await act(async () => {
-      fireEvent.change(screen.getByLabelText('Logo file'), { target: { files: [file] } });
+      fireEvent.change(screen.getByTestId('filedrop-input'), { target: { files: [file] } });
     });
     await screen.findByAltText('Logo preview');
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
@@ -71,7 +71,7 @@ describe('Hub settings', () => {
     fireEvent.change(await screen.findByLabelText('Wire spec file prefix'), { target: { value: 'ACME-WS-' } });
     const svg = new File(['<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><rect width="40" height="20" fill="#c2602a"/></svg>'], 'logo.svg', { type: 'image/svg+xml' });
     await act(async () => {
-      fireEvent.change(screen.getByLabelText('Logo file'), { target: { files: [svg] } });
+      fireEvent.change(screen.getByTestId('filedrop-input'), { target: { files: [svg] } });
     });
     await screen.findByAltText('Logo preview');
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
@@ -172,7 +172,9 @@ describe('Engineering settings', () => {
       fireEvent.click(upload);
     });
     await waitFor(() => expect(screen.getByRole('combobox', { name: 'Regular typeface' }).textContent).toMatch(/Brandmark/));
-    expect(screen.getByText(/TrueType: set on every sheet and in every PDF/)).toBeTruthy();
+    // the chosen font is named with its format; what that format means is in its (?) tooltip
+    expect(screen.getByText(/Brandmark.*\(ttf\)/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^About Brandmark/ })).toBeTruthy();
     expect(registeredBrandFont()).toBeUndefined();
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(registeredBrandFont()?.regular.family).toBe('Brandmark Sans1'));

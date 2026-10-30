@@ -18,11 +18,15 @@ import {
   findInterface,
   findPcba,
   findWire,
+  newestRevision,
+  olderRevisions,
   productsOfDesign,
+  revisionFamily,
   wireDisplayName,
   wireEndsOf,
   type CableDesign,
   type Db,
+  type DesignKind,
   type DesignStatus,
   type PartRoute,
   type ProductFamily,
@@ -66,6 +70,10 @@ export interface CableListEntry {
   productSearch?: string[];
   /** production status — `active` when the design sets none (model `designStatus`) */
   status: DesignStatus;
+  /** the design's free tags (`CableDesign.tags`), when it has any — the list's Tags filter and chips */
+  tags?: string[];
+  /** `subassembly` for a partial build finished into a cable; absent = a cable */
+  kind?: DesignKind;
   /** how the cable is sourced (make / contract / buy), when it says; the maker for the tooltip */
   route?: PartRoute;
   maker?: string;
@@ -247,8 +255,27 @@ function wiresOf(design: CableDesign, db: Db, ctx: CableListContext, trunk: read
   });
 }
 
-function featuresOf(design: CableDesign, trunk: readonly string[]): CableListEntry['features'] {
+/** The parts `design` places that have a newer revision in the library (`revision-adopt.ts`): `PCA-00001 Rev6 → Rev7`. */
+function newerParts(design: CableDesign, db: Db): string[] {
+  const out: string[] = [];
+  const check = (kind: 'pcbas' | 'mechanicals', ids: string[]): void => {
+    for (const id of dedupe(ids)) {
+      const family = revisionFamily(db, kind, id);
+      const target = newestRevision(family);
+      const self = family.find((s) => s.id === id);
+      if (target === undefined || self === undefined || target.id === id || !olderRevisions(family, target).some((s) => s.id === id)) continue;
+      out.push(`${self.name} → ${target.revision}`);
+    }
+  };
+  check('pcbas', design.instances.pcbas.map((p) => p.def));
+  check('mechanicals', (design.instances.mechanical ?? []).map((m) => m.def));
+  return out;
+}
+
+function featuresOf(design: CableDesign, trunk: readonly string[], db?: Db): CableListEntry['features'] {
   const out: CableListEntry['features'] = [];
+  const newer = db === undefined ? [] : newerParts(design, db);
+  if (newer.length > 0) out.push({ text: 'newer rev', title: `Newer revision: ${newer.join(', ')} (Adopt in the design's inspector)` });
   const breakouts = design.instances.breakouts ?? [];
   if (breakouts.length > 0) out.push({ text: '+ Breakout', title: `${breakouts.length} breakout${breakouts.length === 1 ? '' : 's'}: ${breakouts.map((b) => b.role ?? b.id).join(', ')}` });
   const legs = design.instances.segments.filter((s) => !trunk.includes(s.id));
@@ -282,7 +309,7 @@ export function cableListEntry(design: CableDesign, db: Db, context: CableListCo
   });
   const boardLabels = dedupe(design.instances.pcbas.map((pcba) => pcba.def)).map((def) => {
     const pcba = findPcba(db, def);
-    return pcba === undefined ? def : boardName(pcba.partNumber, pcba.revision);
+    return pcba === undefined ? def : boardName(pcba.partNumber || pcba.label, pcba.revision);
   });
 
   const partCount =
@@ -302,6 +329,8 @@ export function cableListEntry(design: CableDesign, db: Db, context: CableListCo
       product.id, product.label, ...(product.aliases ?? []), variant.id, variant.label ?? '',
     ]).filter((text) => text !== '')),
     status: designStatus(design),
+    ...((design.tags ?? []).length === 0 ? {} : { tags: [...(design.tags as string[])] }),
+    ...(design.kind === undefined ? {} : { kind: design.kind }),
     ...(design.route === undefined ? {} : { route: design.route }),
     ...(design.maker === undefined ? {} : { maker: design.maker }),
     source,
@@ -309,7 +338,7 @@ export function cableListEntry(design: CableDesign, db: Db, context: CableListCo
     destinationMain,
     destinationShort: destinationShortOf(design, db, destinationMain, trunk),
     wires: wiresOf(design, db, context, trunk),
-    features: featuresOf(design, trunk),
+    features: featuresOf(design, trunk, db),
     ...(trunk.length === 0 ? {} : { sourceBoard: sourceBoards.length > 0 }),
     wireLabels,
     boardLabels,

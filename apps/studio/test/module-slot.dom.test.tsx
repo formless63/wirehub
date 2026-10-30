@@ -2,7 +2,7 @@
 /**
  * ModuleSlot (`src/modules/ModuleSlot.tsx`): module panels on core pages sit in a titled,
  * collapsible frame, collapsed by default, in the host's order; a pin keeps one open for the
- * user; a module whose required settings are empty shows one "not set up" line, never its form.
+ * user; a module whose required settings are empty shows a "not set up" header, never its form.
  */
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -66,9 +66,9 @@ describe('ModuleSlot', () => {
     expect(await screen.findByTestId('form-plain')).toBeTruthy();
   });
 
-  it('shows one "not set up" line, linking to Module settings, instead of the form when required settings are missing', async () => {
+  it('shows a "not set up" header, linking to Module settings, instead of the form when required settings are missing', async () => {
     mountSlot(settings('missing'));
-    const line = await screen.findByText(/Keyed module is not set up/);
+    const line = await screen.findByText('not set up');
     const slot = line.closest('[data-module-slot]') as HTMLElement;
     expect(slot.getAttribute('data-state')).toBe('not-set-up');
     expect(within(slot).getByRole('link', { name: /Set up/ }).getAttribute('href')).toBe('/settings?section=module-settings');

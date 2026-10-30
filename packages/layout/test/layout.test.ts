@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { listDesignIds, loadDb, loadDesign, loadDesigns } from '@wirehub/catalog';
-import { electricalPaths, findWire, flattenSubassemblies, hasSubassemblies, inScope, isFullyBonded, terminalKey, withAssemblies } from '@wirehub/model';
+import { electricalPaths, findWire, flattenSubassemblies, hasSubassemblies, inScope, stockScreens, terminalKey, withAssemblies } from '@wirehub/model';
 
 import { bondFoldedPaths, isFoilElement, layoutSchematic } from '../src/index.ts';
 
@@ -46,8 +46,8 @@ describe('layoutSchematic', () => {
             expect(track.label, track.key).not.toMatch(/foil/i);
           }
           // a fully bonded stock (bonded multi-core) draws its shielding as one labelled track
-          if (isFullyBonded(wire!)) {
-            const mass = band.tracks.filter((track) => /^shields · /.test(track.label));
+          if (stockScreens(wire!).mass) {
+            const mass = band.tracks.filter((track) => /^shield mass /.test(track.label));
             expect(mass, band.segment).toHaveLength(1);
           }
         }

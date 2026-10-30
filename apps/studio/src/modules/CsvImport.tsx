@@ -217,7 +217,7 @@ export function CsvImport({ onImported, expose }: { onImported: () => void; expo
                 <thead>
                   <tr className="text-left text-faint">
                     <th>Line</th>
-                    <th>Id</th>
+
                     <th>Result</th>
                     <th>Detail</th>
                   </tr>
@@ -226,7 +226,7 @@ export function CsvImport({ onImported, expose }: { onImported: () => void; expo
                   {analysis.rows.slice(0, 200).map((r) => (
                     <tr key={r.row} data-status={r.status}>
                       <td>{r.row}</td>
-                      <td className="font-mono">{r.id}</td>
+
                       <td>{r.status === 'new' ? 'new' : r.status === 'update' ? 'update' : r.status === 'exists' ? (update ? 'unchanged' : 'exists, skipped') : 'invalid'}</td>
                       <td>
                         {r.problems.length > 0

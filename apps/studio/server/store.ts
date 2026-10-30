@@ -188,7 +188,8 @@ interface InstalledView {
 
 async function installedPacks(setup: SetupDeps, modules: ModuleRegistry | undefined): Promise<InstalledView[]> {
   const answer = await handlePacksRequest({ method: 'GET', path: '/api/packs' }, setup, modules);
-  return answer.status === 200 ? ((answer.body as { packs: InstalledView[] }).packs ?? []) : [];
+  // a pack released to the hub is not installed any more (its install answers why it is refused)
+  return answer.status === 200 ? ((answer.body as { packs: (InstalledView & { released?: unknown })[] }).packs ?? []).filter((p) => p.released === undefined) : [];
 }
 
 /**

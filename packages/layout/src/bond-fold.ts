@@ -20,7 +20,7 @@
  * only.
  */
 
-import { isFullyBonded, resolveElementPath } from '@wirehub/model';
+import { massWords, resolveElementPath, stockScreens } from '@wirehub/model';
 import type { WireBondedSet, WireDefinition } from '@wirehub/model';
 
 /** Is the element at `path` a foil or tape shield (aluminium, not copper)? */
@@ -71,17 +71,16 @@ export function bondFoldedPaths(wire: WireDefinition): ReadonlySet<string> {
 
 /**
  * How the representative of a **fully bonded** stock's mass is labelled:
- * all of its shielding as one — "shields · 7 copper spirals + drain, bonded" —
+ * all of its shielding as one — "shield mass (7 copper screens + drain)" —
  * never "foil" (all the shielding of a bonded multi-core is treated alike and
  * indicated together). `undefined` for a set
  * that is not the whole stock's screening (mini-coax: the drain keeps its own
  * label).
  */
 export function bondedMassLabel(wire: WireDefinition, set: WireBondedSet): string | undefined {
-  if (!isFullyBonded(wire)) return undefined;
-  const copper = set.members.filter((path) => !isFoilElement(wire, path) && !isDrain(wire, path));
-  const drain = set.members.some((path) => isDrain(wire, path));
-  return `shields · ${copper.length} copper ${copper.length === 1 ? 'screen' : 'screens'}${drain ? ' + drain' : ''}, bonded`;
+  // a foil + drain stock has no copper mass: its drain keeps its own label
+  if (!stockScreens(wire).mass) return undefined;
+  return massWords(wire, set.members);
 }
 
 /** The mass label for `path` when it is the representative of a fully bonded set. */

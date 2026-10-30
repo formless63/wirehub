@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { codeModulesKey, fetchCodeModules, pinKey, setCodeAllowed, setModuleEnabled, unpinKey, type CodeModuleStatusView } from '../code-modules.browser.ts';
 import { RestartWireHub } from './RestartWireHub.tsx';
 import { useStudio } from '../studio-context.tsx';
-import { Button, Chip, Input } from '@wirehub/editor-react';
+import { Button, Chip, HelpTip, Input } from '@wirehub/editor-react';
 
 const STATE_TEXT: Record<CodeModuleStatusView['state'], string> = {
   loaded: 'running',
@@ -106,8 +106,10 @@ export function CodeModulesSettings(): JSX.Element {
             ))}
           </ul>
 
-          <h3 className="mt-3 font-medium">Trusted publisher keys (uploads)</h3>
-          <p className="text-faint">A code module uploaded from a file must be signed by one of these. Compare the fingerprint with the publisher another way before you add a key.</p>
+          <h3 className="mt-3 flex items-center gap-1.5 font-medium">
+            Trusted publisher keys (uploads)
+            <HelpTip label="About trusted publisher keys">A code module uploaded from a file must be signed by one of these. Compare the fingerprint with the publisher another way before you add a key.</HelpTip>
+          </h3>
           <ul>
             {view.keys.map((k) => (
               <li key={k.key} data-pinned-key={k.keyId}>
@@ -143,12 +145,13 @@ export function CodeModulesSettings(): JSX.Element {
             </div>
           )}
 
-          <h3 className="mt-3 font-medium">Restart WireHub</h3>
-          <p className="text-faint">
-            Finishes changes only a fresh start applies (a module's job queues). WireHub stops taking requests, lets the ones in flight finish, closes cleanly and exits; the
-            container's restart policy starts it again, and this page reconnects by itself.
-            {view.supervised ? '' : ' This server does not declare a supervisor: it may not come back on its own.'}
-          </p>
+          <h3 className="mt-3 flex items-center gap-1.5 font-medium">
+            Restart WireHub
+            <HelpTip label="About restarting WireHub">
+              Finishes changes only a fresh start applies (a module&rsquo;s job queues). WireHub lets the requests in flight finish and exits; the container&rsquo;s restart policy starts it again, and this page reconnects by itself.
+              {view.supervised ? '' : ' This server declares no supervisor: it may not come back on its own.'}
+            </HelpTip>
+          </h3>
           {!owner ? null : <div className="mt-1"><RestartWireHub supervised={view.supervised} /></div>}
         </>
       )}

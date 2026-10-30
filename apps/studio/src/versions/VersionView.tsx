@@ -11,7 +11,7 @@
 
 import { useNavigate } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { IconArrowLeft, IconGitBranch, IconLock, IconLockOpen, IconPhotoExclamation } from '@tabler/icons-react';
+import { IconArrowLeft, IconFileZip, IconGitBranch, IconListDetails, IconLock, IconLockOpen, IconPhotoExclamation } from '@tabler/icons-react';
 import { CableEditor, type DocumentRelease, type DocumentReport, type EditorView } from '@wirehub/editor-react';
 import { versionDb, type CableDesign } from '@wirehub/model';
 import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
@@ -23,12 +23,21 @@ import { useModules } from '../modules/ModulesContext.tsx';
 import { cableRoute, type CableSearch } from '../router.tsx';
 import { useEditorChrome } from '../shell/editor-chrome.tsx';
 import { useStudio } from '../studio-context.tsx';
-import { approvalStep, branchVersion, editVersion, getVersion, loadVersionArt, lockVersion, revisionRow, shortTime, unlockVersion, type ApprovalStep, type VersionArt } from '../versions.browser.ts';
+import { approvalStep, approvalsOf, branchVersion, editVersion, getVersion, loadVersionArt, lockVersion, revisionRow, shortTime, unlockVersion, type ApprovalStep, type VersionArt } from '../versions.browser.ts';
 import { versionDepictionSource } from '../depictions.browser.ts';
 import { withAssemblyLibrary, workbenchAssemblies } from '../persistence.browser.ts';
 import { PLAIN_BUTTON, PRIMARY_BUTTON, TEXT_INPUT, useVersionFile, useVersionListing } from './shared.tsx';
+import { InputsPanel, useVersionInputs } from './InputsPanel.tsx';
+import { DevicePane } from '../devices/DevicePane.tsx';
+import { versionPackageHref } from '../repro/repro.browser.ts';
 
-type Mode = { kind: 'idle' } | { kind: 'unlock'; reason: string } | { kind: 'branch' } | { kind: 'approval'; step: ApprovalStep; comment: string };
+type Mode =
+  | { kind: 'idle' }
+  | { kind: 'unlock'; reason: string }
+  | { kind: 'branch' }
+  | { kind: 'approval'; step: ApprovalStep; comment: string }
+  // the release boundary named unresolved items: acknowledge them, or step back
+  | { kind: 'acknowledge'; step: ApprovalStep; comment: string; items: string[] };
 
 export function VersionView(props: {
   id: string;
@@ -43,6 +52,8 @@ export function VersionView(props: {
   const navigate = useNavigate();
   const openModuleRoute = useCallback((module: string, path: string): void => { void navigate({ to: '/m/$module/$', params: { module, _splat: path } }); }, [navigate]);
   const extensions = useMemo(() => editorExtensions(modules, openModuleRoute), [modules, openModuleRoute]);
+  // the Device view of this revision: its own layout and frozen definitions, exports made from it
+  const devicePane = useCallback((c: Parameters<typeof DevicePane>[0]) => <DevicePane {...c} rev={rev} />, [rev]);
   const onDocumentReport = useCallback((report: DocumentReport): void => {
     if (report.kind === 'success') toast.success(report.message, report.detail === undefined ? {} : { description: report.detail });
     else toast.error(report.message, report.detail === undefined ? {} : { description: report.detail });
@@ -55,6 +66,8 @@ export function VersionView(props: {
   const [edited, setEdited] = useState<CableDesign>();
   const [busy, setBusy] = useState(false);
   const [artReady, setArtReady] = useState<string>();
+  const [inputsOpen, setInputsOpen] = useState(false);
+  const inputs = useVersionInputs(id, rev);
 
   const db = useMemo(() => (file === undefined ? undefined : versionDb(file.definitions, studio.db)), [file, studio.db]);
   // the designs the revision places (pinned to their saved versions), fetched by the editor
@@ -89,6 +102,7 @@ export function VersionView(props: {
     () => ({
       revisions: (listing?.revisions ?? []).map((r) => r.rev),
       rows: (listing?.revisions ?? []).map(revisionRow),
+      ...approvalsOf(listing),
       showing: { kind: 'rev', rev },
       load: async (other) => {
         const out = await getVersion(id, other);
@@ -135,10 +149,14 @@ export function VersionView(props: {
     await after();
   }
 
-  async function onApproval(step: ApprovalStep, comment: string): Promise<void> {
+  async function onApproval(step: ApprovalStep, comment: string, acknowledge = false): Promise<void> {
     setBusy(true);
-    const out = await approvalStep(id, rev, step, comment);
+    const out = await approvalStep(id, rev, step, comment, acknowledge);
     setBusy(false);
+    if (!out.ok && out.status === 409 && !acknowledge && (out.issues?.length ?? 0) > 0) {
+      setMode({ kind: 'acknowledge', step, comment, items: (out.issues ?? []).map((issue) => issue.message) });
+      return;
+    }
     if (!out.ok) {
       toast.error(`Rev ${rev}: not ${step === 'submit' ? 'submitted' : step === 'approve' ? 'approved' : 'rejected'}`, { description: out.hint ?? out.message });
       return;
@@ -225,6 +243,32 @@ export function VersionView(props: {
             <IconPhotoExclamation size={13} /> artwork changed since
           </span>
         )}
+        <button
+          type="button"
+          className="flex shrink-0 items-center gap-1 rounded-sm border-0 bg-transparent px-1 text-2xs text-dim hover:text-ink"
+          onClick={() => setInputsOpen(true)}
+          title="What this version used: library records, boards, stock and placed designs, with what changed since"
+          data-testid="version-inputs-button"
+        >
+          <IconListDetails size={13} /> Inputs
+          {inputs === undefined || inputs.stale === 0 ? null : (
+            <span className="rounded-sm bg-raised px-1 font-semibold text-warn" data-testid="version-stale-count">
+              {inputs.stale} changed since
+            </span>
+          )}
+          {inputs === undefined || inputs.findings.length === 0 ? null : (
+            <span className="text-faint">· {inputs.findings.length} finding{inputs.findings.length === 1 ? '' : 's'}</span>
+          )}
+        </button>
+        <a
+          href={versionPackageHref(id, rev)}
+          download
+          className="flex shrink-0 items-center gap-1 px-1 text-2xs text-dim no-underline hover:text-ink"
+          title="Download a package: this version, its inputs, documents and tool outputs, with a manifest of hashes and verify.py to check it offline"
+          data-testid="version-package"
+        >
+          <IconFileZip size={13} /> Package
+        </a>
         {art === undefined || art.missing.length === 0 ? null : (
           <span
             className="flex shrink-0 items-center gap-1 text-2xs text-err"
@@ -280,6 +324,18 @@ export function VersionView(props: {
               {mode.step === 'submit' ? 'Submit' : mode.step === 'approve' ? 'Approve' : 'Reject'}
             </button>
           </form>
+        ) : mode.kind === 'acknowledge' ? (
+          <span className="flex w-full min-w-0 flex-wrap items-center gap-1.5 sm:w-auto" data-testid="release-acknowledge">
+            <span className="min-w-0 truncate text-xs text-warn" title={mode.items.join('\n')}>
+              {mode.items.length} unresolved: {mode.items[0]}{mode.items.length > 1 ? ` (+${mode.items.length - 1})` : ''}
+            </span>
+            <button type="button" className={PLAIN_BUTTON} onClick={() => setMode({ kind: 'idle' })}>
+              Cancel
+            </button>
+            <button type="button" className={PRIMARY_BUTTON} disabled={busy} onClick={() => void onApproval(mode.step, mode.comment, true)} title="Release it as it is; the acknowledgement is kept with the approval">
+              Acknowledge and {mode.step === 'submit' ? 'submit' : 'approve'}
+            </button>
+          </span>
         ) : mode.kind === 'branch' ? (
           <span className="flex w-full flex-wrap items-center gap-1.5 sm:w-auto">
             <span className="text-xs">Replace the working copy with Rev {rev}?</span>
@@ -331,6 +387,7 @@ export function VersionView(props: {
           </span>
         )}
       </div>
+      <InputsPanel open={inputsOpen} onClose={() => setInputsOpen(false)} design={id} rev={rev} inputs={inputs} />
       <div className="min-h-0 flex-1">
         <CableEditor
           key={editorKey}
@@ -349,6 +406,7 @@ export function VersionView(props: {
           assemblies={assemblies}
           {...(extensions === undefined ? {} : { extensions })}
           onDocumentReport={onDocumentReport}
+          devicePane={devicePane}
           view={props.view}
           onViewChange={props.onViewChange}
           onStatusChange={studio.setEditorStatus}

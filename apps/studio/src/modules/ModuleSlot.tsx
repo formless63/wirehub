@@ -1,15 +1,15 @@
 /**
  * The frame every module-contributed panel sits in on a core page (Library detail, Documents):
- * titled with the module's name and a "module" chip, collapsible, collapsed by default, and
- * placed after the page's own content by the host. A person can pin one open; the pin is
- * remembered per user (`slot-prefs.ts`). A module whose required settings are not filled in
- * shows one line, "<Module> is not set up · Set up →", linking to Settings › Module settings,
- * never its form.
+ * a `Section` titled with the module's name and a "module" chip, collapsed by default, placed
+ * after the page's own content by the host. The open state is remembered like any section's; a pin
+ * (`slot-prefs.ts`, per user) keeps one open. A module whose required settings are not filled in
+ * shows its header only, "not set up" and Set up → (Settings › Module settings), never its form.
  */
 
-import { IconChevronRight, IconPin, IconPinFilled } from '@tabler/icons-react';
+import { IconPin, IconPinFilled } from '@tabler/icons-react';
+import { IconButton, Section, usePref } from '@wirehub/editor-react';
 import { QueryClientContext, useQuery } from '@tanstack/react-query';
-import { useContext, useEffect, useState, type JSX, type ReactNode } from 'react';
+import { useContext, type JSX, type ReactNode } from 'react';
 
 import { runtimeSettingsQuery, type ModuleFieldView } from '../settings.browser.ts';
 import { AppLink } from '../shell/AppLink.tsx';
@@ -58,42 +58,39 @@ function SetupGate(props: ModuleSlotProps): JSX.Element {
 function Frame({ module, label, slot, children, incomplete }: ModuleSlotProps & { incomplete: boolean }): JSX.Element {
   const user = useOptionalStudio()?.user ?? 'local';
   const slotKey = `${slot}/${module}`;
+  const sectionId = `module.${slotKey}`;
   const [pins, setPin] = useSlotPins(user);
   const pinned = pins.has(slotKey);
-  const [open, setOpen] = useState(pinned);
-  // a pin the account brings in after the first paint (the hub answers a moment later) opens the slot
-  useEffect(() => {
-    if (pinned) setOpen(true);
-  }, [pinned]);
+  // the Section's own remembered open state, read here only to say it on the frame
+  const [remembered] = usePref<boolean>(`section.${sectionId}`, false, (v): v is boolean => typeof v === 'boolean');
+  const chip = <span className="cs-module-chip">module</span>;
   if (incomplete) {
     return (
-      <section className="cs-module-slot is-unset" data-module-slot={slotKey} data-state="not-set-up" aria-label={`${label} (module)`}>
-        <span className="cs-module-slot-title">{label}</span>
-        <span className="cs-module-chip">module</span>
-        <span className="cs-module-slot-note">
-          {label} is not set up · <AppLink to="/settings" section="module-settings" className="underline">Set up →</AppLink>
-        </span>
-      </section>
+      <div className="cs-module-slot cs-ui-section" data-module-slot={slotKey} data-state="not-set-up" aria-label={`${label} (module)`}>
+        <div className="cs-ui-section-head cs-module-slot-unset">
+          <span className="cs-ui-section-title">{label}</span>
+          {chip}
+          <span className="cs-ui-section-sum">not set up</span>
+          <span className="cs-spacer" />
+          <AppLink to="/settings" section="module-settings" className="underline">Set up →</AppLink>
+        </div>
+      </div>
     );
   }
-  const togglePin = (): void => {
-    const next = !pinned;
-    setPin(slotKey, next);
-    if (next) setOpen(true);
-  };
+  const pin = (
+    <IconButton
+      size="xs"
+      pressed={pinned}
+      label={`${pinned ? 'Unpin' : 'Pin open'} ${label}`}
+      icon={pinned ? <IconPinFilled size={12} aria-hidden /> : <IconPin size={12} aria-hidden />}
+      onClick={() => setPin(slotKey, !pinned)}
+    />
+  );
   return (
-    <section className="cs-module-slot" data-module-slot={slotKey} data-state={open ? 'open' : 'collapsed'} aria-label={`${label} (module)`}>
-      <header className="cs-module-slot-head">
-        <button type="button" className="cs-module-slot-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
-          <IconChevronRight size={13} aria-hidden className="cs-module-slot-caret" />
-          <span className="cs-module-slot-title">{label}</span>
-          <span className="cs-module-chip">module</span>
-        </button>
-        <button type="button" className="cs-module-slot-pin" aria-pressed={pinned} title={pinned ? 'Unpin: collapse this by default again' : 'Pin open: keep this expanded for you'} aria-label={`${pinned ? 'Unpin' : 'Pin open'} ${label}`} onClick={togglePin}>
-          {pinned ? <IconPinFilled size={13} aria-hidden /> : <IconPin size={13} aria-hidden />}
-        </button>
-      </header>
-      {open ? <div className="cs-module-slot-body">{children}</div> : null}
-    </section>
+    <div className="cs-module-slot" data-module-slot={slotKey} data-state={remembered || pinned ? 'open' : 'collapsed'} aria-label={`${label} (module)`}>
+      <Section id={sectionId} title={label} summary={chip} defaultOpen={false} forceOpen={pinned} actions={pin}>
+        {children}
+      </Section>
+    </div>
   );
 }

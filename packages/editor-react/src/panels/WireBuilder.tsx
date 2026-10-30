@@ -1,3 +1,4 @@
+import { suggestDesignId } from '../persistence.ts';
 /**
  * The wire builder — Library › Wire stocks, a stock put together from parts
  * (data-model v2 §6 and journey J2;).
@@ -440,7 +441,7 @@ export function NewPartDialog(props: {
   const builtAsOptions = vocabOptions(vocab, 'core-kinds').filter((o) => ['coax', 'shielded-core', 'plain'].includes(o.value));
 
   const build = (): WirePart | string => {
-    const id = v('id').trim();
+    const id = suggestDesignId(v('label'), Object.values(props.library.parts).flatMap((rows) => Array.isArray(rows) ? rows.map((p) => p.id) : []));
     const label = v('label').trim();
     const src = v('src').trim();
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) return 'The id has to be lowercase words joined by hyphens.';
@@ -521,7 +522,7 @@ export function NewPartDialog(props: {
             options={(Object.keys(PART_KIND_WORDS) as WirePartKind[]).map((k) => ({ value: k, label: PART_KIND_WORDS[k] }))}
             onChange={(value) => setKind(value as WirePartKind)}
           />
-          <Text label="Id" value={v('id')} onChange={set('id')} mono placeholder="c-tc-11x010-vendor" />
+
           <Text label="Name" value={v('label')} onChange={set('label')} wide placeholder="TC 11×0.10 mm, 28 AWG (Vendor)" />
           {kind === 'conductor' ? (
             <>
@@ -696,15 +697,8 @@ export function WireBuilder(props: WireBuilderProps): JSX.Element {
         <fieldset disabled={props.readOnly === true}>
           <section className="cs-wb-section" aria-label="stock">
             <div className="cs-wb-grid">
-              <Text label="Name" value={recipe.label} onChange={(value) => set('label', value)} wide placeholder="Mini Coax 6+2C 75 Ω (Vendor)" />
-              <Text
-                label="Id"
-                value={recipe.id}
-                mono
-                disabled={!props.create}
-                title={props.create ? 'lowercase words joined by hyphens' : 'fixed — designs refer to the stock by it'}
-                onChange={(value) => onChange({ ...recipe, id: value })}
-              />
+              <Text label="Name" value={recipe.label} onChange={(value) => onChange({ ...recipe, label: value, ...(props.create ? { id: suggestDesignId(value, library.recipes.filter((r) => r.id !== recipe.id).map((r) => r.id)) } : {}) })} wide placeholder="Mini Coax 6+2C 75 Ω (Vendor)" />
+
               <Text label="Part number" value={recipe.partNumber ?? ''} mono onChange={(value) => set('partNumber', value === '' ? undefined : value)} />
               <VocabPick
                 label="Colour code"
@@ -938,7 +932,7 @@ export function WireBuilder(props: WireBuilderProps): JSX.Element {
                   >
                     <IconArrowsExchange size={13} stroke={1.75} /> Other end
                   </button>
-                  <Text label="Lay source" value={lay.src} wide onChange={(src) => set('lay', { ...lay, src })} title="Where the colour order is stated — the sheet's cross-section" />
+                  <Text label="Lay source" value={lay.src ?? ''} wide onChange={(src) => set('lay', { ...lay, src })} title="Where the colour order is stated — the sheet's cross-section" />
                 </>
               )}
             </div>

@@ -5,7 +5,6 @@
  * BOM through the API with a token (`docs/webhooks.md`).
  */
 
-import { InfoTip } from '../shell/InfoTip.tsx';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type JSX } from 'react';
 import { toast } from 'sonner';
@@ -23,7 +22,7 @@ import {
   type WebhookSubscriptionView,
 } from '../settings.browser.ts';
 import { useStudio } from '../studio-context.tsx';
-import { Button, Input } from '@wirehub/editor-react';
+import { Button, HelpTip, Input } from '@wirehub/editor-react';
 
 type Draft = { id?: string; label: string; url: string; events: string[]; enabled: boolean };
 
@@ -93,11 +92,11 @@ export function WebhookSettings(): JSX.Element | null {
   };
 
   return (
-    <section className="mt-6 max-w-2xl border-t border-line pt-3" data-testid="webhook-settings">
-      <h2 className="mb-1 text-sm font-semibold">
-        Webhooks
-        <InfoTip text="Tell an outside system (an ERP, a chat channel, a script) when something happens: a signed JSON event with ids, links, the actor and a short diff. The receiver then fetches what it needs through the API with a token. Failed deliveries are retried with a growing wait. These are separate from the alert webhook under Notifications, which reports the hub’s own problems." topic="settings" />
-      </h2>
+    <section className="max-w-2xl" data-testid="webhook-settings">
+      <h3 className="settings-group-title">
+        Event webhooks
+        <HelpTip label="About event webhooks">Tell an outside system (an ERP, a chat channel, a script) when something happens: a signed JSON event with ids, links, the actor and a short diff. The receiver then fetches what it needs through the API with a token. Failed deliveries are retried with a growing wait.</HelpTip>
+      </h3>
       {view === undefined ? (
         <div className="text-faint">{query.isError ? 'The webhooks could not be read.' : 'Loading…'}</div>
       ) : (

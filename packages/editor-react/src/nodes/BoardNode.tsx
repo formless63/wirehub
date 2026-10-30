@@ -11,7 +11,7 @@
 
 import { parseTerminalKey } from '@wirehub/model';
 import { inlineVectorAsset } from '@wirehub/render-svg';
-import { IconCpu } from '@tabler/icons-react';
+import { IconArrowUp, IconCpu } from '@tabler/icons-react';
 import { Handle, Position } from '@xyflow/react';
 import { useMemo, type JSX, type MouseEvent } from 'react';
 
@@ -31,6 +31,7 @@ import { ConnectorDrawing } from './ConnectorNode.tsx';
 import { BridgeBusOverlay } from './BridgeBus.tsx';
 import { boardHeadMeta, estimateNodeSize } from '../layout-size.ts';
 import { TitleCaption } from './TitleCaption.tsx';
+import { BoardTracePath } from '../board-trace.tsx';
 
 const SIDE_CAPTION = { top: 'TOP', bottom: 'BOTTOM' } as const;
 
@@ -92,6 +93,7 @@ export function BoardParts({ parts, labels }: { parts: readonly BoardPartArt[]; 
               <text
                 key={`${part.ref}-label`}
                 className={classes('cs-board-part-label', `is-${part.state}`)}
+                data-ref={part.ref}
                 x={part.text.x}
                 y={part.text.y}
               >
@@ -185,6 +187,7 @@ function PadHandle({
           type="button"
           className={classes(
             'cs-handle-add',
+            'nodrag',
             handle.facing === 'right' ? 'is-right' : 'is-left',
             nodeSelected && 'is-node-selected',
           )}
@@ -256,6 +259,20 @@ function IntegratedDock({
   );
 }
 
+/** A board record with no pads: nothing on it can be wired until its pads are defined in the Library. */
+export function NoPadsHint(): JSX.Element {
+  return <span className="cs-node-hint" title="This board defines no pads; add them in the Library to wire it">no pads</span>;
+}
+
+/** A newer revision of the board exists: a small arrow, the revision on hover (Adopt is in the inspector). */
+export function NewerRevisionMark({ newer }: { newer: string }): JSX.Element {
+  return (
+    <span className="cs-node-newer" title={`Newer revision: ${newer} (Adopt in the inspector)`} aria-label={`newer revision ${newer}`} data-testid="node-newer-revision">
+      <IconArrowUp size={11} stroke={2} aria-hidden />
+    </span>
+  );
+}
+
 export function BoardArtNode({
   data,
   board,
@@ -301,6 +318,8 @@ export function BoardArtNode({
           {data.title}
         </span>
         {meta === '' ? null : <span className="cs-meta">{meta}</span>}
+        {data.newer === undefined ? null : <NewerRevisionMark newer={data.newer} />}
+        {data.pads.length + data.integrated.length === 0 ? <NoPadsHint /> : null}
       </header>
       <div className="cs-board-art" style={{ width: board.width, height: board.height }}>
         {board.views.map((view) => (
@@ -326,6 +345,7 @@ export function BoardArtNode({
           bridges={data.bridges}
           options={busOptions}
         />
+        <BoardTracePath instanceId={data.instanceId} board={board} />
         {board.handles.map((handle) => (
           <PadHandle key={handle.id} handle={handle} row={rows.get(handle.key)} nodeSelected={selected} />
         ))}

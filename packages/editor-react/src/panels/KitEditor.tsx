@@ -53,7 +53,7 @@ export function kitPartOptions(db: Db, kind: KitPartKind): PickOption[] {
     value: record.id,
     // never the manufacturer here — it stays inside the wire's own detail view
     label: kind === 'wire' ? wireDisplayName(db, record.id) : record.label,
-    hint: [record.partNumber, record.id].filter((bit) => bit !== undefined && bit !== '').join(' · '),
+    hint: [record.partNumber, kind === 'wire' ? undefined : record.id].filter((bit) => bit !== undefined && bit !== '').join(' · '),
   }));
 }
 
@@ -61,10 +61,8 @@ export function KitEditor(props: KitEditorProps): JSX.Element {
   const { draft, onChange, db } = props;
   const set = <K extends keyof KitDraft>(key: K, value: KitDraft[K]): void => onChange({ ...draft, [key]: value });
   const lines = (action: RowAction<KitLineRow>): void => onChange({ ...draft, lines: kitLineRowsReducer(draft.lines, action) });
-  const setLabel = (label: string): void => {
-    const follows = !props.idLocked && (draft.id === '' || draft.id === slugify(draft.label));
-    onChange({ ...draft, label, ...(follows ? { id: slugify(label) } : {}) });
-  };
+  const setLabel = (label: string): void => onChange({ ...draft, label });
+
   const options = useMemo(
     () => Object.fromEntries(KIT_PART_KINDS.map((kind) => [kind, kitPartOptions(db, kind)])) as Record<KitPartKind, PickOption[]>,
     [db],
@@ -85,14 +83,7 @@ export function KitEditor(props: KitEditorProps): JSX.Element {
             kind="kit"
             target={() => ({ kind: 'kit', def: kitOf(draft) })}
           />
-          <Field
-            label="Id"
-            say={props.idLocked ? 'Fixed.' : 'Lowercase words joined by hyphens.'}
-            value={draft.id}
-            onChange={(value) => set('id', value)}
-            placeholder="follows the name"
-            mono
-          />
+
         </div>
         <SrcField value={draft.src} onChange={(value) => set('src', value)} />
       </FormSection>

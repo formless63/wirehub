@@ -5,7 +5,8 @@
  *
  * A **subject** is the record a person asks the history of, named exactly as
  * an edit lock names it: `design:<id>` or `definition:<kind>:<id>` (plus
- * `vocab:<list>` and `build:<name>`, restored through the vocab and builds routes). A subject has
+ * `vocab:<list>` and `build:<name>`, restored through the vocab and builds routes; `note:<id>` and
+ * `project:<id>`, the knowledge documents). A subject has
  * **parts**: a design is its document and its drawing details (both
  * restorable), its photo and its saved versions (listed only); a library
  * record is the record itself (restorable), its 3D model link and its artwork.
@@ -32,6 +33,8 @@ export interface HistoryCapabilities {
   restore: boolean;
   /** which filters the hub-wide list honours */
   filters: { person: boolean; date: boolean; kind: boolean };
+  /** agent checkpoints: an API token's change sets grouped, and undone together (database only) */
+  checkpoints?: boolean;
 }
 
 /** The kinds the hub-wide list filters by. */
@@ -75,6 +78,8 @@ export interface HistoryEntry {
   touches: HistoryTouch[];
   /** touches left out of a long list */
   more?: number;
+  /** made with a personal API token (an agent's grant): its id groups the token's changes into one checkpoint */
+  via?: { token: string };
 }
 
 export interface HistoryPage {
@@ -126,6 +131,63 @@ export interface RestoreAnswer {
 }
 
 /* ------------------------------------------------------------------ *
+ * Agent checkpoints
+ * ------------------------------------------------------------------ */
+
+/**
+ * An agent checkpoint: every change set one API token (an agent's grant) made,
+ * grouped, so a person reviews them as one piece of work and can undo them
+ * together. `from` narrows it to the token's change sets from that one on.
+ */
+export interface CheckpointSummary {
+  token: string;
+  /** who, as History names it (`Dev Owner via token agent (drafts)`) */
+  label: string;
+  by: { name: string; email?: string };
+  /** how many change sets */
+  sets: number;
+  /** the first and last change set ids, and when */
+  first: string;
+  last: string;
+  firstAt: string;
+  lastAt: string;
+}
+
+/** One record a checkpoint changed, and what undoing it would do. */
+export interface CheckpointSubject {
+  subject: string;
+  label: string;
+  /** `restore`: back to its state before the checkpoint; `remove`: it did not exist before, so it is deleted; `none`: already back */
+  action: 'restore' | 'remove' | 'none';
+  /** the parts the checkpoint changed */
+  parts: string[];
+  /** each quoted part's version now (as `HistoryEntryDetail.current`): the restore quotes them back */
+  current: Record<string, string | null>;
+  /** why it cannot be undone with the rest (someone else changed it since, its earlier state was not recorded) */
+  blocked?: string;
+}
+
+export interface CheckpointDetail {
+  capabilities: HistoryCapabilities;
+  checkpoint: CheckpointSummary;
+  /** the first change set undone */
+  from: string;
+  /** the change sets, newest first */
+  entries: HistoryEntry[];
+  subjects: CheckpointSubject[];
+  /** what the checkpoint changed that a restore leaves as it is (settings, files), one sentence each */
+  skipped: string[];
+  /** every subject can be undone and at least one needs it */
+  restorable: boolean;
+}
+
+/** What `POST /api/history/checkpoints/:token/restore` answers. */
+export interface CheckpointRestoreAnswer {
+  restored: { token: string; from: string; subjects: { subject: string; action: 'restore' | 'remove'; parts: string[] }[] };
+  skipped?: string[];
+}
+
+/* ------------------------------------------------------------------ *
  * Subjects
  * ------------------------------------------------------------------ */
 
@@ -133,7 +195,9 @@ export type Subject =
   | { type: 'design'; id: string }
   | { type: 'definition'; kind: string; id: string }
   | { type: 'vocab'; list: string }
-  | { type: 'build'; name: string };
+  | { type: 'build'; name: string }
+  | { type: 'note'; id: string }
+  | { type: 'project'; id: string };
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._+-]{0,199}$/;
 
@@ -145,6 +209,7 @@ export function parseSubject(text: string): Subject | undefined {
   if (type === 'design' && b === undefined) return { type, id: a };
   if (type === 'vocab' && b === undefined) return { type, list: a };
   if (type === 'build' && b === undefined) return { type, name: a };
+  if ((type === 'note' || type === 'project') && b === undefined) return { type, id: a };
   if (type === 'definition' && b !== undefined && ID.test(b) && (LOCKABLE_DEFINITION_KINDS as readonly string[]).includes(a)) return { type, kind: a, id: b };
   return undefined;
 }
@@ -159,6 +224,9 @@ export function subjectKey(subject: Subject): string {
       return `vocab:${subject.list}`;
     case 'build':
       return `build:${subject.name}`;
+    case 'note':
+    case 'project':
+      return `${subject.type}:${subject.id}`;
   }
 }
 
@@ -183,6 +251,9 @@ export function subjectLabel(subject: Subject): string {
       return `list ${subject.list}`;
     case 'build':
       return `build ${subject.name}`;
+    case 'note':
+    case 'project':
+      return `${subject.type} ${subject.id}`;
   }
 }
 
@@ -284,10 +355,22 @@ export function touchOf(recordKind: string, key: string, op: HistoryTouch['op'],
     case 'depiction-meta':
     case 'depiction-asset':
       return { ...base, subject: `other:artwork:${head}`, label: `artwork ${head}` };
+    case 'doc': {
+      // a note or project (specs/knowledge.md): its own subject, with a history and restore of its own
+      const m = KNOWLEDGE_DOC.exec(key);
+      if (m !== null) return { ...base, part: 'record', subject: `${m[1] === 'notes' ? 'note' : 'project'}:${m[2]}`, label: `${m[1] === 'notes' ? 'note' : 'project'} ${m[2]}` };
+      return { ...base, subject: `other:${recordKind}:${key}`, label: otherLabel(recordKind, key) };
+    }
     default:
       return { ...base, subject: `other:${recordKind}:${key}`, label: otherLabel(recordKind, key) };
   }
 }
+
+/** A note's or project's document, as the database keys it (`data/…`) and git names it (no `data/`). */
+export const KNOWLEDGE_DOC = /^(?:data\/)?knowledge\/(notes|projects)\/([a-z0-9][a-z0-9-]*)\.json$/;
+
+/** The document a note or project subject is kept in. */
+export const knowledgeDocPath = (subject: { type: 'note' | 'project'; id: string }): string => `data/knowledge/${subject.type === 'note' ? 'notes' : 'projects'}/${subject.id}.json`;
 
 const OTHER_KIND: Readonly<Record<string, string>> = { doc: 'setting', 'catalog-file': 'catalog file', asset: 'file' };
 

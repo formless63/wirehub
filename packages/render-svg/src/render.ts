@@ -182,7 +182,7 @@ export function renderDiagram(diagram: Diagram, options: RenderOptions = {}): st
   ].join('');
 
   const description = [
-    `Wiring schematic for ${diagram.designId}.`,
+    `Wiring schematic for ${title}.`,
     ...diagram.issues.map((issue) => `${issue.severity}: ${issue.code} ${issue.message}`),
   ].join(' ');
 
@@ -211,7 +211,7 @@ export function renderDiagram(diagram: Diagram, options: RenderOptions = {}): st
 function renderHeader(diagram: Diagram, title: string, subtitle: string): string {
   const parts: string[] = [
     text(title, { class: 'title', x: M.margin, y: M.margin + 5 }),
-    text(subtitle, { class: 'subtitle', x: M.margin, y: M.margin + 10 }),
+    ...(subtitle === '' ? [] : [text(subtitle, { class: 'subtitle', x: M.margin, y: M.margin + 10 })]),
   ];
 
   const errors = diagram.issues.filter((issue) => issue.severity === 'error');
@@ -964,7 +964,11 @@ function renderBlock(block: DiagramBlock): string {
     );
   }
 
+  // Annotations are drawn in a second pass, after every link's copper, so one
+  // link's line never strikes through another link's words (presentation only).
+  const linkNotes: string[] = [];
   for (const link of block.internalLinks) {
+    const noteParts: string[] = [];
     const linkParts = [
       // a `via` said by the part it runs through keeps its words as a tooltip
       link.via !== undefined && link.annotation.length === 0 ? tooltip(link.via) : '',
@@ -978,7 +982,7 @@ function renderBlock(block: DiagramBlock): string {
       ),
     ];
     link.annotation.forEach((line, index) => {
-      linkParts.push(
+      noteParts.push(
         text(line, {
           class: 'annot',
           x: link.annotX,
@@ -1002,7 +1006,24 @@ function renderBlock(block: DiagramBlock): string {
         linkParts.join(''),
       ),
     );
+    if (noteParts.length > 0) {
+      linkNotes.push(
+        node(
+          'g',
+          {
+            class: 'pcba-link pcba-link-note',
+            'data-from': link.from,
+            'data-to': link.to,
+            'data-net': link.nets?.join(' '),
+            'data-parts': link.parts?.join(' '),
+            'data-face': link.face,
+          },
+          noteParts.join(''),
+        ),
+      );
+    }
   }
+  parts.push(...linkNotes);
 
   for (const port of block.ports) {
     // A depicted port sits on its real pad, so its text moves to the gutter

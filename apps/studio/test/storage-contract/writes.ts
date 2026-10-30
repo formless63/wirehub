@@ -56,7 +56,7 @@ export const fixed = {
   }),
 };
 
-const PNG = `data:image/png;base64,${Buffer.from('a photo of the cable').toString('base64')}`;
+const PNG = pngDataUri(makePng(7));
 const SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10"><rect width="20" height="10"/></svg>';
 
 /** What a step answered, comparable across backends (ETags included; nothing time- or host-dependent is in a body). */
@@ -122,7 +122,6 @@ export async function writeScenario(backend: WriteBackend): Promise<{ log: strin
   // sub-assemblies (cs-5k1.9): where used, a refused delete, a version freezing its leads to their approved revision
   await call('used in', { method: 'GET', path: '/api/designs/dc-pigtail-lead/used-in' }, 200);
   await call('delete a placed lead', { method: 'DELETE', path: '/api/designs/dc-pigtail-lead', body: { confirm: 'dc-pigtail-lead' } }, 409);
-  await call('Y on an unreleased lead', { method: 'POST', path: '/api/designs/dc-y-from-leads/versions', body: { note: 'too early' } }, 422);
   await call('save lead version', { method: 'POST', path: '/api/designs/dc-pigtail-lead/versions', body: { note: 'lead released' } }, 201);
   await call('submit lead', { method: 'POST', path: '/api/designs/dc-pigtail-lead/versions/0/submit', body: { comment: 'ready' } }, 200);
   await call('approve lead', { method: 'POST', path: '/api/designs/dc-pigtail-lead/versions/0/approve', body: { comment: 'checked' } }, 200);
@@ -196,9 +195,10 @@ export async function writeScenario(backend: WriteBackend): Promise<{ log: strin
   const rulesSaved = await call('save rules', { method: 'PUT', path: '/api/rules', body: { rules: [blocker] }, headers: { 'if-match': etag(rulesView) } }, 200);
   await call('stale rules', { method: 'PUT', path: '/api/rules', body: { rules: [] }, headers: { 'if-match': etag(rulesView) } }, 409);
   const tagTarget = await call('read design to tag', { method: 'GET', path: '/api/designs/contract-new' }, 200);
-  const refused = await call('a rule blocks a save', { method: 'PUT', path: '/api/designs/contract-new', body: { ...(tagTarget.body as object), tags: ['contract'] }, headers: { 'if-match': etag(tagTarget) } }, 422);
-  expect(JSON.stringify(refused.body)).toContain('rule:contract-two-notes');
-  const allowed = await call('the rule is satisfied', { method: 'PUT', path: '/api/designs/contract-new', body: { ...(tagTarget.body as object), tags: ['contract', 'second'] }, headers: { 'if-match': etag(tagTarget) } }, 200);
+  // a rule error is a finding saved with the draft, not a refusal (saving is not approval)
+  const flagged = await call('a rule finding saves', { method: 'PUT', path: '/api/designs/contract-new', body: { ...(tagTarget.body as object), tags: ['contract'] }, headers: { 'if-match': etag(tagTarget) } }, 200);
+  expect(JSON.stringify((await call('the finding is listed', { method: 'GET', path: '/api/designs/contract-new/issues' }, 200)).body)).toContain('rule:contract-two-notes');
+  const allowed = await call('the rule is satisfied', { method: 'PUT', path: '/api/designs/contract-new', body: { ...(tagTarget.body as object), tags: ['contract', 'second'] }, headers: { 'if-match': etag(flagged) } }, 200);
   expect((allowed.body as { tags: string[] }).tags).toEqual(['contract', 'second']);
   await call('rules removed', { method: 'PUT', path: '/api/rules', body: { rules: [] }, headers: { 'if-match': etag(rulesSaved) } }, 200);
 

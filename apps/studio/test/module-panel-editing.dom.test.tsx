@@ -32,7 +32,7 @@ const tree = (locked = false, selected = design, readOnly = false) => <EditSessi
 afterEach(() => { cleanup(); observed = undefined; });
 /** Documents frames module panels in a collapsed ModuleSlot: open it */
 async function openDocumentsSlot(): Promise<void> {
-  const toggle = await waitFor(() => { const found = document.querySelector('.cs-module-slot-toggle'); if (found === null) throw new Error('no slot yet'); return found; });
+  const toggle = await waitFor(() => { const found = document.querySelector('[data-module-slot] .cs-ui-section-toggle'); if (found === null) throw new Error('no slot yet'); return found; });
   if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
 }
 

@@ -32,6 +32,7 @@ import {
   type Joint,
   type TerminalRef,
 } from '@wirehub/model';
+import { newestRevision, olderRevisions, revisionFamily } from '@wirehub/model';
 import { wireDisplayName } from '@wirehub/docs';
 import {
   bondFoldedPaths,
@@ -344,6 +345,8 @@ export type PcbaNodeData = {
   missingDef: boolean;
   revision?: string;
   build?: string;
+  /** a newer revision of this board is in the library (`PCA-00001 Rev7`): a small marker on the header */
+  newer?: string;
   /**
    * Both faces of the real board, when the definition has a gerber depiction
    * and every terminal this design solders to has a pad on it. Absent, the
@@ -1018,7 +1021,8 @@ function pcbaEntries(
       kind: 'pcba',
       instanceId: instance.id,
       def: instance.def,
-      title: def?.partNumber ?? instance.def,
+      // a board with no part number (a pack's) goes by its name, never its id
+      title: def === undefined ? instance.def : ((def.partNumber ?? '').trim() === '' ? def.label : def.partNumber),
       subtitle:
         def === undefined
           ? 'unknown PCBA definition'
@@ -1036,6 +1040,7 @@ function pcbaEntries(
       ...(def?.revision === undefined ? {} : { revision: def.revision }),
       ...(def?.build === undefined ? {} : { build: def.build }),
       ...(instance.note === undefined ? {} : { note: instance.note }),
+      ...newerBoardOf(db, instance.def),
     };
     const { requests, integratedArt } =
       def === undefined || context.depictions === undefined
@@ -1658,10 +1663,13 @@ export function vacantPosition(
   positions: Record<string, XY>,
   depictions?: DepictionSource,
   faces?: readonly string[],
+  /** rendered card sizes by id: they win over the estimate (a board's art card is much taller than its estimate) */
+  measured?: ReadonlyMap<string, { width: number; height: number }>,
 ): XY {
   const graph = graphOf(design, db);
   const entries = nodeDataOf(design, db, graph.columns, rowContextOf(design, db, { depictions, faces }));
   const sizes = sizesOf(entries);
+  for (const [other, size] of measured ?? []) if (sizes.has(other)) sizes.set(other, size);
   const docked = dockedIds(entries);
   const auto = packed(design, db, entries);
   const at = (other: string): XY => positions[other] ?? auto[other] ?? { x: 0, y: 0 };
@@ -2052,4 +2060,12 @@ export function deriveFlow(
 ): Flow {
   const plan = planOf(design, db, options);
   return { nodes: nodesOf(plan, options), edges: edgesOf(design, db, plan, options) };
+}
+
+/** The newer revision of board `id` a design could move to (`revision-adopt.ts`), for the node header's marker. */
+function newerBoardOf(db: Db, id: string): { newer?: string } {
+  const family = revisionFamily(db, 'pcbas', id);
+  const target = newestRevision(family);
+  if (target === undefined || target.id === id || !olderRevisions(family, target).some((s) => s.id === id)) return {};
+  return { newer: target.name };
 }

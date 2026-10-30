@@ -1,3 +1,4 @@
+import { newRecordId } from '../display.ts';
 /**
  * `/resolver` — "Which cable do I need?" (`docs/resolver.md`).
  *
@@ -23,10 +24,11 @@ import { deriveCable, resolve, resolveDevice, suggestStocks, validateDesign, typ
 
 import { dbKey } from '../queries.ts';
 import { decideProposal, fetchPairProposals, fetchProposalDecisions, resolverKey, resolverQuery, saveResolverList, saveResolverPolicy, type ProposalRow, type ResolverList, type ResolverView } from '../resolver.browser.ts';
-import { canEditFields, DeviceForm, RecipeForm } from './ResolverRecordForms.tsx';
+import { canEditFields, DeviceForm, RecipeForm, HazardForm, RankingForm, RANK_LABELS } from './ResolverRecordForms.tsx';
 import { useStudio } from '../studio-context.tsx';
 
 import { Button, Input, Page, Select, Tab, TabList, TabPanel, Tabs, Textarea } from '@wirehub/editor-react';
+import { localDate } from '../when.ts';
 
 const pretty = (v: unknown): string => JSON.stringify(v, null, 2);
 const SRC = 'synthetic example';
@@ -146,7 +148,6 @@ function FindCable({ onOpenDevices }: { onOpenDevices: () => void }): JSX.Elemen
   const [chosen, setChosen] = useState<string | undefined>(undefined);
   const [stock, setStock] = useState('');
   const [length, setLength] = useState('1000');
-  const [id, setId] = useState('');
   const [label, setLabel] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -159,22 +160,20 @@ function FindCable({ onOpenDevices }: { onOpenDevices: () => void }): JSX.Elemen
   useEffect(() => {
     setChosen(undefined);
     setStock('');
-    setId('');
     setLabel('');
   }, [src.device, src.port, dst.device, dst.port]);
   const stocks = useMemo(() => (option === undefined ? [] : suggestStocks(db, option)), [db, option]);
   const lengthMm = Number(length);
   const derived = useMemo(() => {
     if (query === undefined || option === undefined) return undefined;
-    return deriveCable(db, query, option.id, {
+    const result = deriveCable(db, query, option.id, {
       ...(stock === '' ? {} : { stock }),
       ...(Number.isFinite(lengthMm) && lengthMm > 0 ? { lengthMm } : {}),
-      ...(id === '' ? {} : { id }),
       ...(label === '' ? {} : { label }),
     });
-  }, [db, query?.source.device, query?.source.port, query?.destination.device, query?.destination.port, option, stock, lengthMm, id, label]);
+    return result.ok ? { ...result, design: { ...result.design, id: newRecordId(result.design.id, studio.designs.map((d) => d.id), 'design') } } : result;
+  }, [db, query?.source.device, query?.source.port, query?.destination.device, query?.destination.port, option, stock, lengthMm, label, studio.designs]);
   const errors = derived?.ok ? validateDesign(derived.design, db).filter((i) => i.severity === 'error') : [];
-  const taken = derived?.ok === true && studio.designs.some((d) => d.id === derived.design.id);
 
   const create = async (): Promise<void> => {
     if (derived === undefined || !derived.ok) return;
@@ -260,17 +259,14 @@ function FindCable({ onOpenDevices }: { onOpenDevices: () => void }): JSX.Elemen
                   <span className="text-faint">Length, mm</span>
                   <Input aria-label="Length in millimetres" value={length} onChange={(e) => setLength(e.target.value)} className="w-24" />
                 </label>
-                <label className="flex flex-col">
-                  <span className="text-faint">Id</span>
-                  <Input aria-label="Design id" placeholder={derived?.ok ? derived.design.id : ''} value={id} onChange={(e) => setId(e.target.value)} />
-                </label>
+
                 <label className="flex flex-col">
                   <span className="text-faint">Name</span>
                   <Input aria-label="Design name" placeholder={derived?.ok ? derived.design.label : ''} value={label} onChange={(e) => setLabel(e.target.value)} className="w-72" />
                 </label>
                 <Button
                   type="button"
-                  disabled={busy || derived === undefined || !derived.ok || errors.length > 0 || taken || studio.me?.role === 'viewer'}
+                  disabled={busy || derived === undefined || !derived.ok || errors.length > 0 || studio.me?.role === 'viewer'}
                   onClick={() => void create()} variant="primary"
                 >
                   Create design
@@ -280,7 +276,6 @@ function FindCable({ onOpenDevices }: { onOpenDevices: () => void }): JSX.Elemen
                 <div className="mt-1 text-faint" data-testid="resolver-preview">
                   {derived.design.instances.connectors.length} plug{derived.design.instances.connectors.length === 1 ? '' : 's'}, {derived.design.instances.pcbas.length} board
                   {derived.design.instances.pcbas.length === 1 ? '' : 's'}, {derived.design.instances.components.length} part{derived.design.instances.components.length === 1 ? '' : 's'}, {derived.design.joints.length} joints.
-                  {taken ? <span className="text-err"> A design called {derived.design.id} exists: give it another id.</span> : null}
                   {errors.map((e) => (
                     <div key={e.message} className="text-err">
                       {e.message}
@@ -310,7 +305,7 @@ function FindCable({ onOpenDevices }: { onOpenDevices: () => void }): JSX.Elemen
  * ------------------------------------------------------------------ */
 
 function PairProposals({ query }: { query: ResolveQuery }): JSX.Element | null {
-  const { me } = useStudio();
+  const { me, db } = useStudio();
   const readOnly = me?.role === 'viewer';
   const key = ['resolver', 'proposals', query.source.device, query.source.port ?? '', query.destination.device, query.destination.port ?? ''];
   const client = useQueryClient();
@@ -326,7 +321,7 @@ function PairProposals({ query }: { query: ResolveQuery }): JSX.Element | null {
   if (found.data === undefined || found.data.length === 0) return null;
   const act = async (action: 'decline' | 'reopen' | 'accept', row: ProposalRow): Promise<void> => {
     const k = row.proposal.key;
-    const out = await decideProposal(action, { key: k, proposal: row.proposal, ...(reason[k] ? { reason: reason[k] } : {}), ...(action === 'accept' ? { id: boardId[k] ?? '' } : {}) });
+    const out = await decideProposal(action, { key: k, proposal: row.proposal, ...(reason[k] ? { reason: reason[k] } : {}), ...(action === 'accept' ? { id: newRecordId(boardId[k] ?? '', db.pcbas.map((b) => b.id), 'board'), label: boardId[k] } : {}) });
     if (!out.ok) return void toast.error(out.message, { description: out.hint });
     toast.success(action === 'decline' ? 'Declined: it will not be offered again.' : action === 'accept' ? 'Started a development board from it.' : 'Offered again.');
     void client.invalidateQueries({ queryKey: key });
@@ -363,7 +358,7 @@ function PairProposals({ query }: { query: ResolveQuery }): JSX.Element | null {
                   <Button type="button" onClick={() => void act('decline', row)}>
                     Decline
                   </Button>
-                  <Input aria-label="New board id" placeholder="new board id" value={boardId[p.key] ?? ''} onChange={(e) => setBoardId({ ...boardId, [p.key]: e.target.value })} />
+                  <Input aria-label="New board name" placeholder="Board name" value={boardId[p.key] ?? ''} onChange={(e) => setBoardId({ ...boardId, [p.key]: e.target.value })} />
                   <Button type="button" disabled={(boardId[p.key] ?? '') === ''} onClick={() => void act('accept', row)}>
                     Start a board
                   </Button>
@@ -391,7 +386,7 @@ function ProposalDecisions(): JSX.Element {
     <ul className="max-w-3xl" data-testid="proposal-decisions">
       {list.data.map((d) => (
         <li key={d.key} className="my-1 border border-line p-2" data-state={d.state}>
-          <b>{d.proposal.title}</b> <span className="text-faint">· {d.state}{d.reason === undefined ? '' : ` (${d.reason})`} · {d.by ?? ''} {d.at.slice(0, 10)}{d.pcba === undefined ? '' : ` → board ${d.pcba}`}</span>
+          <b>{d.proposal.title}</b> <span className="text-faint">· {d.state}{d.reason === undefined ? '' : ` (${d.reason})`} · {d.by ?? ''} {localDate(d.at)}{d.pcba === undefined ? '' : ` → board ${d.pcba}`}</span>
           {me?.role === 'viewer' || d.state !== 'declined' ? null : (
             <Button
               type="button" className=" ml-2"
@@ -483,8 +478,10 @@ function ListEditor({ list, title, view, records, readOnly, onSaved }: { list: R
       toast.error('That is not valid JSON.', { description: error instanceof Error ? error.message : undefined });
       return;
     }
+    if (!String(record['label'] ?? '').trim()) return void toast.error('Give this record a name.');
+    if (editing.replaces === undefined) record['id'] = newRecordId(String(record['label']), records.map((r) => r.id), list);
     const others = own.filter((r) => r['id'] !== (editing.replaces ?? record['id']) && r['id'] !== record['id']);
-    if (await persist([...others, record], `Saved ${String(record['id'])}.`)) setEditing(undefined);
+    if (await persist([...others, record], `Saved ${String(record['label'])}.`)) setEditing(undefined);
   };
   const { iface, body } = firstInterface(view, studio.db);
   return (
@@ -496,7 +493,7 @@ function ListEditor({ list, title, view, records, readOnly, onSaved }: { list: R
       <ul>
         {records.map((r) => (
           <li key={r.id} className="my-1 border border-line p-2" data-record={r.id}>
-            <b>{r.id}</b> {r.label === undefined ? null : <span>· {r.label}</span>}
+            <b>{r.label || 'Unnamed record'}</b>
             {r.origin === 'pack' ? <span className="text-faint"> · from pack {r.pack}{r.held ? ', edited here' : ''}</span> : null}
             {readOnly ? null : (
               <span className="ml-2 inline-flex gap-3">
@@ -504,7 +501,7 @@ function ListEditor({ list, title, view, records, readOnly, onSaved }: { list: R
                   {r.origin === 'pack' && !r.held ? 'Override…' : 'Edit…'}
                 </Button>
                 {r.origin === 'local' ? (
-                  <Button type="button" disabled={busy} onClick={() => void persist(own.filter((x) => x['id'] !== r.id), `Removed ${r.id}.`)}>
+                  <Button type="button" disabled={busy} onClick={() => void persist(own.filter((x) => x['id'] !== r.id), `Removed ${r.label || 'record'}.`)}>
                     Remove
                   </Button>
                 ) : null}
@@ -514,14 +511,14 @@ function ListEditor({ list, title, view, records, readOnly, onSaved }: { list: R
         ))}
       </ul>
       {readOnly ? null : (
-        <Button type="button" onClick={() => setEditing({ text: pretty(EXAMPLES(iface, body)[list]) })}>
-          New from an example…
+        <Button type="button" onClick={() => setEditing({ text: pretty(list === 'devices' ? { id: '', label: '', ports: [], src: '' } : list === 'recipes' ? { id: '', label: '', conditioning: '', parts: [], src: '' } : { id: '', label: '', severity: 'warning', a: {}, b: {}, text: '', src: '' }) })}>
+          New {list === 'devices' ? 'device' : list === 'recipes' ? 'recipe' : 'hazard'}…
         </Button>
       )}
       {editing === undefined ? null : (
         <div className="mt-2">
-          {fields === undefined ? null : list === 'devices' ? <DeviceForm record={fields as unknown as DeviceProfile} db={studio.db} onChange={(record) => setEditing({ ...editing, text: pretty(record) })} /> : list === 'recipes' ? <RecipeForm record={fields as unknown as ConditioningRecipe} db={studio.db} onChange={(record) => setEditing({ ...editing, text: pretty(record) })} /> : null}
-          <details open={list === 'hazards' || fields === undefined} className="mt-2"><summary>Advanced JSON</summary>
+          {fields === undefined ? null : list === 'devices' ? <DeviceForm record={fields as unknown as DeviceProfile} db={studio.db} onChange={(record) => setEditing({ ...editing, text: pretty(record) })} /> : list === 'recipes' ? <RecipeForm record={fields as unknown as ConditioningRecipe} db={studio.db} onChange={(record) => setEditing({ ...editing, text: pretty(record) })} /> : list === 'hazards' ? <HazardForm record={fields as unknown as import('@wirehub/model').HazardRule} db={studio.db} onChange={(record) => setEditing({ ...editing, text: pretty(record) })} /> : null}
+          <details open={fields === undefined} className="mt-2"><summary>Advanced JSON</summary>
             <Textarea mono className="w-full" aria-label={`${title} record`} value={editing.text} spellCheck={false} onChange={(e) => setEditing({ ...editing, text: e.target.value })} />
           </details>
           <div className="mt-1 flex gap-2">
@@ -540,11 +537,12 @@ function ListEditor({ list, title, view, records, readOnly, onSaved }: { list: R
 
 function ResolverLibrary(): JSX.Element {
   const client = useQueryClient();
-  const { me } = useStudio();
+  const { me, db } = useStudio();
   const readOnly = me?.role === 'viewer';
   const query = useQuery(resolverQuery);
   const view = query.data;
   const [policyText, setPolicyText] = useState<string | undefined>(undefined);
+  const [hazardOverride, setHazardOverride] = useState<import('@wirehub/model').HazardRule>();
   const onSaved = (v: ResolverView): void => {
     client.setQueryData(resolverKey, v);
     void client.invalidateQueries({ queryKey: dbKey });
@@ -583,18 +581,21 @@ function ResolverLibrary(): JSX.Element {
         <ul>
           {view.hazards.builtIn.map((h) => (
             <li key={h.id}>
-              <b>{h.id}</b> · {h.severity} · {h.label}
+              <b>{h.label}</b> · {h.severity === 'reject' ? 'Reject connection' : 'Warning'}
+              {readOnly ? null : <Button size="xs" variant="ghost" onClick={() => setHazardOverride(view.local.hazards.find((r) => r['id'] === h.id) as unknown as import('@wirehub/model').HazardRule ?? h)}>Customize…</Button>}
             </li>
           ))}
         </ul>
-        <div className="text-faint">A hazard of the same id above replaces one of these; enabled: false switches it off.</div>
+        <div className="text-faint">Built-in checks can be overridden here; keep an explanation of any change.</div>
+        {hazardOverride === undefined ? null : <div className="my-2 rounded border border-line p-2"><HazardForm record={hazardOverride} db={db} onChange={setHazardOverride} /><div className="mt-2 flex gap-2"><Button variant="primary" onClick={async () => { const out = await saveResolverList('hazards', [...view.local.hazards.filter((r) => r['id'] !== hazardOverride.id), hazardOverride], view.etags.hazards); if (out.ok) { onSaved(out.value); setHazardOverride(undefined); } else toast.error(out.message); }}>Save customization</Button><Button onClick={() => setHazardOverride(undefined)}>Cancel</Button></div></div>}
+
       </section>
       <section className="mt-4 max-w-3xl border-t border-line pt-3" data-testid="resolver-policy">
         <h2 className="mb-1 text-sm font-semibold">Ranking</h2>
         <div>
-          In force: {view.policy.inForce.order.join(' → ')} {view.policy.local === null ? <span className="text-faint">(the default)</span> : null}
+          In force: {view.policy.inForce.order.map((c) => RANK_LABELS[c]).join(' → ')} {view.policy.local === null ? <span className="text-faint">(the default)</span> : null}
         </div>
-        <div className="text-faint">Criteria: {view.policy.criteria.join(', ')}</div>
+
         {readOnly ? null : policyText === undefined ? (
           <div className="mt-1 flex gap-3">
             <Button type="button" onClick={() => setPolicyText(pretty(view.policy.local ?? view.policy.default))}>
@@ -608,7 +609,7 @@ function ResolverLibrary(): JSX.Element {
           </div>
         ) : (
           <div className="mt-2">
-            <Textarea aria-label="Ranking policy" value={policyText} spellCheck={false} onChange={(e) => setPolicyText(e.target.value)} mono className="w-full" />
+            <RankingForm record={JSON.parse(policyText)} onChange={(record) => setPolicyText(pretty(record))} />
             <div className="mt-1 flex gap-2">
               <Button
                 type="button" variant="primary"

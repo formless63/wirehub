@@ -131,6 +131,11 @@
   --conn-kind: #7ea6db;
   --wire-kind: #d2a85a;
   --comp-kind: #b38be0;
+  /* conductor trace hop kinds (board-trace): copper, through a passive, stopped at silicon, a missing fact */
+  --trace-copper: #e39256;
+  --trace-passive: #b38be0;
+  --trace-active: #f0706d;
+  --trace-unknown: #d9a441;
 
   /* conductor (domain) colours — identical across themes except white/black */
   --cond-red: #e5484d;
@@ -246,6 +251,10 @@
   --conn-kind: #3f6fb0;
   --wire-kind: #a97f2c;
   --comp-kind: #8656c4;
+  --trace-copper: #a4531c;
+  --trace-passive: #8656c4;
+  --trace-active: #b8352f;
+  --trace-unknown: #8a5d08;
 
   --cond-white: #ffffff;
   --cond-black: #232323;
@@ -302,6 +311,10 @@
     --conn-kind: #3f6fb0;
     --wire-kind: #a97f2c;
     --comp-kind: #8656c4;
+    --trace-copper: #a4531c;
+    --trace-passive: #8656c4;
+    --trace-active: #b8352f;
+    --trace-unknown: #8a5d08;
 
     --cond-white: #ffffff;
     --cond-black: #232323;

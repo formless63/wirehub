@@ -11,10 +11,14 @@ import type { SignalRef, SignalTags, Vocab } from './vocab.ts';
 import type { ConnectorBody, Interface } from './interfaces.ts';
 import type { DbRules, DesignElectrical } from './electrical.ts';
 import type { ValidationRule } from './rules.ts';
+import type { DeclaredProcess, ProcessDefinition } from './processes.ts';
 import type { BenchStepRule } from './bench-types.ts';
 import type { KitDefinition } from './kits.ts';
 import type { RecordMeta } from './provenance.ts';
+import type { RecordMass, RecordMassPerLength } from './mass.ts';
 import type { CavityAssignment, HousingSpec, TerminationSpec } from './crimp.ts';
+import type { EnclosureSpec } from './enclosure.ts';
+import type { DeviceLayout } from './device.ts';
 import type { AssemblyLibrary } from './subassemblies.ts';
 import type { ConditioningRecipe, DeviceProfile, HazardRule, ResolverPolicy } from './devices.ts';
 import type { CableRecipe } from './cable-recipe.ts';
@@ -198,6 +202,8 @@ export interface WireVendorDoc {
 export interface WireDefinition extends RecordMeta {
   id: string;
   label: string;
+  /** grams per metre of the stock (`mass.ts`); absent = unknown */
+  massPerLength?: RecordMassPerLength;
   partNumber?: string;
   /**
    * the document the stock's values were taken from (a citation only — our
@@ -278,6 +284,8 @@ export type ComponentKind = 'resistor' | 'capacitor' | 'ic' | 'switch' | 'other'
 export interface ConnectorDefinition extends RecordMeta {
   id: string;
   label: string;
+  /** grams per piece (`mass.ts`); absent = unknown */
+  mass?: RecordMass;
   /** 'SCART' | 'DIN' | 'D-Sub' | 'RCA' | ... */
   family: string;
   gender?: ConnectorGender;
@@ -402,6 +410,8 @@ export interface ComponentUse {
 export interface ComponentDefinition extends RecordMeta {
   id: string;
   label: string;
+  /** grams per piece (`mass.ts`); absent = unknown */
+  mass?: RecordMass;
   kind: ComponentKind;
   /** "330 Ω", "220 µF", "100 nF"; an IC's printed value (`LM1881M_NOPB`) */
   value?: string;
@@ -518,9 +528,69 @@ export interface PcbaInternalLink {
   note?: string;
 }
 
+/**
+ * One part of a board's native netlist (`PcbaNetlist`): what it is, its value
+ * as the source prints it, and the net each of its pads sits on.
+ */
+export interface PcbaPartPassage {
+  /** pad the signal enters on */
+  from: string;
+  /** pad it leaves on */
+  to: string;
+  label?: string;
+  /** a switch position this passage belongs to */
+  position?: string;
+}
+
+export interface PcbaNetPart {
+  /** reference designator: `R1`, `U3`, `JP2` */
+  ref: string;
+  category: ComponentCategory;
+  /** printed value (`120 Ω`, `100 nF`), when the source has one */
+  value?: string;
+  /** pad number → net name; a pad on no net is absent */
+  pins: Record<string, string>;
+  /** the source marks it do-not-populate */
+  dnp?: boolean;
+  /** a jumper or switch the source itself settles (a bridged solder jumper is `closed`) */
+  state?: 'closed' | 'open';
+  /** an inductor that is a ferrite bead */
+  ferrite?: boolean;
+  /**
+   * Signal passages the board record declares through this part, by pad
+   * number (`{ from: '2', to: '4', label: 'A→Y' }` for a buffer or level
+   * shifter). On an active part the trace continues from the `from` pad's net
+   * to the `to` pad's net as an *active passage* (one way, never copper). On
+   * a switch, a passage with a `position` is copper while the occurrence
+   * declares that position.
+   */
+  passages?: PcbaPartPassage[];
+  /** where the part sits, mm in its board depiction's anchor frame (as `PcbaPad`), and on which face */
+  x?: number;
+  y?: number;
+  side?: 'top' | 'bottom';
+}
+
+/**
+ * The board's own nets, read from its native source (a KiCad board or
+ * netlist): which net each terminal sits on and which parts join which nets.
+ * Enough for `traceConductor` to follow a conductor across the board instead
+ * of trusting the declared `internalLinks` alone. Absent = a black box.
+ */
+export interface PcbaNetlist {
+  /** the native file it was read from (name and hash) */
+  src: string;
+  /** terminal id → net name; a terminal missing here has no native net */
+  terminals: Record<string, string>;
+  /** every fitted or do-not-populate part with pads on at least two nets */
+  parts: PcbaNetPart[];
+}
+
 export interface PcbaDefinition extends RecordMeta {
   id: string;
   label: string;
+  /** grams per piece (`mass.ts`); absent = unknown */
+  mass?: RecordMass;
   partNumber: string;
   revision: string;
   /** 'CPL Basic' etc. */
@@ -530,6 +600,8 @@ export interface PcbaDefinition extends RecordMeta {
   terminals: PcbaTerminal[];
   integratedConnectors?: IntegratedConnector[];
   internalLinks: PcbaInternalLink[];
+  /** the board's native nets, when it was read from a board file (`PcbaNetlist`) */
+  netlist?: PcbaNetlist;
   src: string;
   /**
    * Production status; absent = active. `legacy`: an older revision than the
@@ -566,6 +638,8 @@ export const MECHANICAL_KINDS: readonly MechanicalKind[] = ['shell', 'fastener',
 export interface MechanicalDefinition extends RecordMeta {
   id: string;
   label: string;
+  /** grams per piece (`mass.ts`); absent = unknown */
+  mass?: RecordMass;
   /** e.g. `SHL-00102-00`, `HW-00101` */
   partNumber?: string;
   /** the released revision this definition tracks, when the source has one */
@@ -584,6 +658,11 @@ export interface MechanicalDefinition extends RecordMeta {
    * design that uses one builds only the other end in house.
    */
   supplies?: { end: 'source' | 'destination'; trunk: boolean };
+  /**
+   * A generated case (`kind` `shell`): the boards it holds and its design parameters
+   * (`enclosure.ts`). The solids are tool-pack outputs, not part of the record.
+   */
+  enclosure?: EnclosureSpec;
   src: string;
 }
 
@@ -640,6 +719,11 @@ export interface Db {
    * `validateDesign` (design subjects). Absent means none.
    */
   validationRules?: ValidationRule[];
+  /**
+   * The required-manufacturing-process vocabulary (`processes.ts`, the catalog's `processes.json`;
+   * a data pack may ship it): what a design may declare and what derives from its parts. Absent means none.
+   */
+  processes?: ProcessDefinition[];
   /**
    * The shop's work instructions as data (`bench-types.ts`, the catalog's
    * `bench-rules.json`; a data pack may ship them): the build sheet prints
@@ -744,6 +828,15 @@ export function findPcba(db: Db, id: string): PcbaDefinition | undefined {
   return db.pcbas.find((p) => p.id === id);
 }
 
+/**
+ * A board as a person names it: its part number and revision (`PCA-00001 A`),
+ * or its label when a record (a pack's) carries no part number.
+ */
+export function pcbaName(def: Pick<PcbaDefinition, 'label' | 'partNumber' | 'revision'>): string {
+  const pn = typeof def.partNumber === 'string' && def.partNumber.trim() !== '' ? def.partNumber.trim() : undefined;
+  return [pn ?? def.label, def.revision].filter((w) => w !== undefined && w !== '').join(' ');
+}
+
 export function findMechanical(db: Db, id: string): MechanicalDefinition | undefined {
   return (db.mechanicals ?? []).find((m) => m.id === id);
 }
@@ -843,9 +936,18 @@ export interface ComponentInstance {
   note?: string;
 }
 
+/** `closed` / `open`, or a switch position the board record names. */
+export type PartState = 'closed' | 'open' | (string & {});
+
 export interface PcbaInstance {
   id: string;
   def: string;
+  /**
+   * Jumper and switch states on this occurrence, by reference designator
+   * (`{ JP1: 'closed' }`): a state the board's netlist leaves open. Two
+   * occurrences of one board may differ.
+   */
+  partStates?: Record<string, PartState>;
   note?: string;
 }
 
@@ -1007,6 +1109,22 @@ export const DESIGN_STATUSES: readonly DesignStatus[] = [
   'retired',
 ];
 
+/**
+ * What a design documents. `cable` (the default when absent) is a finished cable; `subassembly`
+ * is a partial build (stock cut and stripped to length, one half of a cable) that is always finished
+ * into a cable and never sold on its own.
+ */
+export type DesignKind = 'cable' | 'subassembly';
+
+export const DESIGN_KINDS: readonly DesignKind[] = ['cable', 'subassembly'];
+
+export const DESIGN_KIND_LABELS: Readonly<Record<DesignKind, string>> = { cable: 'Cable', subassembly: 'Sub-assembly' };
+
+/** A design's kind, with an absent `kind` read as `cable`. */
+export function designKind(design: { kind?: DesignKind }): DesignKind {
+  return design.kind ?? 'cable';
+}
+
 /** A design's status, with an absent `status` read as `active`. */
 export function designStatus(design: { status?: DesignStatus }): DesignStatus {
   return design.status ?? 'active';
@@ -1060,6 +1178,8 @@ export interface CableDesign {
   productRef?: string;
   /** production status; absent = 'active' */
   status?: DesignStatus;
+  /** a finished cable or a sub-assembly that is finished into one (`DesignKind`); absent = 'cable' */
+  kind?: DesignKind;
   /** free tags (`mil-spec`, `export`) the declarative validation rules can select designs by; absent = none */
   tags?: string[];
   instances: DesignInstances;
@@ -1068,6 +1188,8 @@ export interface CableDesign {
   notes?: string[];
   /** hand labour to build one cable, in minutes (the cost roll-up prices it at the organisation's rate); absent = not recorded */
   labourMinutes?: number;
+  /** required manufacturing processes declared by hand (`processes.ts`); the ones its parts imply are derived, not stored */
+  processes?: DeclaredProcess[];
   /** this design's electrical data: the current a pin carries here and rule thresholds over the organisation's (`electrical.ts`) */
   electrical?: DesignElectrical;
   /**
@@ -1082,6 +1204,11 @@ export interface CableDesign {
   suppliers?: PartSupplier[];
   /** who builds it, for a contract-manufactured cable */
   maker?: string;
+  /**
+   * Where its parts sit in space (`device.ts`): board occurrences, the enclosure, hardware and
+   * schematic cable routes in one frame. Absent: a design with no physical arrangement.
+   */
+  device?: DeviceLayout;
   src: string;
   /**
    * Data owned by modules, keyed by module id (`docs/modules.md`). The base

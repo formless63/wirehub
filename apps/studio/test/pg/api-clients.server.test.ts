@@ -74,10 +74,12 @@ describePg('SA1: API clients with a personal token', () => {
     const memoryBatch = await batchScenario(reference.deps);
     const api = await writeScenario({ deps, depictionDeps, transport });
     const apiBatch = await batchScenario(deps, transport.call);
-    const drop = (log: string[]) => log.filter((line) => !line.startsWith('export:') && !line.startsWith('read export:'));
+    // a token's edits are attributed to the token too (`<person> via token <name>`); the in-memory reference has no token
+    const drop = (log: string[]) => log.filter((line) => !line.startsWith('export:') && !line.startsWith('read export:')).map((line) => line.replaceAll(' via token contract client', ''));
     expect(drop(api.log)).toEqual(drop(memory.log));
     expect(drop(apiBatch)).toEqual(drop(memoryBatch));
-    expect(api.exported.files).toEqual(memory.exported.files);
+    const untoken = (files: typeof api.exported.files) => Object.fromEntries(Object.entries(files).map(([k, v]) => [k, typeof v === 'string' ? v.replaceAll(' via token contract client', '') : v]));
+    expect(untoken(api.exported.files)).toEqual(untoken(memory.exported.files));
 
     const sets = await inOrg(pgh.db, orgId, async (tx) =>
       (await sql<{ actor_id: string | null; api_token_id: string | null; source: string }>`SELECT actor_id::text AS actor_id, api_token_id::text AS api_token_id, source FROM studio.change_set WHERE source <> 'import'`.execute(tx)).rows,

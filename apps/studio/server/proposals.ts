@@ -109,8 +109,8 @@ export async function handleProposalsRequest(method: string, parts: string[], pa
     // a board needs a number: the one given, else the scheme's next free board number (a proposal a person can change later)
     const given = typeof request['partNumber'] === 'string' && request['partNumber'].trim() !== '' ? request['partNumber'].trim() : undefined;
     const partNumber = given ?? (await partNumberSchemeOf(deps)).suggest({ kind: 'pcba', label: proposal.title, id }, knownPartNumbers(db, await readAllDesigns(deps.designs)))?.pn;
-    if (partNumber === undefined) return fail(400, 'Give the new board a number: { "partNumber": … } (the scheme proposes none).');
-    const pcba = { ...proposalPcba(db, proposal, id), partNumber };
+    // no number yet is allowed: the draft board keeps an empty one (unknown, not invented) to fill in later
+    const pcba = { ...proposalPcba(db, proposal, id), partNumber: partNumber ?? '' };
     const created = await handleDefinitionRequest('POST', ['api', 'definitions', 'pcbas'], pcba, deps);
     if (created === undefined || created.status >= 300) return created ?? fail(409, 'The board could not be created.');
     const answer = await put({ key, state: 'accepted', ...(reason === undefined ? {} : { reason }), by: who, at, pcba: id, proposal });

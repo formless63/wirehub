@@ -83,7 +83,8 @@ export function readFlattenedCatalog(root: string, packsDir: string | undefined)
   // the stored selection and the install record live beside the packs: at the data root, flattened
   const record = readInstalledPacks(dataDir);
   const packs = [...record.packs.filter((p) => !installed.packs.some((q) => q.id === p.id)), ...installed.packs];
-  if (packs.length > 0) out.set('data/packs.json', canonicalJson({ ...record, src: installed.src ?? record.src, packs }));
+  // a pack released to the hub is history the catalog keeps, even when no pack is installed any more
+  if (packs.length > 0 || (record.released ?? []).length > 0) out.set('data/packs.json', canonicalJson({ ...record, src: installed.src ?? record.src, packs }));
   if (existsSync(packSetup)) out.set('data/setup.json', readFileSync(packSetup, 'utf8'));
   return new Map([...out.entries()].sort(([a], [b]) => codePointCompare(a, b)));
 }

@@ -56,6 +56,10 @@ export interface SemanticTokens {
   connKind: string;
   wireKind: string;
   compKind: string;
+  traceCopper: string;
+  tracePassive: string;
+  traceActive: string;
+  traceUnknown: string;
   paper: string;
   paper2: string;
   paper3: string;
@@ -148,6 +152,10 @@ export const SEMANTIC_TOKENS: Record<ThemeName, SemanticTokens> = {
     connKind: "#7ea6db",
     wireKind: "#d2a85a",
     compKind: "#b38be0",
+    traceCopper: "#e39256",
+    tracePassive: "#b38be0",
+    traceActive: "#f0706d",
+    traceUnknown: "#d9a441",
     paper: "#ffffff",
     paper2: "#f6f7f8",
     paper3: "#eceff2",
@@ -238,6 +246,10 @@ export const SEMANTIC_TOKENS: Record<ThemeName, SemanticTokens> = {
     connKind: "#3f6fb0",
     wireKind: "#a97f2c",
     compKind: "#8656c4",
+    traceCopper: "#a4531c",
+    tracePassive: "#8656c4",
+    traceActive: "#b8352f",
+    traceUnknown: "#8a5d08",
     paper: "#ffffff",
     paper2: "#f6f7f8",
     paper3: "#eceff2",

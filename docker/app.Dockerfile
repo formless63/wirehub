@@ -23,7 +23,7 @@ LABEL org.opencontainers.image.title="WireHub" \
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git openssh-client ca-certificates \
  && rm -rf /var/lib/apt/lists/* \
- && mkdir -p /data/auth /data/blobs /data/cache /data/packs /run/wirehub \
+ && mkdir -p /data/auth /data/blobs /data/cache /data/packs /data/tool-work /run/wirehub \
  && chown -R node:node /data /run/wirehub
 WORKDIR /app
 COPY --from=build --chown=node:node /app /app

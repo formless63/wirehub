@@ -25,7 +25,7 @@ import { crossSiteRefusal } from '../request-guard.ts';
 import type { Notifier } from '../notify.ts';
 import { renderEmbeddedAccountPage, renderNotFoundPage, renderInvitePage, renderPeoplePage, renderSignInPage, renderTokensPage } from './sign-in-page.ts';
 import { ROLES, type PeopleStore, type Person, type Role } from './people.ts';
-import { parseToken, READ_LIMITS, scopeFor, TOKEN_DAYS, TOKEN_SCOPES, WRITE_LIMITS, type TokenEnv, type TokenStore } from './tokens.ts';
+import { DRAFT_SCOPE, isDraftWrite, isFreeWrite, MAX_WRITE_BUDGET, parseToken, READ_LIMITS, scopeFor, TOKEN_DAYS, TOKEN_HOURS, TOKEN_SCOPES, WRITE_LIMITS, type TokenEnv, type TokenStore } from './tokens.ts';
 import { AUTH_BASE_PATH, EMAIL_NOT_ALLOWED, SIGN_IN_PATH, type StudioAuth } from './studio-auth.ts';
 
 export const USER_HEADER = 'x-studio-user';
@@ -143,6 +143,7 @@ async function peopleRoute(c: Context, people: PeopleStore, person: Person | und
 }
 
 export const TOKENS_PATH = '/api/account/tokens';
+export const ACCOUNT_PROVIDERS_PATH = '/api/account/providers';
 export const TOKENS_PAGE = '/account/tokens';
 
 /** Every refusal of a token looks the same: no detail beyond this (§4.5). */
@@ -169,8 +170,23 @@ function refusedToken(auth: StudioAuth, address: string): void {
   );
 }
 
+/** How many writes a budgeted request spends: a batch spends one per request in it, a dry run nothing. */
+async function writesOf(c: Context): Promise<number> {
+  if (isFreeWrite(c.req.method, `${c.req.path}${new URL(c.req.url).search}`)) return 0;
+  if (c.req.path !== '/api/batch') return 1;
+  const body = (await c.req.raw.clone().json().catch(() => ({}))) as { dryRun?: unknown; requests?: unknown };
+  if (body.dryRun === true) return 0;
+  return Array.isArray(body.requests) ? Math.max(1, body.requests.length) : 1;
+}
+
+/** A token the gate let through: whose budget a refused write is given back to. */
+interface BearerPass {
+  tokenId: string;
+  spent: number;
+}
+
 /** Check a bearer token and let the request through as its person, or answer the refusal. */
-async function bearer(c: Context, auth: StudioAuth, people: PeopleStore | undefined, value: string): Promise<Response | undefined> {
+async function bearer(c: Context, auth: StudioAuth, people: PeopleStore | undefined, value: string): Promise<Response | BearerPass> {
   const tokens = auth.tokens;
   const limiter = auth.limiter;
   if (tokens === undefined || limiter === undefined || people === undefined) return tokenRefused();
@@ -190,16 +206,37 @@ async function bearer(c: Context, auth: StudioAuth, people: PeopleStore | undefi
   }
   const scope = scopeFor(c.req.method, c.req.path);
   if (scope === undefined) return json(403, { error: 'That needs a signed-in session, not a token.' });
-  if (!holder.token.scopes.includes(scope)) return json(403, { error: `The token lacks scope ${scope}.` });
+  // a draft-work grant: creating and editing drafts, nothing that deletes, releases or publishes
+  const drafts = scope === 'catalog:write' && !holder.token.scopes.includes(scope) && holder.token.scopes.includes(DRAFT_SCOPE);
+  if (drafts && !isDraftWrite(c.req.method, c.req.path)) {
+    return json(403, { error: `The token lacks scope ${scope}.`, hint: 'A draft-work grant (drafts:write) creates and edits designs and library items; it never deletes, renames, saves or releases versions, publishes, or changes settings.' });
+  }
+  if (!drafts && !holder.token.scopes.includes(scope)) return json(403, { error: `The token lacks scope ${scope}.` });
   // the person's current role still applies: a viewer's token only reads
   if (holder.person.role === 'viewer' && scope !== 'read') return json(403, { error: 'The token lacks scope catalog:write.' });
   if (holder.person.role === 'viewer' && c.req.path === '/api/export') return json(403, { error: 'The catalog export is for owners and editors.' });
   const limits = auth.limits?.() ?? { read: READ_LIMITS, write: WRITE_LIMITS };
   const budget = limiter.take(`token:${holder.token.id}`, scope === 'read' ? limits.read : limits.write);
   if (budget > 0) return retryLater(budget);
+  // a budgeted token: its real writes are counted, all of a batch or none
+  let spent = 0;
+  if (scope !== 'read' && holder.token.writeBudget !== null && tokens.spend !== undefined) {
+    const count = await writesOf(c);
+    if (count > 0 && !(await tokens.spend(holder.token.id, count))) {
+      return json(403, { error: `The token's write budget is spent (${holder.token.writesUsed} of ${holder.token.writeBudget}${count > 1 ? `; this needs ${count}` : ''}).`, hint: 'Nothing was changed. Dry runs still work; ask its person for a new grant.' });
+    }
+    spent = count;
+  }
   await tokens.touch(holder.token.id);
-  signedIn.set(c.req.raw, { ...sessionStudioUser({ name: holder.person.name, email: holder.person.email }), ...((ROLES as readonly string[]).includes(holder.person.role) ? { role: holder.person.role as Role } : {}), apiTokenId: holder.token.id, apiTokenScopes: holder.token.scopes });
-  return undefined;
+  signedIn.set(c.req.raw, {
+    ...sessionStudioUser({ name: holder.person.name, email: holder.person.email }),
+    ...((ROLES as readonly string[]).includes(holder.person.role) ? { role: holder.person.role as Role } : {}),
+    apiTokenId: holder.token.id,
+    apiTokenName: holder.token.name,
+    apiTokenScopes: holder.token.scopes,
+    ...(holder.token.writeBudget === null ? {} : { apiTokenWrites: { budget: holder.token.writeBudget, used: holder.token.writesUsed + spent } }),
+  });
+  return { tokenId: holder.token.id, spent };
 }
 
 /**
@@ -234,7 +271,7 @@ async function tokensRoute(c: Context, tokens: TokenStore, person: Person | unde
       return json(200, { tokens: await tokens.list(all ? undefined : person.id) });
     }
     if (c.req.method === 'POST') {
-      const body = (await c.req.json().catch(() => ({}))) as { name?: unknown; scopes?: unknown; days?: unknown };
+      const body = (await c.req.json().catch(() => ({}))) as { name?: unknown; scopes?: unknown; days?: unknown; hours?: unknown; writeBudget?: unknown };
       const name = typeof body.name === 'string' ? body.name.trim() : '';
       if (name === '' || name.length > 80) return json(400, { error: 'Name the token (what it is for), in at most 80 characters.' });
       const scopes = Array.isArray(body.scopes) ? body.scopes.filter((s): s is string => typeof s === 'string') : ['read'];
@@ -242,7 +279,21 @@ async function tokensRoute(c: Context, tokens: TokenStore, person: Person | unde
       if (unknown.length > 0) return json(400, { error: `Unknown scope ${unknown.join(', ')}.`, hint: `One of: ${TOKEN_SCOPES.join(', ')}.` });
       const days = body.days === undefined ? 7 : body.days;
       if (!(TOKEN_DAYS as readonly unknown[]).includes(days)) return json(400, { error: `A token lasts ${TOKEN_DAYS.join(', ')} days.` });
-      const { token, secret } = await tokens.create({ person, name, scopes, days: days as number, env });
+      if (body.hours !== undefined && !(TOKEN_HOURS as readonly unknown[]).includes(body.hours)) return json(400, { error: `A short token lasts ${TOKEN_HOURS.join(' or ')} hours.` });
+      const budget = body.writeBudget;
+      if (budget !== undefined && budget !== null && !(Number.isInteger(budget) && (budget as number) >= 1 && (budget as number) <= MAX_WRITE_BUDGET)) {
+        return json(400, { error: `A write budget is a whole number of writes, 1 to ${MAX_WRITE_BUDGET}.` });
+      }
+      if (scopes.includes(DRAFT_SCOPE) && scopes.includes('catalog:write')) return json(400, { error: 'A draft-work grant is narrower than catalog:write: choose one.' });
+      const { token, secret } = await tokens.create({
+        person,
+        name,
+        scopes,
+        days: days as number,
+        ...(body.hours === undefined ? {} : { hours: body.hours as number }),
+        ...(typeof budget === 'number' ? { writeBudget: budget } : {}),
+        env,
+      });
       console.log(`[tokens] ${person.email} created '${name}' (${token.scopes.join(' ')}, until ${token.expiresAt})`);
       void notifier?.notify({
         event: 'token-created',
@@ -263,6 +314,8 @@ async function tokensRoute(c: Context, tokens: TokenStore, person: Person | unde
 export function mountAuth(app: Hono, auth: StudioAuth, options: { spaAccountPages?: boolean } = {}): void {
   // read at each request: the sign-in methods may change in Settings (`liveStudioAuth`)
   const config = (): StudioAuth['config'] => auth.config;
+  /** the sign-in providers a signed-in person may connect to their account (My account) */
+  const connectProviders = (): { providerId: string; name: string }[] => [...(config().oidc === undefined ? [] : [{ providerId: config().oidc!.providerId, name: config().oidc!.name }]), ...(config().github === undefined ? [] : [{ providerId: 'github', name: 'GitHub' }]), ...(config().google === undefined ? [] : [{ providerId: 'google', name: 'Google' }])];
 
   app.on(['GET', 'POST'], [AUTH_BASE_PATH, `${AUTH_BASE_PATH}/*`], async (c) => {
     // a sign-in, sign-up or sign-out only from the studio's own pages (the API's cross-site rule)
@@ -291,7 +344,7 @@ export function mountAuth(app: Hono, auth: StudioAuth, options: { spaAccountPage
           ? {}
           : { oidc: { providerId: config().oidc!.providerId, name: config().oidc!.name, emailClaim: config().oidc!.emailClaim } }),
         ...((auth.providers ?? []).length === 0 ? {} : { providers: auth.providers }),
-        connectProviders: [...(config().oidc === undefined ? [] : [{ providerId: config().oidc!.providerId, name: config().oidc!.name }]), ...(config().github === undefined ? [] : [{ providerId: 'github', name: 'GitHub' }]), ...(config().google === undefined ? [] : [{ providerId: 'google', name: 'Google' }])],
+        connectProviders: connectProviders(),
         magicLink: config().smtp !== undefined,
         localAccounts: config().localAccounts,
         ...(noMethod ? { noMethod: true } : {}),
@@ -327,9 +380,12 @@ export function mountAuth(app: Hono, auth: StudioAuth, options: { spaAccountPage
     // a personal API token (B12): `/api/*` only, and instead of a session
     const authorization = c.req.header('authorization');
     if (api && authorization !== undefined && /^bearer\s/i.test(authorization)) {
-      const refused = await bearer(c, auth, people, authorization.replace(/^bearer\s+/i, '').trim());
-      if (refused !== undefined) return refused;
-      return next();
+      const passed = await bearer(c, auth, people, authorization.replace(/^bearer\s+/i, '').trim());
+      if (passed instanceof Response) return passed;
+      await next();
+      // a refused write changed nothing: its budget is given back
+      if (passed.spent > 0 && c.res.status >= 400) await auth.tokens?.refund?.(passed.tokenId, passed.spent);
+      return;
     }
     const user = await auth.sessionUser(c.req.raw.headers);
 
@@ -362,6 +418,8 @@ export function mountAuth(app: Hono, auth: StudioAuth, options: { spaAccountPage
     }
 
     signedIn.set(c.req.raw, sessionStudioUser(user));
+    // My account (the app's own page): which providers this person may connect
+    if (path === ACCOUNT_PROVIDERS_PATH && c.req.method === 'GET') return json(200, { connect: connectProviders() });
     if (people !== undefined && api) {
       const person = await people.personByEmail(user.email);
       if (person !== undefined && (ROLES as readonly string[]).includes(person.role)) signedIn.set(c.req.raw, { ...sessionStudioUser(user), role: person.role as Role });

@@ -1,8 +1,8 @@
-/** Supplier UI uses only the module API; quotes are adopted through a downloaded reviewed import. */
+/** Supplier UI uses the module API, plus the host's inventory offers API for "Save as offer"; quotes are adopted as costs through a downloaded reviewed import. */
 import { createElement as h, useEffect, useRef, useState, type ReactElement } from 'react';
 import type { ModuleApi, PanelProps, RouteProps } from '@wirehub/modules';
 import type { LookupRequest, LookupResult, SupplierId, SupplierOffer } from './types.ts';
-import { offersCsv, quoteImportFile, requirementsCsv } from './logic.ts';
+import { inventoryOffer, offersCsv, quoteImportFile, requirementsCsv } from './logic.ts';
 import { supplierUrl } from './urls.ts';
 
 interface Provider { id: SupplierId; label: string; enabled: boolean; configured: boolean }
@@ -24,6 +24,13 @@ function download(fileName: string, text: string, type: string): void {
   const url = URL.createObjectURL(new Blob([text], { type }));
   const a = document.createElement('a'); a.href = url; a.download = fileName; a.hidden = true; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+/** Record a quote as a dated offer through the host's inventory API (same-origin, the signed-in session). */
+async function saveOffer(body: Record<string, unknown>): Promise<string> {
+  const response = await fetch('/api/inventory/offers', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  if (response.ok) return `Saved as a ${String(body['offeredOn'])} offer.`;
+  const out: unknown = await response.json().catch(() => undefined);
+  return messageOf(out, 'The offer could not be saved.');
 }
 function staleWarning(offer: SupplierOffer): string | undefined {
   const observed = Date.parse(offer.observedAt);
@@ -135,12 +142,13 @@ function LookupPanel(props: { api: ModuleApi; identity: string; part?: Part; rec
           const basis = pricingBasis[rowKey] ?? (offer.unit === 'unknown' ? '' : offer.unit);
           const selectedOffer: SupplierOffer = pricingBasis[rowKey] === undefined ? offer : { ...offer, unit: basis === '' ? 'unknown' : basis, warnings: [...(offer.warnings ?? []), ...(basis === '' ? [] : ['Pricing basis confirmed by user.'])] };
           const url = safeOfferUrl(offer); const file = props.record === undefined || props.readOnly ? undefined : quoteImportFile(props.record, selectedOffer, result.request); const stale = staleWarning(offer);
+          const dated = props.record === undefined || props.readOnly ? undefined : inventoryOffer(props.record, selectedOffer, result.request);
           return h('tr', { key: `${offer.provider}:${offer.supplierNumber}:${index}` },
             h('td', null, url === undefined ? offer.supplierNumber : h('a', { href: url, target: '_blank', rel: 'noopener noreferrer' }, offer.supplierNumber), h('div', null, `${offer.manufacturer} · ${offer.mpn}`), offer.description),
             h('td', null, offer.stock === undefined ? 'Unknown' : String(offer.stock)), h('td', null, `${offer.moq ?? 'Unknown'} / ${offer.orderMultiple ?? 'Unknown'}`), h('td', null, `${offer.packaging ?? 'Unknown packaging'} / ${offer.unit}`),
             h('td', null, offer.breaks.length === 0 ? 'Price unavailable' : h('ul', null, ...offer.breaks.map((b, i) => h('li', { key: i }, `${b.minQty}+: ${b.unitPrice} ${offer.currency} / ${offer.unit}`)))),
             h('td', null, offer.observedAt, stale === undefined ? null : h('p', null, stale), offer.unit === 'unknown' ? h('p', null, 'The supplier did not confirm purchasing units. Confirm the pricing basis before adopting a cost.') : null, ...((offer.warnings ?? []).map((warning, i) => h('p', { key: i }, warning)))),
-            h('td', null, props.record === undefined ? null : h('label', null, `Pricing basis for ${offer.supplierNumber}`, h('select', { value: basis, disabled: props.readOnly === true, onChange: (e: { target: { value: string } }) => setPricingBasis((old) => ({ ...old, [rowKey]: e.target.value as 'each' | 'm' | '' })) }, h('option', { value: '' }, 'Unconfirmed'), h('option', { value: 'each' }, 'Per piece'), h('option', { value: 'm' }, 'Per metre'))), h('button', { type: 'button', disabled: file === undefined, onClick: () => { if (file !== undefined) download(file.fileName, file.body, 'application/json'); } }, 'Download reviewed quote'), props.readOnly ? h('p', null, 'This record is read-only.') : null));
+            h('td', null, props.record === undefined ? null : h('label', null, `Pricing basis for ${offer.supplierNumber}`, h('select', { value: basis, disabled: props.readOnly === true, onChange: (e: { target: { value: string } }) => setPricingBasis((old) => ({ ...old, [rowKey]: e.target.value as 'each' | 'm' | '' })) }, h('option', { value: '' }, 'Unconfirmed'), h('option', { value: 'each' }, 'Per piece'), h('option', { value: 'm' }, 'Per metre'))), h('button', { type: 'button', disabled: file === undefined, onClick: () => { if (file !== undefined) download(file.fileName, file.body, 'application/json'); } }, 'Download reviewed quote'), props.record === undefined || props.readOnly ? null : h('button', { type: 'button', disabled: dated === undefined, title: 'Keep this price as a dated offer for build costing', onClick: () => { if (dated !== undefined) void saveOffer(dated).then(setStatus); } }, 'Save as offer'), props.readOnly ? h('p', null, 'This record is read-only.') : null));
         }))),
       props.record === undefined ? null : h('p', null, 'To adopt a quote, download it and open Library → Import. Review the proposed record changes before accepting. Confirm whether the supplier price is per piece or per metre; packaging or reel size does not establish the pricing basis. Unpriced offers and unconfirmed units cannot be adopted.')));
 }

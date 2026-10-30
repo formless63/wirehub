@@ -23,6 +23,7 @@ import {
   rederive,
   resolve,
   resolveDevice,
+  wireDisplayName,
   type CableDesign,
   type CableOverride,
   type RecipeInference,
@@ -128,7 +129,7 @@ export function RecipePanel({ state, readOnly }: { state: EditorState; readOnly?
           {recipe.stock === undefined ? null : (
             <>
               <dt>stock</dt>
-              <dd>{state.db.wires.find((w) => w.id === recipe.stock)?.label ?? recipe.stock}</dd>
+              <dd>{wireDisplayName(state.db, recipe.stock)}</dd>
             </>
           )}
         </dl>
@@ -146,13 +147,17 @@ export function RecipePanel({ state, readOnly }: { state: EditorState; readOnly?
             ))}
           </>
         )}
-        <h3 data-state={drift?.state}>
-          {drift === undefined || drift.state === 'in-step'
-            ? 'In step with the recipe'
-            : drift.state === 'unresolved'
-              ? `Cannot derive: ${drift.reason ?? ''}`
+        {drift?.state === 'unresolved' ? (
+          <div className="cs-issue is-warning" data-state="unresolved" role="note">
+            <span className="cs-issue-message">Can’t derive: {drift.reason ?? ''}</span>
+          </div>
+        ) : (
+          <h3 data-state={drift?.state}>
+            {drift === undefined || drift.state === 'in-step'
+              ? 'In step with the recipe'
               : `${drift.differences.length + drift.misses.length} difference${drift.differences.length + drift.misses.length === 1 ? '' : 's'} not recorded`}
-        </h3>
+          </h3>
+        )}
         {drift === undefined || drift.differences.length === 0 ? null : (
           <ul className="cs-recipe-drift" aria-label="Differences from the recipe">
             {drift.differences.map((d, i) => (

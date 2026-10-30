@@ -39,8 +39,11 @@ import {
 } from '../library.ts';
 import { useCatalogValues } from '../catalog-values.ts';
 import { Field, FormSection, RowTools, SrcField } from './fields.tsx';
+import { MassFields, massOfExtra, withExtraMass } from './MassFields.tsx';
 import { Pick } from './Pick.tsx';
 import { PartNumberField } from './PartNumberField.tsx';
+import { Select } from '../ui/Select.tsx';
+import { STATUS_LABELS } from '../library-table.ts';
 
 /** One copper path, read for a person: the pad end first. */
 export interface CopperPath {
@@ -141,6 +144,9 @@ function CopperPaths(props: { groups: CopperPathGroup[] }): JSX.Element {
   );
 }
 
+/** A board's production status (`PcbaDefinition.status`; absent = active, shown as Released). */
+const PCBA_STATUS_OPTIONS = (['active', 'development', 'legacy', 'retired'] as const).map((value) => ({ value, label: STATUS_LABELS[value] ?? value }));
+
 export interface PcbaEditorProps {
   draft: PcbaDraft;
   onChange: (next: PcbaDraft) => void;
@@ -186,17 +192,7 @@ export function PcbaEditor(props: PcbaEditorProps): JSX.Element {
             autoFocus
             wide
           />
-          <Field
-            label="Id"
-            say={
-              props.idLocked
-                ? 'Fixed: every design that uses this board refers to it by this id.'
-                : 'Short name used in files and links — usually the part number and revision.'
-            }
-            value={draft.id}
-            onChange={(value) => set('id', value)}
-            placeholder="follows the name"
-          />
+
           <PartNumberField
             say="The number printed on the board (the bare PCB)."
             value={draft.partNumber}
@@ -221,6 +217,21 @@ export function PcbaEditor(props: PcbaEditorProps): JSX.Element {
             options={values.pcbaBuilds}
             placeholder="Standard"
           />
+          <label className="cs-field" title="Released: the revision production builds. A board read from its files starts in development until you release it.">
+            <span>Status</span>
+            <Select
+              aria-label="Status"
+              value={typeof draft.extra?.['status'] === 'string' ? (draft.extra['status'] as string) : 'active'}
+              onValueChange={(value) => {
+                // absent = released (active): releasing drops the field rather than writing the default
+                const { status: _old, ...rest } = draft.extra ?? {};
+                const extra = value === 'active' ? rest : { ...rest, status: value };
+                const { extra: _extra, ...base } = draft;
+                onChange(Object.keys(extra).length === 0 ? base : { ...base, extra });
+              }}
+              options={PCBA_STATUS_OPTIONS}
+            />
+          </label>
           <Field
             label="KiCad project"
             say="Reference only — WireHub does not read it."
@@ -231,6 +242,17 @@ export function PcbaEditor(props: PcbaEditorProps): JSX.Element {
           />
         </div>
         <SrcField value={draft.src} onChange={(value) => set('src', value)} />
+      </FormSection>
+      <FormSection title="Mass" say="Optional. The BOM and mass.json add it up; a part without one is listed, never counted as zero.">
+        <MassFields
+          key={draft.id}
+          mass={massOfExtra(draft.extra)}
+          onChange={(mass) => {
+            const extra = withExtraMass(draft.extra, mass);
+            const { extra: _drop, ...rest } = draft;
+            onChange({ ...rest, ...(extra === undefined ? {} : { extra }) });
+          }}
+        />
       </FormSection>
       </fieldset>
 
@@ -303,7 +325,7 @@ export function PcbaEditor(props: PcbaEditorProps): JSX.Element {
                       value={pad.label}
                       aria-label={`pad ${index + 1} label`}
                       disabled={locked}
-                      placeholder="Video R"
+                      placeholder="Label"
                       onChange={(event) =>
                         pads({ type: 'update', index, patch: { label: event.target.value } })
                       }

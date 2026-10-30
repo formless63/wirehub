@@ -34,6 +34,8 @@
  * `openCable`, and never overwritten by a background refetch of the same id.
  */
 
+import { displayName } from './display.ts';
+import { findingsToast } from './save-findings.ts';
 import {
   isDirty,
   problemOf,
@@ -76,13 +78,16 @@ import { workbenchVocab } from './vocab.browser.ts';
 import { localLayoutStore } from './layout.browser.ts';
 import { workbenchAssets, workbenchDrawings, workbenchPersistence } from './persistence.browser.ts';
 import { cableListKey, dbKey, designKey, designsKey, dropDesignFromLists, loadDb, loadDesign, loadDesigns } from './queries.ts';
-import { applyTheme, initialTheme, isTheme, persistTheme, watchSystemTheme, type Theme } from './theme.ts';
+import { applyTheme, initialTheme, isThemeChoice, persistTheme, resolveTheme, storedChoice, watchSystemTheme, type Theme, type ThemeChoice } from './theme.ts';
 import { hydratePrefs } from './prefs.browser.ts';
 import { captureDesign, restoreDesign } from './design-undo.ts';
 
 export interface StudioApi {
   theme: Theme;
+  /** light, dark, or follow the system (the default) */
+  themeChoice: ThemeChoice;
   toggleTheme: () => void;
+  setThemeChoice: (choice: ThemeChoice) => void;
 
   /** the parts library every view reads through */
   db: Db;
@@ -248,23 +253,30 @@ export function StudioProvider({ children }: { children: ReactNode }): JSX.Eleme
   /** Light/dark. `main.tsx` already applied the initial value before this
    * component ever rendered, so this state starts in sync with the DOM. */
   const [theme, setTheme] = useState<Theme>(() => initialTheme());
+  const [themeChoice, setChoice] = useState<ThemeChoice>(() => storedChoice());
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
+  // system follows prefers-color-scheme live, while the page is open
   useEffect(() => watchSystemTheme(setTheme), []);
-  // the theme the person chose lives with their account: adopt it when the hub's preferences arrive
-  const [savedTheme, saveTheme] = usePref<Theme | undefined>('theme', undefined, (v): v is Theme | undefined => isTheme(v));
+  // the theme the person chose lives with their account: adopt it when the hub's preferences arrive;
+  // an account with none saved (a new one) follows the system
+  const [savedTheme, saveTheme] = usePref<ThemeChoice | undefined>('theme', undefined, (v): v is ThemeChoice | undefined => isThemeChoice(v));
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
+  const adoptTheme = useCallback((choice: ThemeChoice): void => {
+    persistTheme(choice);
+    setChoice(choice);
+    setTheme(resolveTheme(choice));
+  }, []);
   useEffect(() => {
-    if (savedTheme === undefined) return;
-    persistTheme(savedTheme);
-    setTheme(savedTheme);
-  }, [savedTheme]);
-  const toggleTheme = useCallback((): void => {
-    const next: Theme = theme === 'dark' ? 'light' : 'dark';
-    persistTheme(next);
-    saveTheme(next);
-    setTheme(next);
-  }, [theme, saveTheme]);
+    if (savedTheme !== undefined) adoptTheme(savedTheme);
+    else if (prefsLoaded) adoptTheme('system');
+  }, [savedTheme, prefsLoaded, adoptTheme]);
+  const setThemeChoice = useCallback((choice: ThemeChoice): void => {
+    adoptTheme(choice);
+    saveTheme(choice);
+  }, [adoptTheme, saveTheme]);
+  const toggleTheme = useCallback((): void => setThemeChoice(theme === 'dark' ? 'light' : 'dark'), [theme, setThemeChoice]);
 
   /* ------------------------------------------------------------------ *
    * The designs list and the definitions db — plain queries, each with a
@@ -334,13 +346,16 @@ export function StudioProvider({ children }: { children: ReactNode }): JSX.Eleme
         void queryClient.invalidateQueries({ queryKey: partNumbersKey });
         // the release chip's "unreleased changes" follows the stored working copy
         void queryClient.invalidateQueries({ queryKey: ['studio', 'versions', outcome.value.id] });
-        toast.success(`Saved ${outcome.value.label}`);
+        toast.success(`Saved ${outcome.value.label}`, findingsToast(outcome));
       } else if (isStaleWrite(outcome)) {
         // the draft is deliberately left exactly as it was — only the stored
         // baseline is invalidated, so a refetch (or reopening the cable)
         // picks up the version that was saved elsewhere
         toast.error('Changed on disk', { description: STALE_WRITE_DESCRIPTION });
         void queryClient.invalidateQueries({ queryKey: designKey(design.id) });
+      } else if ((outcome.issues ?? []).length === 0) {
+        // a refusal without an issue list (a pack's design, say): the server's own sentence and its way out
+        toast.error(outcome.message, outcome.hint === undefined ? undefined : { description: outcome.hint });
       } else {
         toast.error('Save rejected', { description: firstIssueLine(outcome) });
       }
@@ -353,7 +368,7 @@ export function StudioProvider({ children }: { children: ReactNode }): JSX.Eleme
       if (!outcome.ok) return;
       queryClient.setQueryData(designKey(outcome.value.id), { design: outcome.value });
       void invalidateDesignLists();
-      toast.success(`Created ${outcome.value.label}`);
+      toast.success(`Created ${outcome.value.label}`, findingsToast(outcome));
     },
   });
 
@@ -397,16 +412,16 @@ export function StudioProvider({ children }: { children: ReactNode }): JSX.Eleme
         await invalidateDesignLists();
         if (before !== undefined) {
           const gone = before.design;
-          notify.undoable(`Deleted ${gone.label === '' ? gone.id : gone.label}`, () => {
+          notify.undoable(`Deleted ${displayName(gone.label, 'design')}`, () => {
             void (async () => {
               const back = await restoreDesign(before, rawPersistence, workbenchDrawings());
               if (!back.ok) {
-                notify.error(`Could not restore ${gone.id}`, { description: back.message });
+                notify.error(`Could not restore ${displayName(gone.label, 'design')}`, { description: back.message });
                 return;
               }
               queryClient.setQueryData(designKey(gone.id), { design: back.value });
               await invalidateDesignLists();
-              notify.success(`Restored ${back.value.label === '' ? back.value.id : back.value.label}`);
+              notify.success(`Restored ${displayName(back.value.label, 'design')}`);
             })();
           });
         }
@@ -425,6 +440,7 @@ export function StudioProvider({ children }: { children: ReactNode }): JSX.Eleme
       duplicate: (id, newId, newLabel) => duplicateMutation.mutateAsync({ id, newId, newLabel }),
       rename: (id, newId, newLabel) => renameMutation.mutateAsync({ id, newId, newLabel }),
       remove: (id, confirm) => removeMutation.mutateAsync({ id, confirm }),
+      ...(rawPersistence.savedVersions === undefined ? {} : { savedVersions: rawPersistence.savedVersions }),
     }),
     [
       rawPersistence,
@@ -545,7 +561,7 @@ export function StudioProvider({ children }: { children: ReactNode }): JSX.Eleme
   const user = me?.name ?? 'local';
   // this person's preferences from the hub (pins, theme, column choices); this browser's copy answers until then
   useEffect(() => {
-    if (me !== undefined) void hydratePrefs(me.name);
+    if (me !== undefined) void hydratePrefs(me.name).then((answered) => { if (answered) setPrefsLoaded(true); });
   }, [me?.name]); // eslint-disable-line react-hooks/exhaustive-deps
   const [newCableOpen, setNewCableOpen] = useState(false);
   const openNewCableWizard = useCallback((): void => setNewCableOpen(true), []);
@@ -555,6 +571,8 @@ export function StudioProvider({ children }: { children: ReactNode }): JSX.Eleme
     () => ({
       theme,
       toggleTheme,
+      themeChoice,
+      setThemeChoice,
       db,
       dbReady,
       partNumbers,
@@ -594,6 +612,8 @@ export function StudioProvider({ children }: { children: ReactNode }): JSX.Eleme
     [
       theme,
       toggleTheme,
+      themeChoice,
+      setThemeChoice,
       db,
       dbReady,
       partNumbers,

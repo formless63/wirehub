@@ -11,6 +11,10 @@
  *                                      pack still uses it
  *   DELETE /api/packs/:id              disable: remove the pack's records, or refuse and
  *                                      list the references
+ *   POST   /api/packs/:id/release      release the pack to this hub: without { apply: true } the
+ *                                      preview (records per kind, auxiliary files); with it, every
+ *                                      record keeps its id and content and becomes the hub's own,
+ *                                      as one change set (owners only)
  *   POST   /api/packs/install          install (or update) a pack from an upload or an https
  *                                      URL: { url } | { zip: <base64> } | { bundle }, then
  *                                      { apply: true, sha256?, acceptMajor? }; without apply
@@ -30,7 +34,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { applyPackDisable, applyPackUpdate, catalogWithPacksSource, fsCatalogSource, installPack, installPackLayer, installedAcross, packSourceProblems, planNewPack, setInstalledPackOrigin, setInstalledModuleTrust, ownedRecords, planPackDisable, planPackUpdate, readPackManifest, type CatalogSource, type InstalledPack, type PackDisablePlan, type PackInstallPreview, type PackUpdatePlan } from '@wirehub/catalog';
+import { applyPackDisable, applyPackRelease, applyPackUpdate, installedPackDir, planPackRelease, readReleasedPacks, type ReleasedPack, catalogWithPacksSource, fsCatalogSource, installPack, installPackLayer, installedAcross, packSourceProblems, planNewPack, setInstalledPackOrigin, setInstalledModuleTrust, ownedRecords, planPackDisable, planPackUpdate, readPackManifest, type CatalogSource, type InstalledPack, type PackDisablePlan, type PackInstallPreview, type PackUpdatePlan } from '@wirehub/catalog';
 import { packFileProblems } from '@wirehub/catalog/src/server.ts';
 import { packCodecProblems } from '@wirehub/catalog/src/codec/tree.ts';
 import { drawingArtProblems } from '@wirehub/docs';
@@ -50,6 +54,7 @@ export const PACKS_ROUTES = [
   'POST   /api/packs/:id/update',
   'GET    /api/packs/:id/references',
   'DELETE /api/packs/:id',
+  'POST   /api/packs/:id/release',
   'POST   /api/packs/install',
 ] as const;
 
@@ -110,6 +115,19 @@ function updateRefusal(plan: PackUpdatePlan): ApiResponse {
   return refuse(409, `Pack '${plan.pack.id}' was not updated: ${why}. Nothing was changed.`, hint, { plan: shown(plan) });
 }
 
+/** A pack released to this hub is never installed, updated or disabled again: its records are the hub's own. */
+function releasedRefusal(pack: ReleasedPack, doing: string): ApiResponse {
+  return refuse(
+    409,
+    `Pack '${pack.id}' was released to this hub (${pack.version}, ${pack.releasedAt.slice(0, 10)}${pack.releasedBy === undefined ? '' : `, by ${pack.releasedBy}`}): its records are the hub's own now, so it was not ${doing}.`,
+    "Nothing was changed. A pack never overwrites the hub's own records: edit them here, or install the new version under another pack id.",
+    { released: { id: pack.id, version: pack.version, at: pack.releasedAt, ...(pack.releasedBy === undefined ? {} : { by: pack.releasedBy }) } },
+  );
+}
+
+/** Who may release a pack: an owner (a host with no roles counts everyone as one), never an API token. */
+const mayRelease = (user: StudioUser | undefined): boolean => user === undefined || isOwner(user);
+
 /** What only the server passes to an install (never the request body): where the pack came from, recorded in `packs.json`. */
 export interface InstallInternal {
   origin?: InstalledPack['origin'];
@@ -154,15 +172,18 @@ export async function handlePacksRequest(
     return installFromSource(request.body, deps, view, installed.packs, installed.where, internal, request.user);
   }
 
+  const released = readReleasedPacks(deps.dataDir);
+
   if (id === undefined) {
     if (method !== 'GET') return refuse(405, `${method} is not something this address accepts.`, 'It answers GET.');
     return json(200, {
-      packs: installed.packs.map((pack) => {
+      packs: [...installed.packs.map((pack) => {
         const bundled = bundledPack(modules, pack.id);
         const bundledVersion = bundled?.version;
         return {
           id: pack.id,
           version: pack.version,
+          name: pack.name ?? pack.module?.label ?? pack.id.replaceAll('-', ' ').replace(/^./, (c) => c.toUpperCase()),
           license: pack.license,
           records: ownedRecords(view, pack).size,
           ...(pack.origin === undefined ? {} : { origin: pack.origin }),
@@ -170,11 +191,24 @@ export async function handlePacksRequest(
           ...(bundledVersion === undefined || bundledVersion === pack.version ? {} : { available: bundledVersion }),
         };
       }),
+      // released to the hub: listed as history, no longer a pack here (no update, no disable)
+      ...released.filter((r) => !installed.packs.some((p) => p.id === r.id)).map((r) => ({
+        id: r.id,
+        version: r.version,
+        name: r.name ?? r.id.replaceAll('-', ' ').replace(/^./, (c) => c.toUpperCase()),
+        license: r.license,
+        records: r.count,
+        released: { at: r.releasedAt, ...(r.releasedBy === undefined ? {} : { by: r.releasedBy }) },
+      }))],
     });
   }
 
   const pack = installed.packs.find((p) => p.id === id);
-  if (pack === undefined) return notInstalled(id);
+  if (pack === undefined) {
+    const gone = released.find((r) => r.id === id);
+    if (gone !== undefined) return releasedRefusal(gone, action === 'update' ? 'updated' : action === 'release' ? 'released again' : action === undefined ? 'disabled' : 'changed');
+    return notInstalled(id);
+  }
   const where = installed.where.get(id) ?? 'merged';
 
   if (action === undefined) {
@@ -194,6 +228,20 @@ export async function handlePacksRequest(
     }
     if (deps.afterInstall !== undefined) await deps.afterInstall();
     return json(200, { disabled: id, removed: plan.records.length, plan: shown(plan), ...(pack.module === undefined ? {} : { module: { id: pack.module.id, removed: true } }) });
+  }
+
+  if (action === 'release') {
+    if (method !== 'POST') return refuse(405, `${method} is not something this address accepts.`, 'It answers POST: without { "apply": true } the preview, with it the release.');
+    if (!mayRelease(request.user)) return refuse(403, `Only an owner can release ${id} to this hub.`, 'Nothing was changed. Ask an owner (Settings, Packs).');
+    const layerDir = where === 'layer' && packsDir !== deps.dataDir ? installedPackDir(packsDir, id) : undefined;
+    const plan = planPackRelease(view, installed.packs, id, layerDir);
+    const apply = (request.body as { apply?: unknown } | undefined)?.apply === true;
+    if (!apply) return json(200, { preview: true, plan, applicable: plan.ok });
+    if (!plan.ok) return refuse(409, `Pack '${id}' was not released: ${plan.blockers.join('; ')}.`, 'Nothing was changed. Remove the pack instead, or keep it installed.', { plan });
+    const by = request.user?.name;
+    applyPackRelease(deps.dataDir, packsDir === deps.dataDir ? undefined : packsDir, id, plan, where, { at: deps.now(), ...(by === undefined ? {} : { by }) });
+    if (deps.afterInstall !== undefined) await deps.afterInstall();
+    return json(200, { released: true, id, version: pack.version, records: plan.records.length, files: plan.files.length, plan });
   }
 
   if (action === 'references') {
@@ -305,6 +353,9 @@ async function installFromSource(rawBody: unknown, deps: SetupDeps, view: Catalo
     });
     if (gate.kind === 'refused') return gate.response;
     if (gate.kind === 'code' && internal.code === undefined) return refuse(501, 'This host does not run code modules.', 'Nothing was installed.');
+    // a pack released to this hub is not installed over the hub's own records: refused, nothing written
+    const releasedAs = readReleasedPacks(deps.dataDir).find((r) => r.id === manifest.id);
+    if (releasedAs !== undefined) return releasedRefusal(releasedAs, 'installed');
     const existing = installed.find((p) => p.id === manifest.id);
     // a pack with code replaces another's only through its owners, and only with the same module
     if (existing?.module !== undefined && gate.kind === 'code' && existing.module.id !== gate.preview.module.id) {

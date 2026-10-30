@@ -21,14 +21,20 @@
  * design snapshots.
  */
 
+import type { Finding } from './ui/Findings.tsx';
 import {
   addInstance,
   addJoint,
+  cleanTags,
   describeJointMove,
   designInstances,
   dropUnlandedPigtails,
   errors,
+  integrityIssues,
+  isDesignTag,
+  isIntegrityIssue,
   findInstance,
+  MAX_DESIGN_TAGS,
   moveJointEnds,
   nextInstanceId,
   parseDesignJson,
@@ -39,6 +45,7 @@ import {
   updateInstance,
   validateDesign,
   warnings,
+  withDesignTags,
   type CableDesign,
   type Db,
   type InstanceKind,
@@ -52,6 +59,7 @@ import type { DepictionSource } from '@wirehub/render-svg';
 
 import { autoLayout, mountsOf, vacantPosition, type XY } from './derive.ts';
 import { connectTerminals, editPigtails, type PigtailEdit } from './pigtail-edit.ts';
+import { addMechanical } from './mechanical-add.ts';
 
 /* ------------------------------------------------------------------ *
  * State
@@ -159,7 +167,8 @@ export type EditorAction =
   | { type: 'select'; selection: Selection | undefined }
   /** show a connector as its face (or back as its pin list) — presentation, not an edit */
   | { type: 'set-face'; id: string; on: boolean }
-  | { type: 'add-instance'; kind: InstanceKind; def: string; position?: XY }
+  /** `measured`: the cards' rendered sizes by instance id (the editor attaches them), so a new part clears what is really drawn */
+  | { type: 'add-instance'; kind: InstanceKind; def: string; position?: XY; measured?: ReadonlyMap<string, { width: number; height: number }> }
   /**
    * The node picker's insert: a fresh instance, placed
    * beside `anchor`'s own instance (its joint to `anchor` puts it in the next
@@ -174,6 +183,7 @@ export type EditorAction =
       def: string;
       anchor?: TerminalRef;
       wireTerminal?: { terminal: string; end?: 'a' | 'b' };
+      measured?: ReadonlyMap<string, { width: number; height: number }>;
     }
   | { type: 'delete-instance'; id: string }
   /**
@@ -231,6 +241,8 @@ export type EditorAction =
    * it keeps stay put.
    */
   | { type: 'apply-design'; design: CableDesign; description: string; record?: boolean; expectedDesign?: CableDesign }
+  /** a shell or hardware part from the Parts palette (`mechanical-add.ts`) */
+  | { type: 'add-mechanical'; def: string }
   | { type: 'undo' }
   | { type: 'redo' }
   | { type: 'dismiss-rejection' }
@@ -287,6 +299,11 @@ export function describeIssue(issue: Issue): string {
   return `${issue.message} (${where})`;
 }
 
+/** Issues as the shared findings chip/list shows them (`ui/Findings.tsx`). */
+export function issuesAsFindings(issues: readonly Issue[]): Finding[] {
+  return issues.map((issue) => ({ level: issue.severity === 'error' ? 'error' : 'warn', message: describeIssue(issue) }));
+}
+
 /** One sentence per blocking issue — what a "this cannot be saved" list shows. */
 export function explainIssues(issues: Issue[]): string[] {
   return errors(issues).map(describeIssue);
@@ -318,16 +335,17 @@ function pushHistory(past: HistoryEntry[], entry: HistoryEntry): HistoryEntry[] 
 /**
  * The one door into `state.design`.
  *
- * A candidate design that validates without errors replaces the old one, and
- * `issues` is refreshed in the same step so the two can never disagree. A
- * candidate that introduces an error is dropped whole — the previous design,
- * issues and positions survive untouched — and the validator's message is
- * surfaced verbatim.
+ * A candidate design replaces the old one, and `issues` is refreshed in the
+ * same step so the two can never disagree. Design errors (an incompatible
+ * pairing, a shop rule) are findings the draft carries; a candidate that
+ * introduces an integrity problem or an edit slip (`editRefusals`) is dropped
+ * whole — the previous design, issues and positions survive untouched — and
+ * the validator's message is surfaced verbatim.
  *
  * Because this is the only door, it is also the only writer of undo history:
  * the design being replaced is pushed onto `past` with this edit's description,
  * and `future` is discarded — a rejected candidate never reaches either, so the
- * stack holds none but validated states.
+ * stack holds no state an edit slip produced.
  */
 /**
  * `design` with these design-level notes, keys in file order — `notes` sits
@@ -368,6 +386,32 @@ export function setCommitHook(hook: CommitHook | undefined): void {
   commitHook = hook;
 }
 
+/**
+ * Codes an edit gesture cannot introduce: the edit names something that is not
+ * there (a pin the part does not have, a part that is not in the design, a
+ * definition the library does not hold). That is a slip of the hand or a bad
+ * command, not a design choice, so the edit is dropped. A document that
+ * already carries one (a library record changed underneath it) stays
+ * editable; only a *new* one is refused.
+ */
+const EDIT_SLIPS: ReadonlySet<string> = new Set([
+  'unknown-instance', 'unknown-terminal', 'unknown-pigtail', 'unknown-def', 'missing-end', 'unexpected-end',
+  'self-joint', 'pad-unknown', 'through-invalid', 'unknown-attached-instance', 'subassembly-unknown-port',
+]);
+
+const issueKeyOf = (i: Issue): string => `${i.code}\u0000${i.where ?? ''}\u0000${i.message}`;
+
+/**
+ * What refuses an edit (saving is not approval, and neither is editing): a new
+ * integrity problem (`save-policy.ts`) or a new edit slip. Every other error —
+ * an incompatible pairing, an open shield, a shop rule — is a finding the
+ * draft carries in the Issues panel.
+ */
+export function editRefusals(before: readonly Issue[], after: readonly Issue[]): Issue[] {
+  const had = new Set(before.map(issueKeyOf));
+  return after.filter((i) => i.severity === 'error' && !had.has(issueKeyOf(i)) && (isIntegrityIssue(i) || EDIT_SLIPS.has(i.code)));
+}
+
 export function commit(
   state: EditorState,
   proposed: CableDesign,
@@ -380,11 +424,11 @@ export function commit(
   const hook = capture ? commitHook : undefined;
   const candidate = hook === undefined ? proposed : hook(state.design, proposed, description);
   const issues = validateDesign(candidate, state.db);
-  const failures = errors(issues);
+  const failures = editRefusals(state.issues, issues);
   if (failures.length > 0) {
     return {
       ...state,
-      rejection: `${description} rejected — ${describeErrors(issues)}`,
+      rejection: `${description} rejected — ${describeErrors(failures)}`,
     };
   }
   return {
@@ -596,10 +640,11 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
           [action.design.id]: positions,
         },
         selection: undefined,
+        // design findings are the Issues panel's; only an unrepresentable document is announced
         rejection:
-          errors(issues).length === 0
+          integrityIssues(issues).length === 0
             ? undefined
-            : `loaded design has errors — ${describeErrors(issues)}`,
+            : `loaded design cannot be represented — ${describeErrors(integrityIssues(issues))}`,
         lastAccepted: `loaded ${action.design.id}`,
         // history is per-design: the steps that led here belong to the document
         // being closed, and undoing across the swap would resurrect it
@@ -676,7 +721,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       // dropped: exactly where it was dropped. Added from the palette's button:
       // its auto-layout column, dropped down past whatever is already there —
       // a new part must never land on top of an existing one.
-      const spot = action.position ?? vacantPosition(next, state.db, id, state.positions, state.depictions, state.faces);
+      const spot = action.position ?? vacantPosition(next, state.db, id, state.positions, state.depictions, state.faces, action.measured);
       const positions = { ...state.positions, [id]: spot };
       const committed = commit(state, next, `add ${action.kind} ${action.def} as ${id}`, positions);
       return committed.design !== state.design
@@ -699,7 +744,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       }
       // the new instance's own joint to `anchor` (when there is one) already
       // puts it in the right column — see `vacantPosition`'s module note
-      const spot = vacantPosition(next, state.db, id, state.positions, state.depictions);
+      const spot = vacantPosition(next, state.db, id, state.positions, state.depictions, state.faces, action.measured);
       const positions = { ...state.positions, [id]: spot };
       const committed = commit(state, next, description, positions);
       return committed.design !== state.design
@@ -912,15 +957,11 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     }
 
     case 'set-tags': {
-      const tags = [...new Set(action.tags.map((t) => t.trim()).filter((t) => t !== ''))];
+      const tags = cleanTags(action.tags);
       const before = state.design.tags ?? [];
       if (tags.length === before.length && tags.every((t, i) => t === before[i])) return state;
-      if (tags.some((t) => !/^[A-Za-z0-9][A-Za-z0-9 _.\-/]{0,39}$/.test(t)) || tags.length > 50) return reject(state, 'a tag is a short word: letters, digits, spaces, dash, dot or slash, up to 40 characters');
-      const { tags: _old, ...rest } = state.design;
-      const next: CableDesign =
-        tags.length === 0
-          ? (rest as CableDesign)
-          : (Object.fromEntries(Object.entries(rest).flatMap(([key, value]) => (key === 'src' ? [['tags', tags], [key, value]] : [[key, value]]))) as unknown as CableDesign);
+      if (!tags.every(isDesignTag) || tags.length > MAX_DESIGN_TAGS) return reject(state, 'a tag is a short word: letters, digits, spaces, dash, dot or slash, up to 40 characters');
+      const next = withDesignTags(state.design, tags);
       return commit(state, next, tags.length === 0 ? 'remove the design tags' : 'set the design tags');
     }
 
@@ -949,12 +990,21 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       return commit(state, action.design, action.description, positions, action.record === true);
     }
 
+    case 'add-mechanical': {
+      if (!(state.db.mechanicals ?? []).some((m) => m.id === action.def)) return reject(state, `add rejected — no shell or hardware '${action.def}'`);
+      const added = addMechanical(state.design, action.def);
+      return commit(state, added.design, added.description);
+    }
+
     case 'import-json': {
       const parsed = parseDesignJson(action.json);
       if (!parsed.ok) return reject(state, `import rejected — ${parsed.message}`);
       const issues = validateDesign(parsed.design, state.db);
-      if (errors(issues).length > 0) {
-        return reject(state, `import rejected — ${describeErrors(issues)}`);
+      // an imported draft may name parts this library lacks: findings, kept;
+      // only a document that cannot be represented is refused
+      const unrepresentable = integrityIssues(issues);
+      if (unrepresentable.length > 0) {
+        return reject(state, `import rejected — ${describeErrors(unrepresentable)}`);
       }
       const description = `imported ${parsed.design.id}`;
       // an imported document is a document nobody has arranged yet, even when

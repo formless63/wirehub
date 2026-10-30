@@ -17,7 +17,7 @@ import type { Db } from '@wirehub/model';
 import type { ArtworkAdapter } from '../artwork.ts';
 import type { ModelsAdapter } from '../models.ts';
 import { diffRecords, libraryRecord, libraryRecordIds } from '../record-diff.ts';
-import { compareSideId, parseCompareSide, type CompareSide, type RevisionsAdapter, type RevisionSummary } from '../revisions.ts';
+import { compareSideId, parseCompareSide, type CompareSide, type FrozenRecordsAdapter, type RevisionsAdapter, type RevisionSummary } from '../revisions.ts';
 import { artSrc, pick2d } from './ModelPanel.tsx';
 
 const ModelViewer3d = lazy(() => import('./ModelViewer3d.tsx'));
@@ -28,6 +28,8 @@ export interface RecordRef {
   id: string;
   /** a saved revision of the record; absent = the record as it is */
   rev?: number;
+  /** the copy a saved design version froze (`frozen` reads it) */
+  version?: { design: string; rev: number };
 }
 
 interface Loaded {
@@ -37,10 +39,16 @@ interface Loaded {
   missing?: string;
 }
 
-const sideText = (s: CompareSide): string => `${s.id}${s.rev === undefined ? '' : ` rev ${s.rev}`}`;
+const sideText = (s: CompareSide): string => `${s.id}${s.version !== undefined ? ` in ${s.version.design} Rev ${s.version.rev}` : s.rev === undefined ? '' : ` rev ${s.rev}`}`;
 
 /** Everything one side shows: its fields, its 2D art as an image source, its model's content address. */
-async function load(side: CompareSide, db: Db, adapters: { revisions?: RevisionsAdapter; artwork?: ArtworkAdapter; models?: ModelsAdapter }): Promise<Loaded> {
+async function load(side: CompareSide, db: Db, adapters: { revisions?: RevisionsAdapter; artwork?: ArtworkAdapter; models?: ModelsAdapter; frozen?: FrozenRecordsAdapter }): Promise<Loaded> {
+  if (side.version !== undefined) {
+    if (adapters.frozen === undefined) return { missing: 'this host cannot read saved versions' };
+    const got = await adapters.frozen.read({ kind: side.kind, id: side.id, ...side.version });
+    if (!got.ok) return { missing: got.message };
+    return { record: got.value.record, ...(got.value.art === undefined ? {} : { art: got.value.art }) };
+  }
   if (side.rev !== undefined) {
     if (adapters.revisions === undefined) return { missing: 'this host keeps no revisions' };
     const got = await adapters.revisions.read(side.kind, side.id, side.rev);
@@ -86,6 +94,7 @@ export function RecordCompare(props: {
   revisions?: RevisionsAdapter;
   artwork?: ArtworkAdapter;
   models?: ModelsAdapter;
+  frozen?: FrozenRecordsAdapter;
 }): JSX.Element {
   const a: CompareSide = props.a;
   const [picked, setPicked] = useState<string | undefined>(props.b === undefined ? undefined : compareSideId(props.b));
@@ -99,8 +108,13 @@ export function RecordCompare(props: {
   const [models, setModels] = useState<{ a?: { bytes: ArrayBuffer; mime: string }; b?: { bytes: ArrayBuffer; mime: string }; error?: string } | undefined>(undefined);
   const others = useMemo(() => libraryRecordIds(props.db, a.kind).filter((r) => r.id !== a.id), [props.db, a.kind, a.id]);
   const adapters = useMemo(
-    () => ({ ...(props.revisions === undefined ? {} : { revisions: props.revisions }), ...(props.artwork === undefined ? {} : { artwork: props.artwork }), ...(props.models === undefined ? {} : { models: props.models }) }),
-    [props.revisions, props.artwork, props.models],
+    () => ({
+      ...(props.revisions === undefined ? {} : { revisions: props.revisions }),
+      ...(props.artwork === undefined ? {} : { artwork: props.artwork }),
+      ...(props.models === undefined ? {} : { models: props.models }),
+      ...(props.frozen === undefined ? {} : { frozen: props.frozen }),
+    }),
+    [props.revisions, props.artwork, props.models, props.frozen],
   );
 
   // the record's own revisions, to compare against
@@ -124,7 +138,7 @@ export function RecordCompare(props: {
     return () => {
       live = false;
     };
-  }, [a.kind, a.id, a.rev, props.db, adapters]);
+  }, [a.kind, a.id, a.rev, a.version?.design, a.version?.rev, props.db, adapters]);
 
   useEffect(() => {
     let live = true;
@@ -176,7 +190,7 @@ export function RecordCompare(props: {
           </span>
           <select aria-label="Compare with" value={picked ?? ''} onChange={(e) => setPicked(e.target.value === '' ? undefined : e.target.value)}>
             <option value="">choose a record or a revision…</option>
-            {a.rev === undefined ? null : <option value={compareSideId({ kind: a.kind, id: a.id })}>{a.id} as it is now</option>}
+            {a.rev === undefined && a.version === undefined ? null : <option value={compareSideId({ kind: a.kind, id: a.id })}>{a.id} as it is now</option>}
             {revs.length === 0 ? null : (
               <optgroup label={`Revisions of ${a.id}`}>
                 {revs

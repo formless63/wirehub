@@ -28,10 +28,10 @@ import {
   findPcba,
   findWire,
   isFoilPath,
-  isFullyBonded,
-  pigtailMembers,
+  massWords,
+  pigtailLandedScreens,
   resolveElementPath,
-  screenPaths,
+  stockScreens,
   terminalKey,
   type CableDesign,
   type Db,
@@ -190,6 +190,7 @@ function targetOf(design: CableDesign, db: Db, ref: TerminalRef): LandingTarget 
 /** Plain words for a pigtail's members: `R, G, B braids + drain`. */
 export function pigtailName(wire: WireDefinition, members: readonly string[], mass: boolean): string {
   if (mass) return 'Shield mass';
+  if (members.length === 1 && stockScreens(wire).drains.includes(members[0] as string)) return 'Drain';
   const elements = stockElements(wire);
   const braids: string[] = [];
   const others: string[] = [];
@@ -258,8 +259,10 @@ export function deriveBench(design: CableDesign, db: Db): Bench {
         const id = near.terminal.slice('pigtail:'.length);
         const pigtail = (segment.pigtails ?? []).find((p) => p.id === id && p.end === near.end);
         if (pigtail === undefined) continue;
-        const mass = isFullyBonded(wire) && pigtail.members === undefined;
-        const members = pigtailMembers(wire, pigtail).filter((path) => !isFoilPath(wire, path));
+        const mass = stockScreens(wire).mass && pigtail.members === undefined;
+        // the foil is trimmed and a drain the policy cuts here stays off the pad
+        const members = pigtailLandedScreens(design, wire, segment.id, pigtail);
+        if (members.length === 0) continue;
         element = { kind: 'pigtail', id, members, mass, name: pigtailName(wire, members, mass) };
       } else {
         const found = stockElements(wire).find((e) => e.path === near.terminal);
@@ -432,7 +435,9 @@ function stripPlan(
 ): SegmentEnd {
   const segment = design.instances.segments.find((s) => s.id === segmentId);
   const mine = landings.filter((l) => l.segment === segmentId && l.segEnd === end);
-  const bonded = isFullyBonded(wire);
+  const screens = stockScreens(wire);
+  // a foil + drain stock has no copper mass: its drain is its own row
+  const bonded = screens.mass;
   const rows: StripRow[] = [];
   // a breakout run carries only its own core; a mould decides what each conductor does
   const elements = stockElements(wire).filter((e) => inScope(segment, e.path));
@@ -444,7 +449,7 @@ function stripPlan(
         return { pigtail: l.element.id, ...(n === undefined ? {} : { n }) };
       }
     }
-    const declared = (segment?.pigtails ?? []).find((p) => p.end === end && pigtailMembers(wire, p).includes(path));
+    const declared = (segment?.pigtails ?? []).find((p) => p.end === end && pigtailLandedScreens(design, wire, segmentId, p).includes(path));
     return declared === undefined ? undefined : { pigtail: declared.id };
   };
   let massRow: StripRow | undefined;
@@ -453,9 +458,11 @@ function stripPlan(
       // one row for the whole copper mass, never one per braid — after the cores
       if (massRow !== undefined) continue;
       const twist = twistOf(element.path);
-      const count = screenPaths(wire).filter((p) => !isFoilPath(wire, p)).length;
+      const count = screens.copper.length;
+      const landedMass = mine.find((l) => l.element.kind === 'pigtail' && l.element.mass);
+      const words = massWords(wire, landedMass?.element.kind === 'pigtail' ? landedMass.element.members : screens.copper);
       massRow = {
-        element: { path: 'mass', kind: 'screen', name: 'Shield mass', shielded: false },
+        element: { path: 'mass', kind: 'screen', name: words.charAt(0).toUpperCase() + words.slice(1), shielded: false },
         mass: count,
         treatment: twist === undefined ? { kind: 'cut', why: 'not landed at this end' } : { kind: 'twist', ...twist },
       };

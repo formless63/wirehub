@@ -2,8 +2,8 @@
 #
 #   docker compose up -d             # then open http://localhost:5183/setup
 #
-# No .env is needed: the `bootstrap` service generates every secret on first
-# run into the `secrets` volume, and the app prints the first-run setup code
+# No .env is needed: the app generates every secret on its first start into
+# the `secrets` volume, and prints the first-run setup code
 # in its log (`docker compose logs wirehub`, or the wirehub container's logs
 # in your Docker UI). An optional .env (see .env.example, or the config
 # generator: https://formless63.github.io/wirehub/) sets what the install
@@ -11,22 +11,33 @@
 # backups. How the hub behaves (sign-in methods, alerts, the git mirror, job
 # settings) is set in the app, under Settings, and applies without a redeploy.
 #
-# Default services:
-#   bootstrap    one-shot: secrets, the setup code and Garage's config
-#   wirehub      the app (UI + API), the only published port
+# Default services (no one-shot containers: the app initialises the stack
+# when it starts, and /healthz answers 503 "initialising" until it is done):
+#   wirehub      the app (UI + API), the only published port. At startup:
+#                the secrets, the setup code and Garage's config; Garage's
+#                layout, access keys and bucket; the database roles, every
+#                pending migration (under a lock: one process at a time) and,
+#                once, a file catalog from before the database moved in
 #   postgres     PostgreSQL 18: the catalog, designs, saved versions,
 #                accounts and the history of every save
-#   migrate      one-shot: the database roles, every pending migration, and
-#                (once) a file catalog from before the database moved in
 #   worker       background jobs: module imports, 3D model conversion and
 #                builds, and housekeeping (blob clean-up, the backup watch)
 #   garage       S3-compatible store for uploaded files (photos, datasheets,
 #                3D models) — Garage, single node
-#   garage-init  one-shot: Garage's layout, its access keys and the bucket
+#
+# The earlier one-shot services (bootstrap, migrate, garage-init) are kept
+# behind the `init-services` profile while the startup path proves itself:
+# COMPOSE_PROFILES=init-services runs them first, as before (the app's own
+# startup then finds everything done), and WIREHUB_INIT=off skips the app's.
 #
 # Optional parts are profiles, chosen with COMPOSE_PROFILES in .env:
+#   init-services  the earlier one-shots: bootstrap, migrate, garage-init
 #   backup       restic backups through Backrest (web UI on port 9898):
 #                backup-init, backup-dump, backup-mirror, backrest
+#   tools        native tool packs (KiCad board outputs, docs/jobs-and-tool-packs.md):
+#                tool-proxy, a Docker socket proxy that lets only the worker
+#                create/start/wait/kill/remove containers; also set
+#                WIREHUB_TOOL_RUNNER=docker and build the pack images
 #   pdf          the browser PDF engine (Gotenberg: headless Chromium) that
 #                prints the HTML sheets to PDF exactly as a browser does;
 #                also set WIREHUB_PDF_ENGINE_URL=http://pdf:3000 (or name
@@ -44,7 +55,9 @@
 name: wirehub
 
 services:
+  # profile `init-services`: the earlier one-shot; the app's startup does the same by default
   bootstrap:
+    profiles: [init-services]
     image: &wirehub-image ${WIREHUB_IMAGE:-ghcr.io/formless63/wirehub:0.8.0} # x-release-please-version
     user: "0:0"
     command: ["node", "--experimental-strip-types", "--no-warnings", "stack/bootstrap.ts"]
@@ -73,7 +86,13 @@ services:
 
   wirehub:
     image: *wirehub-image
+    # startup initialisation first (apps/studio/stack/start.ts), then the server. It starts
+    # as root only to write the secrets volume, then runs as the image's node user.
+    user: "0:0"
+    command: ["node", "--experimental-strip-types", "--no-warnings", "stack/start.ts", "app"]
     environment:
+      # off = skip the startup initialisation (the init-services profile's one-shots do it)
+      WIREHUB_INIT:
       BETTER_AUTH_URL: ${WIREHUB_PUBLIC_URL:-http://localhost:${WIREHUB_PORT:-5183}}
       WIREHUB_BACKEND: ${WIREHUB_BACKEND:-pg}
       WIREHUB_ENV: ${WIREHUB_ENV:-prod}
@@ -123,6 +142,25 @@ services:
       # Settings > Restart WireHub exits the app; restart: unless-stopped (below) starts it again
       WIREHUB_RESTART_SUPERVISED: "true"
       TZ: ${TZ:-UTC}
+      # read only while starting (explicit values win over generated ones; unset = generate),
+      # then dropped from the server's environment
+      POSTGRES_PASSWORD:
+      WIREHUB_OWNER_PASSWORD:
+      WIREHUB_APP_PASSWORD:
+      WIREHUB_RO_PASSWORD:
+      # your own Postgres: an admin connection; the role URLs are derived from it
+      DATABASE_ADMIN_URL:
+      DATABASE_OWNER_URL:
+      DATABASE_RO_URL:
+      # >>> bundled-s3
+      GARAGE_ADMIN_URL: http://garage:3903
+      GARAGE_CAPACITY: ${GARAGE_CAPACITY:-100G}
+      GARAGE_RPC_SECRET:
+      GARAGE_ADMIN_TOKEN:
+      # <<< bundled-s3
+      # explicit backup key (the backup profile's mirror); otherwise Garage creates one
+      S3_BACKUP_ACCESS_KEY_ID:
+      S3_BACKUP_SECRET_ACCESS_KEY:
     ports:
       - "${WIREHUB_BIND:-127.0.0.1}:${WIREHUB_PORT:-5183}:5183"
     volumes:
@@ -131,22 +169,36 @@ services:
       - packs:/data/packs
       - blobs:/data/blobs
       - cache:/data/cache
-      - secrets:/run/wirehub:ro
+      # written at startup: the secrets, Garage's config and the S3 keys
+      - secrets:/run/wirehub
       - backup_marker:/backup-marker:ro
+    # only with the init-services profile (required: false): its one-shots run first
     depends_on:
       bootstrap:
         condition: service_completed_successfully
+        required: false
       migrate:
         condition: service_completed_successfully
+        required: false
       # >>> bundled-s3
       garage-init:
         condition: service_completed_successfully
+        required: false
       # <<< bundled-s3
+    healthcheck:
+      # the image's check (GET /healthz): 503 while starting up ({"status":"initialising","step":…}
+      # or {"status":"failed","error":…}), 200 once serving
+      interval: 30s
+      timeout: 5s
+      # a first start (or a long migration) may take a while: no failure counts before this
+      start_period: 5m
     mem_limit: 768m
     restart: unless-stopped
     networks: [internal, public]
 
+  # profile `init-services`: the earlier one-shot; the app's startup does the same by default
   migrate:
+    profiles: [init-services]
     image: *wirehub-image
     # *_FILE variables resolved first (server/boot-env.ts), then the roles, the
     # migrations, and — once, on a database with no organisation — a file
@@ -198,7 +250,9 @@ services:
 
   worker:
     image: *wirehub-image
-    command: ["node", "--experimental-strip-types", "--no-warnings", "server/worker.ts"]
+    # waits for the app's secrets, runs any pending migration under the same lock as the app
+    # (a no-op when the app got there first), then works (apps/studio/stack/start.ts)
+    command: ["node", "--experimental-strip-types", "--no-warnings", "stack/start.ts", "worker"]
     environment:
       WIREHUB_BACKEND: ${WIREHUB_BACKEND:-pg}
       WIREHUB_ENV: ${WIREHUB_ENV:-prod}
@@ -232,21 +286,40 @@ services:
       WIREHUB_GIT_MIRROR_PATH:
       # the same runtime code modules as the app (and the same switch)
       WIREHUB_ALLOW_CODE_MODULES:
+      # native tool packs (the tools profile): the worker starts each op as a throwaway, network-less
+      # container through tool-proxy; the web app never reaches Docker. Off unless set to docker.
+      WIREHUB_TOOL_RUNNER: ${WIREHUB_TOOL_RUNNER:-off}
+      DOCKER_HOST: ${WIREHUB_TOOL_DOCKER_HOST:-tcp://tool-proxy:2375}
+      WIREHUB_TOOL_WORK_DIR: /data/tool-work
+      WIREHUB_TOOL_WORK_VOLUME: wirehub-tool-work
+      WIREHUB_TOOL_IMAGE_KICAD:
+      # optional: pull missing pack images from <prefix>/wirehub-tool-<pack>:<version>
+      # (docs/jobs-and-tool-packs.md); user + read-only token for a private registry
+      WIREHUB_TOOL_REGISTRY:
+      WIREHUB_TOOL_REGISTRY_USER:
+      WIREHUB_TOOL_REGISTRY_TOKEN:
+      WIREHUB_INIT:
       TZ: ${TZ:-UTC}
     volumes:
       - secrets:/run/wirehub:ro
+      # a run's input and output folders; the tool container mounts its own sub-path of the same volume
+      - tool_work:/data/tool-work
       # WIREHUB_BLOBS=fs:/data/blobs keeps uploaded files here, shared with the app
       - blobs:/data/blobs
       - backups:/backups:ro
       - backup_marker:/backup-marker:ro
+    # only with the init-services profile (required: false)
     depends_on:
       bootstrap:
         condition: service_completed_successfully
+        required: false
       migrate:
         condition: service_completed_successfully
+        required: false
       # >>> bundled-s3
       garage-init:
         condition: service_completed_successfully
+        required: false
       # <<< bundled-s3
     healthcheck:
       # the worker touches this file with every heartbeat (each minute)
@@ -261,6 +334,8 @@ services:
   # >>> bundled-postgres: the bundled PostgreSQL 18. Using your own? Delete down to "<<< bundled-postgres" and set DATABASE_ADMIN_URL.
   postgres:
     image: postgres:18.6-bookworm
+    # waits for its password, which the app writes on its first start
+    entrypoint: ["sh", "-c", "until [ -s /run/wirehub/postgres_password ]; do sleep 1; done; exec docker-entrypoint.sh postgres"]
     environment:
       POSTGRES_USER: wirehub
       POSTGRES_DB: wirehub
@@ -271,6 +346,7 @@ services:
     depends_on:
       bootstrap:
         condition: service_completed_successfully
+        required: false
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U wirehub -d wirehub"]
       interval: 10s
@@ -284,6 +360,7 @@ services:
   # >>> bundled-s3: Garage, the bundled S3 store. Using your own S3? Delete down to "<<< bundled-s3" and set the S3_* variables.
   garage:
     image: dxflrs/garage:v2.4.1
+    # the app writes this config on its first start; until then Garage exits and is restarted
     command: ["/garage", "-c", "/run/wirehub/garage.toml", "server"]
     volumes:
       - garage_meta:/var/lib/garage/meta
@@ -292,11 +369,14 @@ services:
     depends_on:
       bootstrap:
         condition: service_completed_successfully
+        required: false
     mem_limit: 256m
     restart: unless-stopped
     networks: [internal]
 
+  # profile `init-services`: the earlier one-shot; the app's startup does the same by default
   garage-init:
+    profiles: [init-services]
     image: *wirehub-image
     command: ["node", "--experimental-strip-types", "--no-warnings", "stack/garage-init.ts"]
     environment:
@@ -344,6 +424,7 @@ services:
     depends_on:
       bootstrap:
         condition: service_completed_successfully
+        required: false
     network_mode: none
     mem_limit: 128m
     restart: "no"
@@ -367,9 +448,12 @@ services:
     depends_on:
       backup-init:
         condition: service_completed_successfully
-      # the roles (studio_ro) and the schema exist once migrate has run
+      # the roles (studio_ro) and the schema exist once the app is up (healthy = initialised)
+      wirehub:
+        condition: service_healthy
       migrate:
         condition: service_completed_successfully
+        required: false
     mem_limit: 256m
     restart: unless-stopped
     networks: [internal, public]
@@ -397,9 +481,13 @@ services:
     depends_on:
       backup-init:
         condition: service_completed_successfully
+      # the backup key exists once the app is up (healthy = initialised)
+      wirehub:
+        condition: service_healthy
       # >>> bundled-s3
       garage-init:
         condition: service_completed_successfully
+        required: false
       # <<< bundled-s3
     mem_limit: 256m
     restart: unless-stopped
@@ -441,6 +529,31 @@ services:
   # only from the stack; JavaScript off and every outbound address refused,
   # so a sheet can fetch nothing. Point the app at it with
   # WIREHUB_PDF_ENGINE_URL=http://pdf:3000.
+  # The worker's only way to Docker (the tools profile): an allow-list proxy that passes image
+  # inspect, image pull (images/create, used only with WIREHUB_TOOL_REGISTRY) and container
+  # create/start/wait/logs/kill/remove — no exec, no build, no other API.
+  # It cannot see request bodies, so the worker (not the proxy) decides which image and mounts run.
+  # Runs as root to read the socket; set WIREHUB_TOOL_PROXY_USER=65534:<docker gid> to narrow that.
+  tool-proxy:
+    profiles: [tools]
+    image: wollomatic/socket-proxy:1.10.0@sha256:3d825f671a5a190741ad6bff645be1061bceb53eaa6517b185de869e226cb779
+    user: ${WIREHUB_TOOL_PROXY_USER:-0:0}
+    command:
+      - -loglevel=warn
+      - -listenip=0.0.0.0
+      - -allowfrom=worker
+      - -allowGET=/(v1\.[0-9]+/)?(_ping|version|images/.+/json|containers/json|containers/[0-9a-f]{64}/logs)
+      - -allowPOST=/(v1\.[0-9]+/)?(images/create|containers/(create|[0-9a-f]{64}/(start|wait|kill)))
+      - -allowDELETE=/(v1\.[0-9]+/)?containers/[0-9a-f]{64}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 64m
+    restart: unless-stopped
+    networks: [internal]
+
   pdf:
     profiles: [pdf]
     image: gotenberg/gotenberg:8.37.0-chromium
@@ -486,6 +599,9 @@ volumes:
   garage_data:
   # <<< bundled-s3
   backups:
+  # named explicitly: the worker names it to Docker when a tool container mounts a sub-path of it
+  tool_work:
+    name: wirehub-tool-work
   backup_marker:
   backrest_data:
   backrest_config:

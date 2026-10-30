@@ -605,6 +605,14 @@ function build(lib: ResolverLibrary, kind: OptionKind, p: Pairing, boards: Board
   };
 }
 
+/** `Through <board>`, `Through <board> at both ends` or `Through <a> and <b>`: a board used at both ends is named once. */
+function throughLabel(lib: ResolverLibrary, boards: readonly BoardUse[]): string {
+  const names = boards.map((b) => resolveDevice(lib.devices, b.device)?.label ?? b.device);
+  const unique = [...new Set(names)];
+  if (unique.length === 1) return names.length > 1 ? `Through ${unique[0]!} at both ends` : `Through ${unique[0]!}`;
+  return `Through ${names.join(' and ')}`;
+}
+
 function criterion(c: string, o: Omit<CableOption, 'rank' | 'score'>): number {
   switch (c) {
     case 'missing':
@@ -733,7 +741,7 @@ export function resolve(lib: ResolverLibrary, query: ResolveQuery): Resolution {
       const p = pairBySignal(lib, hazards, left, right);
       // the device-side requirements still apply where a board does not stand in front of them
       for (const variant of expand(p, CAP)) {
-        built.push(build(lib, 'board', variant, boards, { hazards: extraHazards, missing: extraMissing, unverified: extraUnverified, label: `Through ${boards.map((b) => resolveDevice(lib.devices, b.device)?.label ?? b.device).join(' and ')}`, reasons }));
+        built.push(build(lib, 'board', variant, boards, { hazards: extraHazards, missing: extraMissing, unverified: extraUnverified, label: throughLabel(lib, boards), reasons }));
       }
     };
     for (const a of atSource) tryBoards(a, undefined);

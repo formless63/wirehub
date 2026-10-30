@@ -20,6 +20,7 @@ import {
 import { slugify } from '../persistence.ts';
 import { Choice, Field, FormSection, SrcField } from './fields.tsx';
 import { CostFields, costOfExtra, withExtraCost } from './CostFields.tsx';
+import { MassFields, massOfExtra, withExtraMass } from './MassFields.tsx';
 import { SourcingFields, sourcingOfExtra, withExtraSourcing } from './SourcingFields.tsx';
 import { PartNumberField } from './PartNumberField.tsx';
 
@@ -59,14 +60,7 @@ export function MechanicalEditor(props: MechanicalEditorProps): JSX.Element {
     <FormSection title="What this part is">
       <div className="cs-form-grid">
         <Field label="Name" value={draft.label} onChange={setLabel} placeholder="Part name" autoFocus wide />
-        <Field
-          label="Id"
-          say={props.idLocked ? 'Fixed: designs and kits refer to this part by its id.' : 'Lowercase words joined by hyphens.'}
-          value={draft.id}
-          onChange={(value) => set('id', value)}
-          placeholder="follows the name"
-          mono
-        />
+
         <Choice
           label="Kind"
           value={draft.kind}
@@ -90,6 +84,17 @@ export function MechanicalEditor(props: MechanicalEditorProps): JSX.Element {
         cost={costOfExtra(draft.extra)}
         onChange={(cost) => {
           const extra = withExtraCost(draft.extra, cost);
+          const { extra: _drop, ...rest } = draft;
+          onChange({ ...rest, ...(extra === undefined ? {} : { extra }) });
+        }}
+      />
+    </FormSection>
+    <FormSection title="Mass" say="Optional. The BOM and mass.json add it up; a part without one is listed, never counted as zero.">
+      <MassFields
+        key={draft.id}
+        mass={massOfExtra(draft.extra)}
+        onChange={(mass) => {
+          const extra = withExtraMass(draft.extra, mass);
           const { extra: _drop, ...rest } = draft;
           onChange({ ...rest, ...(extra === undefined ? {} : { extra }) });
         }}

@@ -11,6 +11,8 @@
  * without prop-drilling through this component.
  */
 
+import { withDesignFirmware } from '../FirmwareLinks.tsx';
+import { SubassemblyRepin, withNewerRevisions } from '../adopt/AdoptRevision.tsx';
 import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -26,12 +28,13 @@ import { documentFactsFor, offlineCopyFrom } from '../catalog.browser.ts';
 import { PLAIN_BUTTON } from '../versions/shared.tsx';
 import { useEditorChrome } from '../shell/editor-chrome.tsx';
 import { depictionDefsOf } from '../depictions.browser.ts';
-import { getVersion, loadVersionArt, revisionRow } from '../versions.browser.ts';
+import { approvalsOf, getVersion, loadVersionArt, revisionRow } from '../versions.browser.ts';
 import { versionDepictionSource } from '../depictions.browser.ts';
 import { useVersionListing } from '../versions/shared.tsx';
 import { VersionView } from '../versions/VersionView.tsx';
 import { EditLockScope } from '../locks/EditLockScope.tsx';
 import { designRecord } from '../locks/records.ts';
+import { NotesPanel } from '../knowledge/NotesPanel.tsx';
 import { workbenchWireLibrary } from '../wire-library.browser.ts';
 import { fetchDesignUse, withAssemblyLibrary, workbenchAssemblies } from '../persistence.browser.ts';
 import { listStore, type StorePackView } from '../packs.browser.ts';
@@ -39,10 +42,14 @@ import { useModules } from '../modules/ModulesContext.tsx';
 import { editorExtensions } from '../modules/slots.tsx';
 import { useIsNarrow } from '../hooks/useIsNarrow.ts';
 import { PhoneDesignSummary } from './PhoneDesignSummary.tsx';
+import { BuildPanel } from '../inventory/BuildPanel.tsx';
+import { DesignCoverAction } from '../DesignCover.tsx';
+import { DevicePane } from '../devices/DevicePane.tsx';
 
 function editorViewOf(routeView: CableView): EditorView {
   if (routeView === 'documents') return 'documents';
   if (routeView === 'schematic') return 'schematic';
+  if (routeView === 'device') return 'device';
   return 'canvas';
 }
 
@@ -50,7 +57,7 @@ function editorViewOf(routeView: CableView): EditorView {
  * "Used in": the designs (and saved versions) that place this cable as a
  * sub-assembly — one line under the header, absent when nothing does.
  */
-export function UsedInPanel({ id }: { id: string }): JSX.Element | null {
+export function UsedInPanel({ id, inline = false }: { id: string; inline?: boolean }): JSX.Element | null {
   const query = useQuery({
     queryKey: ['studio', 'used-in', id],
     queryFn: async () => {
@@ -63,20 +70,22 @@ export function UsedInPanel({ id }: { id: string }): JSX.Element | null {
   return (
     <div
       data-testid="used-in"
-      className="flex min-h-8 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-line bg-raised px-3 py-1 text-xs text-dim"
+      className={inline ? 'flex flex-wrap items-center gap-x-2 gap-y-1 border-l border-line pl-3 text-xs text-dim' : 'flex min-h-8 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-line bg-raised px-3 py-1 text-xs text-dim'}
     >
       <span className="font-medium text-ink">Used in</span>
       {use.designs.map((d) => (
-        <Link
-          key={d.id}
-          to="/cables/$id"
-          params={{ id: d.id }}
-          search={{ view: 'build' }}
-          title={`${d.label} — as ${d.instances.join(', ')}`}
-          className="rounded-sm border border-line2 px-1.5 font-mono text-2xs text-ink no-underline hover:bg-hover"
-        >
-          {d.id}
-        </Link>
+        <span key={d.id} className="flex min-w-0 items-center gap-0.5">
+          <Link
+            to="/cables/$id"
+            params={{ id: d.id }}
+            search={{ view: 'build' }}
+            title={`${d.label} — as ${d.instances.join(', ')}`}
+            className="max-w-72 truncate rounded-sm border border-line2 px-1.5 text-2xs text-ink no-underline hover:bg-hover"
+          >
+            {d.label}
+          </Link>
+          <SubassemblyRepin id={id} parent={d.id} />
+        </span>
       ))}
       {use.versions.map((v) => (
         <Link
@@ -85,9 +94,9 @@ export function UsedInPanel({ id }: { id: string }): JSX.Element | null {
           params={{ id: v.design }}
           search={{ view: 'build', rev: String(v.rev) }}
           title={`saved Rev ${v.rev} of ${v.design} — as ${v.instances.join(', ')}${v.pinned === undefined ? '' : `, pinned to Rev ${v.pinned}`}`}
-          className="rounded-sm border border-dashed border-line2 px-1.5 font-mono text-2xs text-dim no-underline hover:bg-hover"
+          className="max-w-72 truncate rounded-sm border border-dashed border-line2 px-1.5 text-2xs text-dim no-underline hover:bg-hover"
         >
-          {v.design} Rev {v.rev}
+          {use.designs.find((d) => d.id === v.design)?.label ?? v.design} Rev {v.rev}
         </Link>
       ))}
     </div>
@@ -104,9 +113,19 @@ export function CableRoute(): JSX.Element {
   const modules = useModules();
   const phone = useIsNarrow();
   const openModuleRoute = useCallback((module: string, path: string): void => { void navigate({ to: '/m/$module/$', params: { module, _splat: path } }); }, [navigate]);
-  const extensions = useMemo(() => editorExtensions(modules, openModuleRoute), [modules, openModuleRoute]);
+  const notesReadOnly = phone || studio.me?.role === 'viewer';
+  // the firmware linked to each board placement joins the inspector (FirmwareLinks.tsx); the design's notes and
+  // decisions (specs/knowledge.md) close the inspector column, after any module panels
+  const extensions = useMemo(() => {
+    const base = withNewerRevisions(withDesignFirmware(editorExtensions(modules, openModuleRoute)));
+    // the knowledge notes join the Notes tab only, so the other tabs keep their height
+    return { ...base, inspector: (c: Parameters<NonNullable<typeof base['inspector']>>[0]) => <>{base.inspector?.(c)}{c.inspectorTab !== undefined && c.inspectorTab !== 'notes' ? null : <div className="px-3"><NotesPanel key={id} record={designRecord(id)} readOnly={notesReadOnly} title="Notes & decisions" /></div>}</> };
+  }, [modules, openModuleRoute, id, notesReadOnly]);
   // sub-assemblies: where the designs a cable places come from, and opening one in its own editor
   const assemblies = useMemo(() => workbenchAssemblies(), []);
+  // the device view: boards, enclosure, hardware and cables in one scene (devices/DevicePane.tsx)
+  const enclosureHint = search.enclosure;
+  const devicePane = useCallback((c: Parameters<typeof DevicePane>[0]) => <DevicePane {...c} {...(enclosureHint === undefined ? {} : { enclosureHint })} />, [enclosureHint]);
   // Documents' saves, copies and exports report as toasts, not as text beside the toolbar
   const onDocumentReport = useCallback((report: DocumentReport): void => {
     if (report.kind === 'success') toast.success(report.message, report.detail === undefined ? {} : { description: report.detail });
@@ -157,7 +176,8 @@ export function CableRoute(): JSX.Element {
   // auto-layout sees real board sizes; later additions load on use
   const [artReady, setArtReady] = useState<string>();
   const draft = studio.cableId === id ? studio.design : undefined;
-  const partsKey = draft === undefined ? '' : depictionDefsOf(draft).join(' ');
+  // `undefined` until the draft arrives, so a design with no parts of its own (only placed designs) still loads
+  const partsKey = draft === undefined ? undefined : depictionDefsOf(draft).join(' ');
   useEffect(() => {
     if (draft === undefined) return;
     let live = true;
@@ -211,7 +231,7 @@ export function CableRoute(): JSX.Element {
   const onViewChange = useCallback(
     (next: EditorView): void => {
       const nextRouteView: CableView =
-        next === 'documents' ? 'documents' : next === 'schematic' ? 'schematic' : 'build';
+        next === 'documents' ? 'documents' : next === 'schematic' ? 'schematic' : next === 'device' ? 'device' : 'build';
       void navigate({
         to: cableRoute.id,
         params: { id },
@@ -242,6 +262,7 @@ export function CableRoute(): JSX.Element {
         : {
             revisions: listing.revisions.map((r) => r.rev),
             rows: listing.revisions.map(revisionRow),
+            ...approvalsOf(listing),
             showing: {
               kind: 'working',
               unreleased: listing.working.unreleased,
@@ -268,7 +289,7 @@ export function CableRoute(): JSX.Element {
   }
 
   if (studio.notFoundId === id) {
-    return <NotFoundView message={`No design “${id}”.`} />;
+    return <NotFoundView message="This design is unavailable." />;
   }
 
   // the workbench could not answer: never an editable copy — a retry, and
@@ -277,14 +298,14 @@ export function CableRoute(): JSX.Element {
     const copy = studio.offlineCopy;
     return (
       <div className="flex h-full min-h-0 flex-col">
-        <h1 className="cs-ui-sr">{copy?.label ?? id}</h1>
+        <h1 className="cs-ui-sr">{copy?.label ?? 'Design'}</h1>
         <div
           role="status"
           data-testid="offline-banner"
           className="flex min-h-9 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-warn bg-raised px-3 py-1 text-xs"
         >
           <span className="min-w-0 flex-1 truncate text-warn" title={studio.loadError}>
-            {copy === undefined ? `Could not load ${id}` : `Offline copy from ${offlineCopyFrom()} — read only`}
+            {copy === undefined ? 'Could not load this design' : `Offline copy from ${offlineCopyFrom()} — read only`}
           </span>
           <button type="button" className={PLAIN_BUTTON} onClick={studio.retryOpen}>
             Retry
@@ -317,7 +338,7 @@ export function CableRoute(): JSX.Element {
 
   if (studio.cableId !== id || studio.design === undefined || studio.stored === undefined || artReady !== id || !studio.dbReady) {
     // still loading — `openCable` above is already in flight
-    return <div className="flex h-full items-center justify-center text-sm text-faint"><h1 className="cs-ui-sr">{id}</h1>Loading…</div>;
+    return <div className="flex h-full items-center justify-center text-sm text-faint"><h1 className="cs-ui-sr">Design</h1>Loading…</div>;
   }
 
   // edit locks: the cable, its drawing and its documents are one record
@@ -325,7 +346,10 @@ export function CableRoute(): JSX.Element {
     <EditLockScope record={designRecord(id)}>
     <div className="flex h-full min-h-0 flex-col">
     <h1 className="cs-ui-sr">{studio.design.label}</h1>
-    <UsedInPanel id={id} />
+    {/* one strip above the canvas: Build (expands), Used in, and the cover at the end */}
+    <BuildPanel key={id} design={id} readOnly={phone || studio.me?.role === 'viewer'}
+      lead={<UsedInPanel id={id} inline />}
+      end={phone || (search.view !== 'build' && search.view !== 'schematic') ? undefined : <DesignCoverAction id={id} label={studio.design.label} dirty={studio.dirtyIds.includes(id)} canEdit={studio.me?.role !== 'viewer'} inline />} />
     <div className="min-h-0 flex-1">
     {phone && search.view === 'build' ? (
       <PhoneDesignSummary design={studio.design} db={studio.db} id={id} />
@@ -371,6 +395,7 @@ export function CableRoute(): JSX.Element {
       view={editorViewOf(search.view)}
       onViewChange={onViewChange}
       onStatusChange={studio.setEditorStatus}
+      devicePane={devicePane}
       {...(phone ? { readOnly: true } : {})}
     />
     )}

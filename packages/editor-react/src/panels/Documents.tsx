@@ -21,7 +21,7 @@
  */
 
 import { knownPartNumbers, type CableDesign, type Db } from '@wirehub/model';
-import { BASE_EXPORTS, labelPresetOptions, labelPresetFor, isDarkTape, tapeContent, type LabelSheetOptions, PAPER_IDS, PAPERS, effectivePaper, paperSize, variationsOf, type DocumentFacts, type DrawingMeta, type FormatOptions, type PaperId, type TestParameters } from '@wirehub/docs';
+import { BASE_EXPORTS, labelPresetOptions, labelPresetFor, isDarkTape, tapeContent, type LabelSheetOptions, PAPER_IDS, PAPERS, effectivePaper, paperSize, printedState, variationsOf, type DocumentFacts, type DrawingMeta, type FormatOptions, type PaperId, type TestParameters } from '@wirehub/docs';
 import type { DepictionSource } from '@wirehub/render-svg';
 import { IconDownload, IconMarkdown, IconPrinter, IconTools } from '@tabler/icons-react';
 import { Popover } from 'radix-ui';
@@ -150,6 +150,9 @@ function sameSidecar(a: DrawingSidecar, b: DrawingSidecar): boolean {
  * draft, saved on request. Kept in the pane — not in the editor store —
  * because none of it is part of the cable.
  */
+/** How long typing in the title block or sheet options pauses before it is written. */
+export const SIDECAR_AUTOSAVE_MS = 800;
+
 function useDrawingSidecar(designId: string, adapter: DrawingAdapter | undefined, report?: (report: DocumentReport) => void) {
   const [draft, setDraft] = useState<DrawingSidecar>(EMPTY_SIDECAR);
   const [saved, setSaved] = useState<DrawingSidecar>(EMPTY_SIDECAR);
@@ -204,7 +207,7 @@ function useDrawingSidecar(designId: string, adapter: DrawingAdapter | undefined
    * once — silently, when nothing conflicts. Only a field genuinely changed
    * on both sides, to different values, stops here for a person to pick.
    */
-  const save = useCallback(async () => {
+  const save = useCallback(async (quiet = false) => {
     if (adapter === undefined) return;
     setSaving(true);
     setError(undefined);
@@ -266,7 +269,7 @@ function useDrawingSidecar(designId: string, adapter: DrawingAdapter | undefined
     const said = effectiveBase === base
       ? 'Saved beside the design.'
       : 'Saved — merged with a change made on disk (a version save, most likely) first.';
-    if (report === undefined) setStatus(said);
+    if (report === undefined || quiet) setStatus(quiet && effectiveBase === base ? 'Saved' : said);
     else report({ kind: 'success', message: 'Drawing details saved.', ...(effectiveBase === base ? {} : { detail: 'Merged with a change made on disk (a version save, most likely) first.' }) });
   }, [adapter, designId, draft, saved, report]);
 
@@ -296,10 +299,19 @@ function useDrawingSidecar(designId: string, adapter: DrawingAdapter | undefined
     setConflict(rest.fields.length === 0 ? undefined : rest);
   }, [conflict]);
 
-  useUnsavedChangesGuard(!sameSidecar(draft, saved));
+  const dirty = !sameSidecar(draft, saved);
+  // no Save button of its own: an edit is written beside the design once typing pauses
+  // (a failed or conflicting write waits for the next edit, or Retry save)
+  useEffect(() => {
+    if (adapter === undefined || !dirty || saving || conflict !== undefined || error !== undefined) return;
+    const timer = setTimeout(() => void save(true), SIDECAR_AUTOSAVE_MS);
+    return () => clearTimeout(timer);
+  }, [adapter, dirty, saving, conflict, error, save]);
+
+  useUnsavedChangesGuard(dirty);
   return {
     draft,
-    dirty: !sameSidecar(draft, saved),
+    dirty,
     status,
     error,
     saving,
@@ -308,9 +320,14 @@ function useDrawingSidecar(designId: string, adapter: DrawingAdapter | undefined
     resolvePhoto,
     generation,
     orgDefaults,
-    setMeta: (meta: DrawingMeta) => setDraft((d) => ({ ...d, meta })),
-    setPhoto: (photo: string | undefined) =>
-      setDraft((d) => (photo === undefined ? { meta: d.meta } : { ...d, photo })),
+    setMeta: (meta: DrawingMeta) => {
+      setError(undefined);
+      setDraft((d) => ({ ...d, meta }));
+    },
+    setPhoto: (photo: string | undefined) => {
+      setError(undefined);
+      setDraft((d) => (photo === undefined ? { meta: d.meta } : { ...d, photo }));
+    },
     save,
   };
 }
@@ -484,7 +501,7 @@ export function DocumentsPane({
       ? sidecar.draft.meta.sheet
       : (() => {
           const { revision: _own, ...rest } = sidecar.draft.meta.sheet ?? {};
-          return { ...rest, status: unreleased ? 'UNRELEASED' : (rest.status ?? 'RELEASED') };
+          return { ...rest, status: printedState(target, rest.status, typeof target === 'number' ? release?.approvals?.(target) : undefined) };
         })();
   const sheetKey = sheetKind ? JSON.stringify([sheet, partNumber, revision]) : '';
   const sheetInput = useMemo(
@@ -505,9 +522,9 @@ export function DocumentsPane({
     })() : paperSize(previewPaper, landscape ? 'landscape' : 'portrait');
     return { width: Math.round((size.width * 96) / 25.4), height: Math.round((size.height * 96) / 25.4) };
   }, [previewPaper, landscape, kind, labelOptions, rendered]);
-  // the state every sheet carries in its title block and corner stamp: the working copy is UNRELEASED,
-  // a saved revision RELEASED unless the sheet says otherwise
-  const stateText = unreleased ? 'UNRELEASED' : revisionFixed !== undefined ? (sidecar.draft.meta.sheet?.status ?? 'RELEASED') : sidecar.draft.meta.sheet?.status;
+  // the state every sheet carries in its title block and corner stamp — the server render's rule
+  // (`printedState`): the working copy UNRELEASED, a saved revision SAVED VERSION (or its approval state)
+  const stateText = revisionFixed !== undefined ? sheet?.status : sidecar.draft.meta.sheet?.status;
   const revisions = useMemo(() => revisionTable(release, target), [release, target]);
   // tagged with the document it *is*, so switching sub-views never shows the
   // previous document under the new one's heading while the new one builds
@@ -754,7 +771,7 @@ export function DocumentsPane({
         {release === undefined ? null : (
           <Select className={classes('cs-doc-target', unreleased && 'is-unreleased')} aria-label="Revision to print"
             value={String(target)} onValueChange={(value) => setTarget(value === 'working' ? 'working' : Number(value))}
-            options={[...[...release.revisions].reverse().map((rev) => ({ value: String(rev), label: `Rev ${rev}${rev === release.revisions[release.revisions.length - 1] ? ' · latest' : ''}` })), ...(release.showing.kind === 'working' ? [{ value: 'working', label: 'Working · unreleased' }] : [])]} />
+            options={[...[...release.revisions].reverse().map((rev) => ({ value: String(rev), label: `Rev ${rev}${rev === release.revisions[release.revisions.length - 1] ? ' · latest' : ''}` })), ...(release.showing.kind === 'working' ? [{ value: 'working', label: 'Working copy' }] : [])]} />
         )}
         {copyNote === undefined ? null : (
           <span className="cs-count" role="status">

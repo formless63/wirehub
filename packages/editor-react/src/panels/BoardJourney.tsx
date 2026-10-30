@@ -24,6 +24,7 @@
 import {
   buildsFileName,
   footprintPadMap,
+  isIntegrityIssue,
   rankFootprintInterfaces,
   suggestFootprintPads,
   validateBoardBuilds,
@@ -62,12 +63,14 @@ import {
 } from '../board-journey.ts';
 import { classes } from '../context.ts';
 import type { PickOption, VocabAdapter } from '../vocab.ts';
-import { signalRefOf, signalText } from '../vocab.ts';
+import { signalLabelText, signalRefOf, signalText } from '../vocab.ts';
 import { artworkSrc } from './Artwork.tsx';
 import { BuildEditor } from './BuildEditor.tsx';
 import { PadMapArt, type ArtPad } from './PadMapArt.tsx';
 import { Pick } from './Pick.tsx';
 import { useUnsavedChangesGuard } from './useUnsavedChangesGuard.ts';
+import { useRecordRefresh } from '../record-refresh.ts';
+import { Section } from '../ui/Section.tsx';
 
 type Part = NonNullable<DepictionMeta['components']>['parts'][number];
 
@@ -100,6 +103,8 @@ export interface BoardJourneyArgs {
   vocab?: VocabAdapter;
   /** tags were written — the host reloads its db */
   onVocabChange?: () => void;
+  /** the installed pack that owns this board (read-only here): an update forks it first */
+  packOwner?: string;
 }
 
 export interface BoardJourney {
@@ -140,6 +145,7 @@ export interface BoardJourney {
   selectedBuild: string;
   setSelectedBuild: (key: string) => void;
   loadParts: () => void;
+  packOwner?: string;
 }
 
 /** A new board's first build file: one as-designed build, as the importer already treats it. */
@@ -210,6 +216,28 @@ export function useBoardJourney(args: BoardJourneyArgs): BoardJourney | undefine
       live = false;
     };
   }, [enabled, artwork, defId]);
+
+  // a job or an import elsewhere on the page changed this board's art: read it again, keeping edits in progress
+  const refresh = useRecordRefresh('pcbas', defId);
+  useEffect(() => {
+    if (refresh === 0 || !enabled || artwork === undefined || defId === undefined) return;
+    let live = true;
+    void (async () => {
+      const detail = await artwork.detail(defId);
+      if (!live || !detail.ok) return;
+      setMeta(detail.value.meta);
+      const bytes: Record<string, DepictionArtwork> = {};
+      for (const view of ['board-top', 'board-bottom']) {
+        if (detail.value.meta?.views[view] === undefined) continue;
+        const b = await artwork.artwork(defId, view);
+        if (b.ok) bytes[view] = b.value;
+      }
+      if (live) setArt(bytes);
+    })();
+    return () => {
+      live = false;
+    };
+  }, [refresh, enabled, artwork, defId]);
 
   // a fresh db has the tags just written
   useEffect(() => setTagOverlay({}), [db]);
@@ -356,6 +384,7 @@ export function useBoardJourney(args: BoardJourneyArgs): BoardJourney | undefine
     selectedBuild,
     setSelectedBuild,
     loadParts,
+    ...(args.packOwner === undefined ? {} : { packOwner: args.packOwner }),
   };
 }
 
@@ -396,13 +425,14 @@ export function BoardJourneyStrip(props: { journey: BoardJourney; tab: string; o
     <nav className="cs-bj-strip" aria-label="board steps">
       <ol>
         {JOURNEY_STEPS.map((step, n) => {
-          const status = journey.steps.find((s) => s.id === step.id);
+          // neutral until the art and build files are in: no state, no picked step
+          const status = journey.loaded ? journey.steps.find((s) => s.id === step.id) : undefined;
           return (
             <li key={step.id}>
               <button
                 type="button"
-                aria-current={props.tab === step.tab ? 'step' : undefined}
-                className={classes(props.tab === step.tab && 'is-on', status !== undefined && `is-${status.state}`)}
+                aria-current={journey.loaded && props.tab === step.tab ? 'step' : undefined}
+                className={classes(journey.loaded && props.tab === step.tab && 'is-on', status !== undefined && `is-${status.state}`)}
                 title={status?.title}
                 onClick={() => props.onTab(step.tab)}
               >
@@ -415,9 +445,11 @@ export function BoardJourneyStrip(props: { journey: BoardJourney; tab: string; o
           );
         })}
       </ol>
-      <span className={classes('cs-chip', ready && 'is-done')} title={ready ? 'Every step is done: the builder draws this board from its art, pads and builds' : 'Steps left to do'}>
-        {ready ? 'ready' : `${journey.steps.filter((s) => s.state === 'todo' || s.state === 'warn').length} to do`}
-      </span>
+      {!journey.loaded ? null : (
+        <span className={classes('cs-chip', ready && 'is-done')} title={ready ? 'Every step is done: the builder draws this board from its art, pads and builds' : 'Steps left to do'}>
+          {ready ? 'ready' : `${journey.steps.filter((s) => s.state === 'todo' || s.state === 'warn').length} to do`}
+        </span>
+      )}
       <button type="button" className={classes('cs-bj-deftab', props.tab === 'definition' && 'is-on')} aria-pressed={props.tab === 'definition'} onClick={() => props.onTab('definition')}>
         Definition
       </button>
@@ -454,8 +486,8 @@ function SaveBar(props: { journey: BoardJourney; what: string }): JSX.Element | 
       <button
         type="button"
         className="cs-primary"
-        disabled={!journey.dirty || journey.saving || journey.draftErrors.length > 0}
-        title={journey.draftErrors.length > 0 ? `Fix ${journey.draftErrors.length} issue${journey.draftErrors.length === 1 ? '' : 's'} first` : `Check and write ${props.what}`}
+        disabled={!journey.dirty || journey.saving || journey.draftErrors.some(isIntegrityIssue)}
+        title={journey.draftErrors.some(isIntegrityIssue) ? 'Two builds share one key: rename one first' : journey.draftErrors.length > 0 ? `Saves with ${journey.draftErrors.length} finding${journey.draftErrors.length === 1 ? '' : 's'}` : `Check and write ${props.what}`}
         onClick={() => void journey.save()}
       >
         {journey.saving ? 'Saving…' : 'Save'}
@@ -485,11 +517,43 @@ function SaveProblem(props: { journey: BoardJourney }): JSX.Element | null {
 
 /* ---- Import ---- */
 
+/**
+ * One line on the board record: the file it was read from, Update from file and the KiCad check —
+ * both otherwise only behind the Import step chip.
+ */
+export function BoardSourceRow(props: { journey: BoardJourney; onCheck: () => void }): JSX.Element | null {
+  const { journey } = props;
+  const { def, meta } = journey;
+  if (meta === undefined && journey.host.onImport === undefined) return null;
+  const source = meta?.sources?.find((s) => /kicad/i.test(s.role)) ?? meta?.sources?.[0];
+  return (
+    <div className="cs-bj-toolbar cs-bj-source" data-testid="board-source-row">
+      <span className="cs-dim">Source</span>
+      {source === undefined ? <span className="cs-dim">none yet</span> : (
+        <span className="cs-mono cs-bj-path-cell">{source.path}</span>
+      )}
+      <span className="cs-spacer" />
+      {journey.host.sourceCheck === undefined || meta === undefined ? null : (
+        <button type="button" onClick={props.onCheck} title="Compare the board file with its schematic" data-testid="board-source-check">
+          KiCad check
+        </button>
+      )}
+      {journey.host.onImport === undefined || journey.packOwner !== undefined ? null : (
+        <button type="button" onClick={() => journey.host.onImport?.({ id: def.id, partNumber: def.partNumber, revision: def.revision })}
+          title="Re-read a new board file: terminals, netlist and art, with a preview before applying" data-testid="board-source-update">
+          {meta === undefined ? <IconFileImport size={14} stroke={1.75} aria-hidden="true" /> : <IconRefresh size={14} stroke={1.75} aria-hidden="true" />}
+          {meta === undefined ? 'Import' : 'Update from file'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function ImportStep(props: { journey: BoardJourney }): JSX.Element {
   const { journey } = props;
   const { def, meta, draft } = journey;
   const edits = Object.keys(journey.padEdits).length;
-  const rerun = (): void => journey.host.onImport?.({ partNumber: def.partNumber, revision: def.revision }, edits === 0 ? undefined : { pads: journey.padEdits });
+  const rerun = (): void => journey.host.onImport?.({ id: def.id, partNumber: def.partNumber, revision: def.revision }, edits === 0 ? undefined : { pads: journey.padEdits });
   return (
     <section className="cs-bj-step">
       <div className="cs-bj-toolbar">
@@ -498,9 +562,17 @@ function ImportStep(props: { journey: BoardJourney }): JSX.Element {
         </strong>
         <span className="cs-spacer" />
         {journey.host.onImport === undefined ? null : (
-          <button type="button" className={edits > 0 || journey.steps[0]?.state !== 'done' ? 'cs-primary' : ''} onClick={rerun} title="Run the board's import again: art, pad map, definitions — nothing is written until you publish">
+          <button
+            type="button"
+            className={edits > 0 || journey.steps[0]?.state !== 'done' ? 'cs-primary' : ''}
+            onClick={rerun}
+            title={journey.packOwner === undefined
+              ? 'Re-read a new board file: terminals, netlist and art, with a preview before applying'
+              : `From the ${journey.packOwner} pack (read-only): Apply copies it under an id of your own, then updates the copy from the file`}
+            data-testid="board-update-from-file"
+          >
             {meta === undefined ? <IconFileImport size={14} stroke={1.75} aria-hidden="true" /> : <IconRefresh size={14} stroke={1.75} aria-hidden="true" />}
-            {meta === undefined ? 'Import' : edits > 0 ? `Re-run with ${edits} pad move${edits === 1 ? '' : 's'}` : 'Re-run import'}
+            {journey.packOwner !== undefined ? 'Fork and update' : meta === undefined ? 'Import' : edits > 0 ? `Re-run with ${edits} pad move${edits === 1 ? '' : 's'}` : 'Update from file'}
           </button>
         )}
       </div>
@@ -509,7 +581,7 @@ function ImportStep(props: { journey: BoardJourney }): JSX.Element {
           {(meta?.sources ?? []).map((s) => (
             <tr key={s.path}>
               <th scope="row">{s.role}</th>
-              <td className="cs-mono cs-bj-path-cell" title={`sha256 ${s.sha256}`}>
+              <td className="cs-mono cs-bj-path-cell">
                 {s.path}
               </td>
             </tr>
@@ -522,42 +594,42 @@ function ImportStep(props: { journey: BoardJourney }): JSX.Element {
           ) : null}
         </tbody>
       </table>
-      <h4 className="cs-bj-h">Builds → definitions</h4>
-      <table className="cs-bj-table">
-        <tbody>
-          {(draft?.builds ?? []).map((b) => {
-            const defs = journey.siblings.filter((s) => s.build === b.build);
-            return (
-              <tr key={b.key}>
-                <th scope="row" className="cs-mono">
-                  {b.key}
-                </th>
-                <td>
-                  {defs.length === 0 ? (
-                    <span className="cs-bj-bad" title="Re-run the import to emit it">
-                      not emitted
-                    </span>
-                  ) : (
-                    defs.map((d) => (
-                      <span key={d.id} className={classes('cs-mono', d.id === def.id && 'cs-bj-me')}>
-                        {d.id}
-                      </span>
-                    ))
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-          {draft === undefined ? (
-            <tr>
-              <th scope="row">—</th>
-              <td className="cs-dim">
-                {journey.siblings.map((s) => s.id).join(' · ')} · no build file
-              </td>
-            </tr>
-          ) : null}
-        </tbody>
-      </table>
+      {journey.host.sourceCheck?.(def)}
+      <Section
+        id="board-builds"
+        title="Builds"
+        summary={<span title="Each build in the build file and the definition it makes">{draft === undefined ? 'no build file' : `${draft.builds.length}`}</span>}
+      >
+        {draft === undefined || draft.builds.length === 0 ? null : (
+          <table className="cs-bj-table">
+            <tbody>
+              {draft.builds.map((b) => {
+                const defs = journey.siblings.filter((s) => s.build === b.build);
+                return (
+                  <tr key={b.key}>
+                    <th scope="row" className="cs-mono">
+                      {b.key}
+                    </th>
+                    <td>
+                      {defs.length === 0 ? (
+                        <span className="cs-dim" title="No definition for this build yet: Update from file makes it">
+                          not emitted
+                        </span>
+                      ) : (
+                        defs.map((d) => (
+                          <span key={d.id} className={classes(d.id === def.id && 'cs-bj-me')} title={d.id}>
+                            {d.label}
+                          </span>
+                        ))
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </Section>
     </section>
   );
 }
@@ -735,7 +807,7 @@ function PadsStep(props: { journey: BoardJourney }): JSX.Element {
             >
               <td className="cs-mono">{r.terminal}</td>
               <td>{r.role === undefined ? <span className="cs-bj-bad">none</span> : roleLabel(r.role)}</td>
-              <td className="cs-mono">{signalText(r.signal) || <span className="cs-dim">—</span>}</td>
+              <td title={signalText(r.signal)}>{signalLabelText(db.vocab, r.signal) || <span className="cs-dim">—</span>}</td>
               {r.anchored ? null : (
                 <td>
                   <span className="cs-bj-bad" title="No pad on the art lands this terminal">
@@ -793,11 +865,16 @@ function ConnectorStep(props: { journey: BoardJourney }): JSX.Element {
   const frame = meta?.views['board-top'];
   const byTerminal = new Map((map?.rows ?? []).map((r) => [r.terminal, r]));
   const pads: ArtPad[] = [];
+  const keys = new Map<string, number>();
   for (const [terminal, anchor] of Object.entries(meta?.pinAnchors ?? {})) {
     const row = byTerminal.get(terminal);
     for (const p of anchor.pads ?? [{ ref: terminal, pad: '1', x: anchor.x, y: anchor.y, side: anchor.side ?? 'top' }]) {
+      // a footprint may repeat a pad number (shield tabs `SH`, mounting pads): each copper pad keeps a key of its own
+      const base = `${terminal}:${p.ref}#${p.pad}`;
+      const seen = keys.get(base) ?? 0;
+      keys.set(base, seen + 1);
       pads.push({
-        key: `${terminal}:${p.ref}#${p.pad}`,
+        key: seen === 0 ? base : `${base}~${seen}`,
         x: p.x,
         y: p.y,
         side: p.side,

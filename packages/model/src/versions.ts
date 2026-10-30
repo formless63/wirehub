@@ -25,6 +25,7 @@ import type { SignalTags } from './vocab.ts';
 import { jointMoveText } from './design-edit.ts';
 import { terminalKey, validateDesign } from './validate.ts';
 import { pinSubassemblies, type AssemblyLibrary } from './subassemblies.ts';
+import { captureProcesses, type ProcessDefinition } from './processes.ts';
 
 export const DESIGN_VERSION_FORMAT = 'wirehub/design-version@2';
 /**
@@ -70,6 +71,11 @@ export interface FrozenDefinitions {
   components: ComponentDefinition[];
   pcbas: PcbaDefinition[];
   mechanicals: MechanicalDefinition[];
+  /**
+   * the required-process vocabulary entries the design declared or matched when saved (`processes.ts`);
+   * absent when none. A version reads only these, never the live vocabulary.
+   */
+  processes?: ProcessDefinition[];
   /** the signal-tag rows for the frozen ids (absent when there are none) */
   tags?: SignalTags;
 }
@@ -133,7 +139,90 @@ export interface DesignVersionFile {
   unlocked?: VersionUnlock;
   /** release approval (cs-5k1.11): absent = draft; an approved version is the released one */
   approval?: VersionApproval;
+  /**
+   * The exact effective inputs, captured automatically when the version was saved (or last edited):
+   * every referenced library record, board, stock and placed design with its revision, content hash,
+   * artwork hash and chosen cover. Capturing is not approving. Absent on versions saved before it
+   * existed; the host derives the same list from `definitions` and `depictions` for those.
+   */
+  inputs?: EffectiveInputs;
+  /**
+   * The design findings (errors and warnings) it was saved with. A saved version may keep unresolved
+   * problems; saving preserves work, it does not certify it. Release is the stricter boundary.
+   */
+  findings?: Issue[];
+  /**
+   * A device's geometry as saved: each shell's enclosure generation and each board's
+   * native 3D export in force when the version was saved, by content hash (asset ids). The revision's
+   * Device view and exports draw these, never a later generation. Absent: no device layout, or saved
+   * before pins existed.
+   */
+  device?: DeviceVersionPins;
   history: VersionHistoryEntry[];
+}
+
+/** One shell's generation as a version pinned it: its outputs (assets) and result, not its log. */
+export interface PinnedEnclosureRun {
+  generatedAt: string;
+  pack: string;
+  packVersion: string;
+  requestSha256: string;
+  outputs: { role: string; path: string; mediaType: string; sha256: string; asset?: string; bytes: number }[];
+  result: unknown;
+}
+
+export interface DeviceVersionPins {
+  /** shell (mechanicals) id → its last ok generation when saved (its first occurrence's, when it occurs more than once) */
+  enclosures: Record<string, PinnedEnclosureRun>;
+  /** board (pcbas) id → its native 3D export when saved, copied into the assets (asset id = sha256) */
+  boards: Record<string, { step?: string; glb?: string; from: string }>;
+  /**
+   * The same per occurrence, by scene path (`b1`, `sub1/enc`), so two placements of one design at
+   * different revisions keep their own geometry. Absent in versions saved before:
+   * those read the id-keyed maps for every occurrence.
+   */
+  occurrences?: { enclosures: Record<string, PinnedEnclosureRun>; boards: Record<string, { step?: string; glb?: string; from: string }> };
+}
+
+/** The pin of the shell or board at scene `path` (definition `def`): per occurrence when the version has them, else by id. */
+export function devicePinAt<K extends 'enclosures' | 'boards'>(pins: DeviceVersionPins | undefined, kind: K, path: string, def: string): DeviceVersionPins[K][string] | undefined {
+  if (pins === undefined) return undefined;
+  return (pins.occurrences !== undefined ? pins.occurrences[kind][path] : pins[kind][def]) as DeviceVersionPins[K][string] | undefined;
+}
+
+export const EFFECTIVE_INPUTS_FORMAT = 'wirehub/effective-inputs@1';
+
+/** What an effective input is: a library list, or a placed design (`designs`). */
+export type EffectiveInputKind = 'connectors' | 'bodies' | 'interfaces' | 'wires' | 'components' | 'pcbas' | 'mechanicals' | 'designs';
+
+/** One dependency as it was used. Hashes are `sha256:<hex>`; the host computes them. */
+export interface EffectiveInput {
+  kind: EffectiveInputKind;
+  id: string;
+  label?: string;
+  partNumber?: string;
+  /** the record's own revision text (a board's `revision`, `build`) */
+  revision?: string;
+  /** the saved library-record revision the record equalled when captured (`record-revisions.ts`) */
+  recordRev?: number;
+  /** designs: the saved version it was pinned to */
+  designRev?: number;
+  /** canonical JSON of the record (a design: of the pinned version's design) */
+  hash: string;
+  /** one hash over its artwork files (`ArtworkFiles`), when it had artwork */
+  artwork?: string;
+  /** the shared cover choice in force (a board's chosen preview), when one was chosen */
+  cover?: { view: string; lineage: string };
+}
+
+/** The captured list. `source` says which boundary captured it. */
+export interface EffectiveInputs {
+  format: typeof EFFECTIVE_INPUTS_FORMAT;
+  capturedAt: string;
+  source: 'version-save' | 'version-edit' | 'job' | 'derived';
+  /** a job capture: the design and the version it named (absent: its working copy) */
+  design?: { id: string; rev?: number };
+  inputs: EffectiveInput[];
 }
 
 /** What a version list shows per revision — everything but the heavy payload. */
@@ -148,6 +237,8 @@ export interface VersionSummary {
   edits: number;
   /** the approval state, name, time and comment of the latest step; absent = draft */
   approval?: VersionApproval;
+  /** how many unresolved errors and warnings it was saved with (absent: none) */
+  findings?: { errors: number; warnings: number };
 }
 
 export function versionSummary(file: DesignVersionFile): VersionSummary {
@@ -160,6 +251,12 @@ export function versionSummary(file: DesignVersionFile): VersionSummary {
     locked: file.unlocked === undefined,
     edits: file.history.filter((entry) => entry.action === 'edit').length,
     ...(file.approval === undefined ? {} : { approval: file.approval }),
+    ...(file.findings === undefined || file.findings.length === 0
+      ? {}
+      : (() => {
+          const errorCount = file.findings.filter((issue) => issue.severity === 'error').length;
+          return { findings: { errors: errorCount, warnings: file.findings.length - errorCount } };
+        })()),
   };
 }
 
@@ -228,6 +325,8 @@ export function freezeDefinitions(design: CableDesign, db: Db): FrozenDefinition
   const connectors = pick(db.connectors, ids.connectors);
   const bodyIds = new Set(connectors.flatMap((c) => (c.body === undefined ? [] : [c.body])));
   const interfaceIds = new Set(connectors.flatMap((c) => (c.interface === undefined ? [] : [c.interface])));
+  // the processes it needs, by the vocabulary in `db` (frozen, so later vocabulary changes leave the version alone)
+  const processes = captureProcesses(design, db);
   const tags: SignalTags | undefined =
     db.tags === undefined
       ? undefined
@@ -251,6 +350,7 @@ export function freezeDefinitions(design: CableDesign, db: Db): FrozenDefinition
     components: pick(db.components, ids.components),
     pcbas: pick(db.pcbas, ids.pcbas),
     mechanicals: pick(db.mechanicals, ids.mechanicals),
+    ...(processes.length === 0 ? {} : { processes }),
     ...(tags === undefined ? {} : { tags }),
   };
   return JSON.parse(JSON.stringify(frozen)) as FrozenDefinitions;
@@ -287,6 +387,8 @@ export function versionDb(definitions: FrozenDefinitions, live?: Db): Db {
     interfaces: overlay(definitions.interfaces, live?.interfaces),
     ...(live?.vocab === undefined ? {} : { vocab: live.vocab }),
     ...(live?.kits === undefined ? {} : { kits: live.kits }),
+    // the processes it captured, and nothing else: the live vocabulary never reaches a version
+    processes: definitions.processes ?? [],
     ...(tags === undefined ? {} : { tags }),
   };
 }
@@ -297,6 +399,18 @@ export function versionDb(definitions: FrozenDefinitions, live?: Db): Db {
  * pinned to saved versions, so they are as frozen as it is).
  */
 export function validateVersion(file: DesignVersionFile, assemblies?: AssemblyLibrary): Issue[] {
+  const issues = versionIntegrityIssues(file);
+  if (issues.some((issue) => issue.severity === 'error')) return issues;
+  const db = versionDb(file.definitions);
+  return [...issues, ...validateDesign(file.design, assemblies === undefined ? db : { ...db, assemblies })];
+}
+
+/**
+ * What makes a version file unusable as a record, whatever the design says: an unknown format, a bad
+ * number, a snapshot of another design, no note, artwork that names an unusable file. Saving refuses
+ * these; design findings are kept with the version instead (`DesignVersionFile.findings`).
+ */
+export function versionIntegrityIssues(file: DesignVersionFile): Issue[] {
   const issues: Issue[] = [];
   if (file.format !== DESIGN_VERSION_FORMAT && file.format !== DESIGN_VERSION_FORMAT_V1) {
     issues.push({ code: 'version-format', severity: 'error', message: `unknown version format '${String(file.format)}'` });
@@ -317,10 +431,15 @@ export function validateVersion(file: DesignVersionFile, assemblies?: AssemblyLi
       }
     }
   }
-  if (issues.some((issue) => issue.severity === 'error')) return issues;
-  const db = versionDb(file.definitions);
-  return [...issues, ...validateDesign(file.design, assemblies === undefined ? db : { ...db, assemblies })];
+  return issues;
 }
+
+/**
+ * Design findings that stop a version from being captured at all, not merely from being right: a
+ * sub-assembly that places itself or names a design or revision that does not exist cannot be frozen
+ * to anything. Everything else is a finding the version keeps.
+ */
+export const UNCAPTURABLE_CODES: ReadonlySet<string> = new Set(['subassembly-cycle', 'subassembly-unknown-rev', 'subassembly-unknown-design']);
 
 /* ------------------------------------------------------------------ *
  * Building and editing files
@@ -361,6 +480,7 @@ export function canonicalVersionFile(file: DesignVersionFile): DesignVersionFile
       components: byId(d.components),
       pcbas: byId(d.pcbas),
       mechanicals: byId(d.mechanicals),
+      ...(d.processes === undefined || d.processes.length === 0 ? {} : { processes: byId(d.processes) }),
       ...(d.tags === undefined ? {} : { tags: d.tags }),
     },
     depictions: Object.fromEntries(
@@ -370,6 +490,9 @@ export function canonicalVersionFile(file: DesignVersionFile): DesignVersionFile
     ),
     ...(file.unlocked === undefined ? {} : { unlocked: file.unlocked }),
     ...(file.approval === undefined ? {} : { approval: file.approval }),
+    ...(file.inputs === undefined ? {} : { inputs: file.inputs }),
+    ...(file.findings === undefined || file.findings.length === 0 ? {} : { findings: file.findings }),
+    ...(file.device === undefined ? {} : { device: file.device }),
     history: file.history,
   };
 }
@@ -392,10 +515,11 @@ export interface NewVersionInput {
 }
 
 /**
- * A new saved version. With `db.assemblies`, every sub-assembly that follows
- * a working copy is pinned to that design's released revision
- * (`pinSubassemblies`), so the version always names the same parts; callers
- * refuse the save first when one has nothing released.
+ * A new saved version. With `db.assemblies`, every sub-assembly that still
+ * follows a working copy is pinned to that design's released revision
+ * (`pinSubassemblies`), so the version always names the same parts. The studio
+ * pins them first to the saved revision that captures each working copy
+ * (saving one automatically when none does), so none is left following.
  */
 export function createVersion(input: NewVersionInput): DesignVersionFile {
   const note = input.note.trim();
@@ -498,7 +622,8 @@ export function editVersion(
   const db = versionDb(file.definitions, live);
   // a sub-assembly added in the edit is frozen like the rest
   design = pinSubassemblies(design, live.assemblies === undefined ? db : { ...db, assemblies: live.assemblies }).design;
-  const definitions = freezeDefinitions(design, db);
+  // processes it already captured stay as captured; one the edit newly needs comes from the live vocabulary
+  const definitions = freezeDefinitions(design, { ...db, processes: overlay(file.definitions.processes ?? [], live.processes) });
   const before = { design: file.design, definitions: file.definitions };
   const after = { design, definitions };
   const changes = diffLines(diffVersions(before, after));
@@ -531,7 +656,7 @@ const LIST_NOUN: Record<InstanceList, string> = {
 };
 
 type DefinitionList = Exclude<keyof FrozenDefinitions, 'tags'>;
-const DEFINITION_LISTS: readonly DefinitionList[] = ['connectors', 'bodies', 'interfaces', 'wires', 'components', 'pcbas', 'mechanicals'];
+const DEFINITION_LISTS: readonly DefinitionList[] = ['connectors', 'bodies', 'interfaces', 'wires', 'components', 'pcbas', 'mechanicals', 'processes'];
 const DEF_NOUN: Record<DefinitionList, string> = {
   connectors: 'connector',
   bodies: 'body',
@@ -540,6 +665,7 @@ const DEF_NOUN: Record<DefinitionList, string> = {
   components: 'component',
   pcbas: 'board',
   mechanicals: 'mechanical',
+  processes: 'process',
 };
 
 export interface InstanceChange {
@@ -668,15 +794,20 @@ export function diffVersions(before: VersionContent, after: VersionContent): Des
   Object.assign(diff.joints, diffJoints(before.design.joints, after.design.joints));
 
   for (const list of DEFINITION_LISTS) {
-    const from = new Map((before.definitions[list] as { id: string }[]).map((d) => [d.id, stableJson(d)]));
-    const to = new Map((after.definitions[list] as { id: string }[]).map((d) => [d.id, stableJson(d)]));
+    const from = new Map(((before.definitions[list] ?? []) as { id: string }[]).map((d) => [d.id, stableJson(d)]));
+    const to = new Map(((after.definitions[list] ?? []) as { id: string }[]).map((d) => [d.id, stableJson(d)]));
+    // a record by its name, as the user knows it; the id only when it has none
+    const named = (id: string): string => {
+      const def = [...((after.definitions[list] ?? []) as { id: string; label?: string }[]), ...((before.definitions[list] ?? []) as { id: string; label?: string }[])].find((d) => d.id === id);
+      return `${DEF_NOUN[list]} ${def?.label ?? id}`;
+    };
     for (const [id, text] of to) {
       const old = from.get(id);
-      if (old === undefined) diff.definitions.added.push(`${DEF_NOUN[list]} ${id}`);
-      else if (old !== text) diff.definitions.changed.push(`${DEF_NOUN[list]} ${id}`);
+      if (old === undefined) diff.definitions.added.push(named(id));
+      else if (old !== text) diff.definitions.changed.push(named(id));
     }
     for (const id of from.keys()) {
-      if (!to.has(id)) diff.definitions.removed.push(`${DEF_NOUN[list]} ${id}`);
+      if (!to.has(id)) diff.definitions.removed.push(named(id));
     }
   }
 
@@ -703,10 +834,31 @@ export function diffLines(diff: DesignDiff): string[] {
     ...diff.joints.added.map((j) => `+ joint ${j}`),
     ...diff.joints.removed.map((j) => `− joint ${j}`),
     ...diff.joints.moved.map((j) => `~ ${j}`),
-    ...diff.definitions.added.map((d) => `+ definition ${d}`),
-    ...diff.definitions.removed.map((d) => `− definition ${d}`),
-    ...diff.definitions.changed.map((d) => `~ definition ${d}`),
+    ...diff.definitions.added.map((d) => `+ ${d}`),
+    ...diff.definitions.removed.map((d) => `− ${d}`),
+    ...diff.definitions.changed.map((d) => `~ ${d}`),
   ];
+}
+
+/**
+ * The design-only change between two bodies as one short line ("2 parts added, 3 joints moved,
+ * label changed"): the default note of a version saved without one. `undefined` when nothing changed.
+ */
+export function designChangeSummary(before: CableDesign | undefined, after: CableDesign): string | undefined {
+  if (before === undefined) return 'First version';
+  const none: FrozenDefinitions = { connectors: [], bodies: [], interfaces: [], wires: [], components: [], pcbas: [], mechanicals: [] };
+  const d = diffVersions({ design: before, definitions: none }, { design: after, definitions: none });
+  const count = (n: number, noun: string, verb: string): string => (n === 0 ? '' : `${n} ${noun}${n === 1 ? '' : 's'} ${verb}`);
+  const parts = [
+    count(d.instances.added.length, 'part', 'added'),
+    count(d.instances.removed.length, 'part', 'removed'),
+    count(d.instances.changed.length, 'part', 'changed'),
+    count(d.joints.added.length, 'joint', 'added'),
+    count(d.joints.removed.length, 'joint', 'removed'),
+    count(d.joints.moved.length, 'joint', 'moved'),
+    d.fields.length === 0 ? '' : `${d.fields.join(', ')} changed`,
+  ].filter((p) => p !== '');
+  return parts.length === 0 ? undefined : parts.join(', ');
 }
 
 /** Whether the design bodies differ (what "unreleased changes" means). */

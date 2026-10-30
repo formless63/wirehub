@@ -65,6 +65,7 @@ import {
   type Issue,
 } from '@wirehub/model';
 import { writeFileAtomic } from './atomic-write.ts';
+import { stripPhotoMetadata } from './image-metadata.ts';
 import { boardArtFiles, relinkWithArt } from './models/board-art.ts';
 import { fileModelLinkStore, type ModelLinkStore } from './models/links.ts';
 
@@ -789,7 +790,15 @@ async function uploadDepiction(
 ): Promise<DepictionApiResponse> {
   const read = readUploadBody(request.contentType, request.raw);
   if (!read.ok) return read.response;
-  const { fileName, bytes, fields } = read.input;
+  const { fileName, fields } = read.input;
+  // a photo tier is stored without its metadata (EXIF/GPS, XMP, comments …), losslessly; fails closed
+  let bytes = read.input.bytes;
+  const photoMime = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 ? 'image/png' : bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff ? 'image/jpeg' : undefined;
+  if (photoMime !== undefined) {
+    const stripped = stripPhotoMetadata(bytes, photoMime, Number.MAX_SAFE_INTEGER);
+    if (stripped === undefined || !stripped.ok) return fail(422, stripped?.reason ?? 'That image could not be read.', 'Nothing was written. Export it again (or as PNG) and retry.');
+    bytes = new Uint8Array(stripped.bytes);
+  }
 
   const widthMm = numberField(fields, 'widthMm');
   const mmPerUnit = numberField(fields, 'mmPerUnit');

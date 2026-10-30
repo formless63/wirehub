@@ -125,7 +125,7 @@ describe('a unit of work', () => {
     const designs = memoryDesigns([A]);
     const deps: WorkbenchDeps = { designs, loadDb: () => DB };
     const broken = structuredClone(A);
-    broken.instances.pcbas.push({ id: 'u9', def: 'no-such-board' });
+    broken.instances.pcbas.push({ id: 'u9', def: 'no-such-board' }, { id: 'u9', def: 'no-such-board' });
     const etag = contentETag(A);
     const out = await handleWorkbenchRequest({ method: 'PUT', path: `/api/designs/${A.id}`, body: broken, headers: { 'if-match': etag } }, deps);
     expect(out.status).toBe(422);

@@ -6,6 +6,7 @@
  * | --------------- | ------------------------------------------------------------------------- |
  * | importer        | `kicad-board`: `.kicad_pcb` / `.net` → a PCBA (terminals, pads, links) and `kicad`-tier art |
  * | importer        | `gerbers`: a Gerber set `.zip` → the board's `gerber`-tier art (top, bottom, anchors) |
+ * | importer        | `board-set`: the board file with its Gerbers, BOM and placement in one bundle (the page's import), or a board's refresh (`update`) |
  * | importer        | `fab-bom`: a BOM / placement `.csv` (or both, `.board-bom.json`) → components and placed parts |
  * | UI route        | `/m/board-import/boards`: the review step — options, column mapping, plan, publish, 3D model |
  *
@@ -22,7 +23,7 @@
 
 import { defineModule } from '@wirehub/modules';
 
-import { fabBomImporter, gerberImporter, kicadBoardImporter } from './importers.ts';
+import { boardSetImporter, fabBomImporter, gerberImporter, kicadBoardImporter } from './importers.ts';
 import { BoardImportPage, MODULE_ID } from './ui.ts';
 
 export { kicadDepiction, anchorsOf, padsOfPcba } from './art.ts';
@@ -32,10 +33,12 @@ export { deriveBoard, isPlaneNet, netLabel } from './derive.ts';
 export type { DeriveOptions, DerivedBoard, TerminalPad } from './derive.ts';
 export { boardShape, gerberDepiction, layerRole, readGerberSet } from './gerber-art.ts';
 export { parseExcellon, plotGerber } from './gerber.ts';
-export { BOARD_BOM_FORMAT, fabBomImporter, gerberImporter, kicadBoardImporter, resolveBoard, sha256Hex } from './importers.ts';
+export { BOARD_BOM_FORMAT, boardSetImporter, fabBomImporter, gerberImporter, kicadBoardImporter, resolveBoard, sha256Hex } from './importers.ts';
 export { parseKicadNetlist, parseKicadPcb } from './kicad.ts';
 export type { BoardSource, FootprintSource, PadSource } from './kicad.ts';
 export { readZip, writeZip } from './zip.ts';
+export { BOARD_SET_FORMAT, importBoardSet, refreshedBoard, terminalChanges } from './set.ts';
+export type { BoardSetBundle, TerminalChanges } from './set.ts';
 export { BoardImportPage, MODULE_ID };
 
 export const boardImport = defineModule({
@@ -43,6 +46,10 @@ export const boardImport = defineModule({
   label: 'Board import (KiCad, Gerber, fab BOM)',
   version: '0.1.0',
   license: 'MIT',
-  importers: [kicadBoardImporter, gerberImporter, fabBomImporter],
+  importers: [kicadBoardImporter, gerberImporter, fabBomImporter, boardSetImporter],
   routes: [{ path: 'boards', label: 'Board import', placement: 'library-import', icon: 'IconTool', component: BoardImportPage }],
+  // a board's KiCad check: the disagreements a person kept (`disagree.ts`), one file per board
+  documents: [{ path: 'data/board-checks/', class: 'report' }],
 });
+export { boardDisagreements, boardWithFileRow, fileRowAction, isUnnamedNet, KICAD_NETS_FORMAT, netText, signalNetContradiction, signalNetUnstated } from './disagree.ts';
+export type { BoardDisagreements, DisagreementKind, DisagreementRow, KicadNets, PadDisagreement } from './disagree.ts';

@@ -18,6 +18,8 @@ export interface EditorSlotContext {
   readOnly: boolean;
   /** Replace the editable draft through the editor history. Absent on immutable document views. */
   onChange?: (design: CableDesign, description?: string) => void;
+  /** the inspector tab showing (`connection`, `part`, `nets`, `issues`, `notes`, `recipe`); inspector slot only */
+  inspectorTab?: string;
 }
 
 /** A file a document exporter produced. */

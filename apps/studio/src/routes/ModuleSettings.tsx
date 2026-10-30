@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { Button, Callout, Checkbox, Chip, Field, HelpTip, Input, Select, Textarea, notify } from '@wirehub/editor-react';
 
 import { runtimeSettingsKey, runtimeSettingsQuery, saveModuleSecret, saveModuleSettings, type ModuleFieldView, type ModuleSettingsView, type RuntimeValue } from '../settings.browser.ts';
+import { localDate } from '../when.ts';
 
 const ABOUT =
   'Credentials and options this module asks for. Secrets are kept encrypted with the hub\u2019s settings key and never shown again; a change applies at once, with no restart. A value the server\u2019s environment sets wins and is shown locked.';
@@ -38,7 +39,7 @@ function Status({ field }: { field: ModuleFieldView }): JSX.Element {
       : field.unreadable === true
         ? 'saved, but this server cannot decrypt it: enter it again'
         : field.status === 'configured'
-          ? `configured${field.setAt === undefined ? '' : ` (${field.setAt.slice(0, 10)})`}`
+          ? `configured${field.setAt === undefined ? '' : ` (${localDate(field.setAt)})`}`
           : field.status === 'missing'
             ? `missing: required${gate}`
             : 'not set';
@@ -70,7 +71,7 @@ function SecretField({ module, field, editable, available, onSaved }: { module: 
   return (
     <div data-testid={`module-secret-${module}-${field.key}`}>
       {editable && !locked && available ? (
-        <Field label={field.label} {...(field.status === undefined ? {} : { meta: <Status field={field} /> })} {...(field.help === '' ? {} : { hint: field.help })}>
+        <Field label={field.label} {...(field.status === undefined ? {} : { meta: <Status field={field} /> })} {...(field.help === '' ? {} : { help: field.help })}>
           <div className="flex gap-2">
             {field.multiline === true ? (
               <Textarea mono value={value} {...(placeholder === undefined ? {} : { placeholder })} onChange={(e) => setValue(e.target.value)} autoComplete="off" spellCheck={false} />
@@ -100,9 +101,8 @@ function SecretField({ module, field, editable, available, onSaved }: { module: 
       ) : (
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2 text-xs font-medium text-dim">
-            {field.label} {field.status === undefined ? null : <Status field={field} />}
+            {field.label} {field.help === '' ? null : <HelpTip label={`About ${field.label}`}>{field.help}</HelpTip>} {field.status === undefined ? null : <Status field={field} />}
           </div>
-          {field.help === '' ? null : <p className="m-0 text-xs text-faint">{field.help}</p>}
         </div>
       )}
     </div>
@@ -113,20 +113,19 @@ function ValueField({ field, value, disabled, set }: { field: ModuleFieldView; v
   const locked = field.source === 'server';
   const shown = locked ? (field.value ?? '') : value;
   const meta = field.status === 'server' || field.status === 'missing' ? <Status field={field} /> : undefined;
-  const hint = field.help === '' ? {} : { hint: field.help };
+  const hint = field.help === '' ? {} : { help: field.help };
   if (field.kind === 'list' && field.options !== undefined) {
     const list = Array.isArray(shown) ? shown : [];
     return (
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2 text-xs font-medium text-dim">
-          {field.label} {meta}
+          {field.label} {field.help === '' ? null : <HelpTip label={`About ${field.label}`}>{field.help}</HelpTip>} {meta}
         </div>
         <div className="flex flex-wrap gap-3" role="group" aria-label={field.label}>
           {field.options.map((option) => (
             <Checkbox key={option} label={option} disabled={disabled || locked} checked={list.includes(option)} onCheckedChange={(on) => set(on ? [...list, option] : list.filter((v) => v !== option))} />
           ))}
         </div>
-        {field.help === '' ? null : <p className="m-0 text-xs text-faint">{field.help}</p>}
       </div>
     );
   }
@@ -213,15 +212,17 @@ function ModuleSection({ section, available, refetch }: { section: ModuleSetting
   );
 }
 
-export function ModuleSettings(): JSX.Element {
+/** Every module's settings, or (`only`) one module's, or (`except`) those of modules not listed elsewhere; `quiet` says nothing when there are none. */
+export function ModuleSettings({ only, except, quiet = false }: { only?: string; except?: readonly string[]; quiet?: boolean } = {}): JSX.Element | null {
   const client = useQueryClient();
   const query = useQuery(runtimeSettingsQuery);
   const refetch = (): void => void client.invalidateQueries({ queryKey: runtimeSettingsKey });
   if (query.isError) return <Callout tone="err">{query.error instanceof Error ? query.error.message : 'The settings could not be read.'}</Callout>;
-  if (query.data === undefined) return <div className="mt-6 text-faint">Loading…</div>;
-  const sections = query.data.modules ?? [];
+  if (query.data === undefined) return quiet ? null : <div className="mt-6 text-faint">Loading…</div>;
+  const sections = (query.data.modules ?? []).filter((s) => (only === undefined || s.module === only) && !(except ?? []).includes(s.module));
+  if (quiet && sections.length === 0) return null;
   return (
-    <div className="flex max-w-xl flex-col gap-8" data-testid="module-settings">
+    <div className="flex max-w-xl flex-col gap-8" data-testid={only === undefined ? 'module-settings' : `module-settings-of-${only}`}>
       {query.data.secrets.available ? null : <Callout tone="warn">{query.data.secrets.note}</Callout>}
       {sections.length === 0 ? <div className="text-faint">No installed module declares settings.</div> : null}
       {sections.map((section) => (

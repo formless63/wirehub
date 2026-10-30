@@ -277,9 +277,12 @@ describe('edit locks in the browser', () => {
     await act(() => first.refresh());
     expect(screen.getByRole('alert').textContent).toContain('Taken over in another tab');
     expect(screen.getByTestId('locked').textContent).toBe('locked');
+    // and this tab can take it back
+    fireEvent.click(screen.getByRole('button', { name: 'Take over here' }));
+    await waitFor(() => expect(first.snapshot().held.has(RECORD)).toBe(true));
   });
 
-  it('two tabs of one browser are two holders: "Open in another tab — Take over here"', async () => {
+  it('two tabs of one browser are two holders, but the other tab never blocks: the first change here takes it over', async () => {
     const storage = memoryStorage();
     const tab1 = person('Sam', storage);
     const tab2 = person('Sam', storage);
@@ -287,8 +290,9 @@ describe('edit locks in the browser', () => {
     await tab1.acquire(RECORD);
     mount(tab2);
     await act(() => tab2.refresh());
-    expect((await screen.findByTestId('edit-lock-banner')).textContent).toContain('Open in another tab');
-    fireEvent.click(screen.getByRole('button', { name: 'Take over here' }));
+    expect(screen.queryByTestId('edit-lock-banner')).toBeNull();
+    expect(screen.getByTestId('locked').textContent).toBe('editable');
+    fireEvent.click(screen.getByRole('button', { name: 'Change' }));
     await waitFor(() => expect(tab2.snapshot().held.has(RECORD)).toBe(true));
   });
 

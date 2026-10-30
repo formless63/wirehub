@@ -361,14 +361,7 @@ export function Pick(props: PickProps): JSX.Element {
                   }
                 />
               </label>
-              <label title="Fixed once added: files refer to the entry by it. Lowercase words joined by hyphens.">
-                <span>Id</span>
-                <input
-                  className="cs-input cs-mono"
-                  value={adding.id}
-                  onChange={(event) => setAdding({ ...adding, id: event.target.value, idTouched: true })}
-                />
-              </label>
+
               {props.list === 'signals' ? (
                 <label title="The family of signal — what a rule with nothing more specific treats it as">
                   <span>Kind</span>

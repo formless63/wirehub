@@ -1530,6 +1530,360 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON studio.user_pref TO studio_app;
 GRANT SELECT ON studio.user_pref TO studio_ro;
 ```
 
+A personal API token may carry a write budget (`docs/mcp.md`): a draft-work grant for an agent
+(`drafts:write`) creates and edits drafts only, for a short time and a bounded number of writes.
+
+```sql ddl
+-- 0025_api_token_budget — a token's write budget (draft-work grants for agents, docs/mcp.md)
+-- A token may cap its real writes: an agent's draft-work grant (`drafts:write`) gets a budget
+-- and a short life. Dry runs and edit-lock leases are not counted; a refused write is given back.
+ALTER TABLE auth.api_token
+  ADD COLUMN write_budget integer CHECK (write_budget IS NULL OR write_budget BETWEEN 1 AND 10000),
+  ADD COLUMN writes_used  integer NOT NULL DEFAULT 0 CHECK (writes_used >= 0);
+```
+
+Native tool-pack runs (`docs/jobs-and-tool-packs.md`): one row per op a pack ran for a record, with exact inputs, pack/image/tool identity, findings and log; outputs are derived blobs.
+
+```sql ddl
+-- 0026_tool_runs — native tool-pack runs and their outputs (docs/jobs-and-tool-packs.md)
+-- One row per op a tool pack ran for a record: the exact source inputs (path + sha256), the
+-- pack, its image id and the tool's own version, the parameters, the findings and the log.
+-- Its outputs are derived blobs (rebuildable from the pinned pack and the source), kept while
+-- a run names them. Not catalog state: no change set, export, audit trigger or git mirror.
+-- job_id has no foreign key: a finished job_run row is swept long before its outputs are.
+CREATE TABLE studio.tool_run (
+  id           uuid PRIMARY KEY DEFAULT uuidv7(),
+  org_id       uuid NOT NULL REFERENCES studio.org,
+  job_id       uuid,
+  record       text NOT NULL CHECK (record ~ '^[a-z]+/[a-z0-9][a-z0-9._-]*$'),
+  identity     jsonb NOT NULL DEFAULT '{}',   -- the record's revision/build when the run was asked for
+  sources      jsonb NOT NULL,                -- [{ role, path, sha256 }]
+  pack         text NOT NULL CHECK (pack ~ '^[a-z0-9][a-z0-9-]*$'),
+  pack_version text NOT NULL,
+  image        text NOT NULL,
+  image_id     text NOT NULL,
+  tool         jsonb NOT NULL,                -- { name, version } as the pack reported it
+  op           text NOT NULL CHECK (op ~ '^[a-z0-9][a-z0-9-]*$'),
+  params       jsonb NOT NULL DEFAULT '{}',
+  status       text NOT NULL CHECK (status IN ('ok', 'failed')),
+  findings     jsonb NOT NULL DEFAULT '[]',
+  log          text CHECK (length(log) <= 200000),
+  duration_ms  integer,
+  created_at   timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX tool_run_record ON studio.tool_run (org_id, record, created_at DESC);
+CREATE TABLE studio.tool_output (
+  org_id     uuid NOT NULL REFERENCES studio.org,
+  run_id     uuid NOT NULL REFERENCES studio.tool_run ON DELETE CASCADE,
+  path       text NOT NULL,
+  role       text NOT NULL,
+  media_type text NOT NULL,
+  size       bigint NOT NULL CHECK (size >= 0),
+  sha256     text NOT NULL CHECK (sha256 ~ '^[0-9a-f]{64}$'),
+  PRIMARY KEY (run_id, path),
+  FOREIGN KEY (org_id, sha256) REFERENCES studio.blob (org_id, sha256) ON DELETE RESTRICT
+);
+CREATE INDEX tool_output_blob ON studio.tool_output (org_id, sha256);
+ALTER TABLE studio.tool_run ENABLE ROW LEVEL SECURITY;
+ALTER TABLE studio.tool_run FORCE ROW LEVEL SECURITY;
+CREATE POLICY org_isolation ON studio.tool_run USING (org_id = studio.current_org()) WITH CHECK (org_id = studio.current_org());
+ALTER TABLE studio.tool_output ENABLE ROW LEVEL SECURITY;
+ALTER TABLE studio.tool_output FORCE ROW LEVEL SECURITY;
+CREATE POLICY org_isolation ON studio.tool_output USING (org_id = studio.current_org()) WITH CHECK (org_id = studio.current_org());
+GRANT SELECT, INSERT, UPDATE, DELETE ON studio.tool_run, studio.tool_output TO studio_app;
+GRANT SELECT ON studio.tool_run, studio.tool_output TO studio_ro;
+```
+
+Notes, decisions and projects (`specs/knowledge.md`) attach photos and files as shared assets; besides
+images and PDFs a note may carry any other file, kept as `application/zip` or opaque
+`application/octet-stream` and only ever served as a download:
+
+```sql ddl
+-- 0027_attachment_assets — notes and projects attach files (specs/knowledge.md)
+-- A note's attachment is a shared asset like a drawing photo: photos (PNG, JPEG), PDFs and, new
+-- here, any other file — a ZIP archive or opaque bytes (application/octet-stream), which the hub
+-- only ever serves as a download. The blob list already allows both types; the asset list gains them.
+-- Nothing else changes: no table, no policy, no trigger. The notes themselves are catalog
+-- documents (data/knowledge/…) in studio.catalog_doc.
+ALTER TABLE studio.asset DROP CONSTRAINT asset_mime_check;
+ALTER TABLE studio.asset ADD CONSTRAINT asset_mime_check CHECK (mime IN ('image/png', 'image/jpeg', 'application/pdf', 'model/gltf-binary', 'model/stl', 'font/ttf', 'font/otf', 'font/woff2', 'application/zip', 'application/octet-stream'));
+```
+
+Workshop inventory (`docs/inventory.md`): locations, lots with balances materialised from an
+append-only ledger, and reservations against a design build. Not catalog data.
+
+```sql ddl
+-- 0028_inventory — workshop inventory (docs/inventory.md, server/inventory/)
+-- Locations (a tree), lots of a library item with their balances materialised from the
+-- ledger, the append-only ledger of movements, and reservations against a design build.
+-- Not catalog tables: no change set, catalog export or git mirror reads them. Quantities are
+-- in the lot's base unit (ea, mm or g). The app may append to the ledger and never change it.
+CREATE TABLE studio.inv_location (
+  org_id      uuid NOT NULL REFERENCES studio.org,
+  id          text NOT NULL CHECK (id ~ '^loc-[0-9a-f]{10}$'),
+  parent_id   text,
+  name        text NOT NULL CHECK (length(name) BETWEEN 1 AND 120),
+  note        text CHECK (length(note) <= 2000),
+  version     integer NOT NULL DEFAULT 1,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (org_id, id),
+  FOREIGN KEY (org_id, parent_id) REFERENCES studio.inv_location (org_id, id)
+);
+
+CREATE TABLE studio.inv_lot (
+  org_id       uuid NOT NULL REFERENCES studio.org,
+  id           text NOT NULL CHECK (id ~ '^lot-[0-9a-f]{10}$'),
+  item_kind    text NOT NULL CHECK (item_kind IN ('connectors', 'wires', 'components', 'pcbas', 'mechanicals', 'designs')),
+  item_id      text NOT NULL CHECK (length(item_id) BETWEEN 1 AND 200),
+  dim          text NOT NULL CHECK (dim IN ('count', 'length', 'mass')),
+  location_id  text NOT NULL,
+  lot_code     text CHECK (length(lot_code) <= 120),
+  supplier     text CHECK (length(supplier) <= 120),
+  supplier_ref text CHECK (length(supplier_ref) <= 120),
+  unit_cost    numeric CHECK (unit_cost >= 0),
+  currency     text CHECK (length(currency) <= 8),
+  note         text CHECK (length(note) <= 2000),
+  parent_lot   text,
+  received_at  timestamptz NOT NULL DEFAULT now(),
+  on_hand      numeric NOT NULL DEFAULT 0 CHECK (on_hand >= 0),
+  reserved     numeric NOT NULL DEFAULT 0 CHECK (reserved >= 0 AND reserved <= on_hand),
+  version      integer NOT NULL DEFAULT 1,
+  PRIMARY KEY (org_id, id),
+  FOREIGN KEY (org_id, location_id) REFERENCES studio.inv_location (org_id, id)
+);
+CREATE INDEX inv_lot_item ON studio.inv_lot (org_id, item_kind, item_id);
+CREATE INDEX inv_lot_location ON studio.inv_lot (org_id, location_id);
+
+CREATE TABLE studio.inv_movement (
+  org_id          uuid NOT NULL REFERENCES studio.org,
+  seq             bigint GENERATED ALWAYS AS IDENTITY,
+  at              timestamptz NOT NULL DEFAULT now(),
+  actor           text NOT NULL CHECK (length(actor) <= 320),
+  kind            text NOT NULL CHECK (kind IN ('receive', 'move', 'split', 'adjust', 'consume', 'return')),
+  lot_id          text NOT NULL,
+  item_kind       text NOT NULL,
+  item_id         text NOT NULL,
+  qty             numeric NOT NULL,
+  on_hand_after   numeric NOT NULL,
+  from_location   text,
+  to_location     text,
+  reason          text CHECK (length(reason) <= 500),
+  reservation_id  text,
+  other_lot       text,
+  note            text CHECK (length(note) <= 2000),
+  PRIMARY KEY (org_id, seq),
+  FOREIGN KEY (org_id, lot_id) REFERENCES studio.inv_lot (org_id, id)
+);
+CREATE INDEX inv_movement_lot ON studio.inv_movement (org_id, lot_id, seq);
+CREATE INDEX inv_movement_item ON studio.inv_movement (org_id, item_kind, item_id, seq);
+CREATE INDEX inv_movement_reservation ON studio.inv_movement (org_id, reservation_id) WHERE reservation_id IS NOT NULL;
+
+CREATE TABLE studio.inv_reservation (
+  org_id      uuid NOT NULL REFERENCES studio.org,
+  id          text NOT NULL CHECK (id ~ '^res-[0-9a-f]{10}$'),
+  design_id   text NOT NULL,
+  design_rev  integer,
+  build_qty   numeric NOT NULL CHECK (build_qty > 0),
+  label       text CHECK (length(label) <= 200),
+  status      text NOT NULL CHECK (status IN ('open', 'closed')),
+  allowance   jsonb NOT NULL,
+  lines       jsonb NOT NULL CHECK (jsonb_typeof(lines) = 'array' AND pg_column_size(lines) <= 1048576),
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  created_by  text NOT NULL,
+  closed_at   timestamptz,
+  version     integer NOT NULL DEFAULT 1,
+  PRIMARY KEY (org_id, id)
+);
+CREATE INDEX inv_reservation_design ON studio.inv_reservation (org_id, design_id, status);
+
+ALTER TABLE studio.inv_location ENABLE ROW LEVEL SECURITY;
+ALTER TABLE studio.inv_location FORCE ROW LEVEL SECURITY;
+CREATE POLICY org_isolation ON studio.inv_location USING (org_id = studio.current_org()) WITH CHECK (org_id = studio.current_org());
+ALTER TABLE studio.inv_lot ENABLE ROW LEVEL SECURITY;
+ALTER TABLE studio.inv_lot FORCE ROW LEVEL SECURITY;
+CREATE POLICY org_isolation ON studio.inv_lot USING (org_id = studio.current_org()) WITH CHECK (org_id = studio.current_org());
+ALTER TABLE studio.inv_movement ENABLE ROW LEVEL SECURITY;
+ALTER TABLE studio.inv_movement FORCE ROW LEVEL SECURITY;
+CREATE POLICY org_isolation ON studio.inv_movement USING (org_id = studio.current_org()) WITH CHECK (org_id = studio.current_org());
+ALTER TABLE studio.inv_reservation ENABLE ROW LEVEL SECURITY;
+ALTER TABLE studio.inv_reservation FORCE ROW LEVEL SECURITY;
+CREATE POLICY org_isolation ON studio.inv_reservation USING (org_id = studio.current_org()) WITH CHECK (org_id = studio.current_org());
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON studio.inv_location, studio.inv_reservation TO studio_app;
+GRANT SELECT, INSERT, UPDATE ON studio.inv_lot TO studio_app;
+-- the ledger is append-only for the app
+GRANT SELECT, INSERT ON studio.inv_movement TO studio_app;
+GRANT SELECT ON studio.inv_location, studio.inv_lot, studio.inv_movement, studio.inv_reservation TO studio_ro;
+```
+
+A generated enclosure (WF-MECH) keeps its solids as STEP beside STL and GLB; both allowed-type lists gain
+`model/step`, and the asset list keeps the note-attachment types from 0027:
+
+```sql ddl
+-- 0029_step_assets — STEP files in the blob and asset tables (WF-MECH)
+-- A generated enclosure keeps its solids as STEP (data/assets/<sha256>.step) beside the STL and
+-- GLB it already could: the two allowed-type lists gain model/step (the asset list keeps 0027's
+-- application/zip and application/octet-stream). Nothing else changes.
+ALTER TABLE studio.blob DROP CONSTRAINT blob_media_type_check;
+ALTER TABLE studio.blob ADD CONSTRAINT blob_media_type_check CHECK (media_type IN ('image/png', 'image/jpeg', 'image/webp', 'image/svg+xml', 'application/pdf',
+                                                   'application/zip', 'model/gltf-binary', 'model/stl', 'model/step', 'font/ttf', 'font/otf', 'font/woff2', 'application/octet-stream'));
+ALTER TABLE studio.asset DROP CONSTRAINT asset_mime_check;
+ALTER TABLE studio.asset ADD CONSTRAINT asset_mime_check CHECK (mime IN ('image/png', 'image/jpeg', 'application/pdf', 'model/gltf-binary', 'model/stl', 'model/step', 'font/ttf', 'font/otf', 'font/woff2', 'application/zip', 'application/octet-stream'));
+```
+
+A running job holds a lease its process renews; a row whose lease ran out (the worker died mid-job)
+is marked `interrupted` by the worker's reconciler instead of reading as running forever:
+
+```sql ddl
+-- 0030_job_leases — a running job's lease, and the interrupted status (docs/jobs-and-tool-packs.md)
+-- The process running a job renews lease_until every 30 s; the worker marks a running row whose
+-- lease ran out (its process died) 'interrupted', so it no longer reads as running forever.
+ALTER TABLE studio.job_run ADD COLUMN lease_until timestamptz;
+ALTER TABLE studio.job_run DROP CONSTRAINT job_run_status_check;
+ALTER TABLE studio.job_run ADD CONSTRAINT job_run_status_check CHECK (status IN ('queued', 'running', 'done', 'failed', 'cancelled', 'interrupted'));
+CREATE INDEX job_run_running ON studio.job_run (org_id, lease_until) WHERE status = 'running';
+```
+
+A print file uploaded for slicing (WF-PRINT) may be a 3MF; both allowed-type lists gain `model/3mf`:
+
+```sql ddl
+-- 0031_3mf_assets — 3MF files in the blob and asset tables (WF-PRINT)
+-- A print file uploaded for slicing may be a 3MF (data/assets/<sha256>.3mf): the two allowed-type
+-- lists gain model/3mf. Nothing else changes.
+ALTER TABLE studio.blob DROP CONSTRAINT blob_media_type_check;
+ALTER TABLE studio.blob ADD CONSTRAINT blob_media_type_check CHECK (media_type IN ('image/png', 'image/jpeg', 'image/webp', 'image/svg+xml', 'application/pdf',
+                                                   'application/zip', 'model/gltf-binary', 'model/stl', 'model/step', 'model/3mf', 'font/ttf', 'font/otf', 'font/woff2', 'application/octet-stream'));
+ALTER TABLE studio.asset DROP CONSTRAINT asset_mime_check;
+ALTER TABLE studio.asset ADD CONSTRAINT asset_mime_check CHECK (mime IN ('image/png', 'image/jpeg', 'application/pdf', 'model/gltf-binary', 'model/stl', 'model/step', 'model/3mf', 'font/ttf', 'font/otf', 'font/woff2', 'application/zip', 'application/octet-stream'));
+```
+
+Made units and print batches (docs/inventory.md): a batch records the good and failed units of a
+design build or a print, with serials, a batch code and what was measured; the ledger gains the
+batch a movement belongs to and an `edit` kind:
+
+```sql ddl
+-- 0032_inventory_batches — made units and print batches, lot detail edits (docs/inventory.md)
+-- A batch records finished units of a design build (against its reservation) or a print of a
+-- mechanical record (against a manufacturing variant): good and failed units, serials, a batch
+-- code and what was measured. Like the ledger it is written once: the app may insert and read.
+-- The ledger gains the batch a movement belongs to and an `edit` kind (a lot's code, supplier,
+-- cost or note changed; quantity 0). A reservation counts the units finished against it.
+ALTER TABLE studio.inv_movement DROP CONSTRAINT inv_movement_kind_check;
+ALTER TABLE studio.inv_movement ADD CONSTRAINT inv_movement_kind_check CHECK (kind IN ('receive', 'move', 'split', 'adjust', 'consume', 'return', 'edit'));
+ALTER TABLE studio.inv_movement ADD COLUMN batch_id text;
+ALTER TABLE studio.inv_reservation ADD COLUMN units_done numeric NOT NULL DEFAULT 0 CHECK (units_done >= 0);
+
+CREATE TABLE studio.inv_batch (
+  org_id          uuid NOT NULL REFERENCES studio.org,
+  id              text NOT NULL CHECK (id ~ '^bat-[0-9a-f]{10}$'),
+  item_kind       text NOT NULL CHECK (item_kind IN ('connectors', 'wires', 'components', 'pcbas', 'mechanicals', 'designs')),
+  item_id         text NOT NULL CHECK (length(item_id) BETWEEN 1 AND 200),
+  design_rev      integer,
+  reservation_id  text,
+  variant         text CHECK (length(variant) <= 64),
+  units           numeric NOT NULL CHECK (units >= 0),
+  failed          numeric NOT NULL DEFAULT 0 CHECK (failed >= 0),
+  batch_code      text CHECK (length(batch_code) <= 120),
+  serials         text[] NOT NULL DEFAULT '{}' CHECK (cardinality(serials) <= 10000),
+  measured        jsonb NOT NULL DEFAULT '{}' CHECK (jsonb_typeof(measured) = 'object'),
+  output_lot      text,
+  note            text CHECK (length(note) <= 2000),
+  at              timestamptz NOT NULL DEFAULT now(),
+  actor           text NOT NULL CHECK (length(actor) <= 320),
+  PRIMARY KEY (org_id, id),
+  CHECK (units + failed > 0),
+  FOREIGN KEY (org_id, reservation_id) REFERENCES studio.inv_reservation (org_id, id),
+  FOREIGN KEY (org_id, output_lot) REFERENCES studio.inv_lot (org_id, id)
+);
+CREATE INDEX inv_batch_item ON studio.inv_batch (org_id, item_kind, item_id, at);
+CREATE INDEX inv_batch_reservation ON studio.inv_batch (org_id, reservation_id) WHERE reservation_id IS NOT NULL;
+CREATE INDEX inv_movement_batch ON studio.inv_movement (org_id, batch_id) WHERE batch_id IS NOT NULL;
+
+ALTER TABLE studio.inv_batch ENABLE ROW LEVEL SECURITY;
+ALTER TABLE studio.inv_batch FORCE ROW LEVEL SECURITY;
+CREATE POLICY org_isolation ON studio.inv_batch USING (org_id = studio.current_org()) WITH CHECK (org_id = studio.current_org());
+
+-- written once, like the ledger
+GRANT SELECT, INSERT ON studio.inv_batch TO studio_app;
+GRANT SELECT ON studio.inv_batch TO studio_ro;
+```
+
+Resin is stocked by volume (WF-PRINT): a lot may be counted in `ml` beside count, length and mass:
+
+```sql ddl
+-- 0033_inventory_volume — lots counted by volume (resin, in ml), beside count, length and mass.
+ALTER TABLE studio.inv_lot DROP CONSTRAINT inv_lot_dim_check;
+ALTER TABLE studio.inv_lot ADD CONSTRAINT inv_lot_dim_check CHECK (dim IN ('count', 'length', 'mass', 'volume'));
+```
+
+Test results against built units (docs/inventory.md, Units and test results): continuity or bench,
+pass or fail, written once, with the coverage fingerprint staleness is read against:
+
+```sql ddl
+-- 0034_unit_tests — test results recorded against built units (docs/inventory.md, Units and test results)
+-- A built unit is one good unit of a design batch: `<batch id>.<n>`. A result (continuity or
+-- bench, pass or fail) is written once and never changed; a re-test is a new row. `coverage` is
+-- the fingerprint of what the test covered at the design state the unit was built to, so
+-- staleness is worked out on read against the design's latest saved version.
+CREATE TABLE studio.inv_unit_test (
+  org_id      uuid NOT NULL REFERENCES studio.org,
+  id          text NOT NULL CHECK (id ~ '^ut-[0-9a-f]{10}$'),
+  unit_id     text NOT NULL CHECK (unit_id ~ '^bat-[0-9a-f]{10}\.[1-9][0-9]{0,4}$'),
+  design_id   text NOT NULL CHECK (length(design_id) BETWEEN 1 AND 200),
+  kind        text NOT NULL CHECK (kind IN ('continuity', 'bench')),
+  result      text NOT NULL CHECK (result IN ('pass', 'fail')),
+  note        text CHECK (length(note) <= 2000),
+  coverage    jsonb CHECK (coverage IS NULL OR jsonb_typeof(coverage) = 'object'),
+  at          timestamptz NOT NULL DEFAULT now(),
+  actor       text NOT NULL CHECK (length(actor) <= 320),
+  PRIMARY KEY (org_id, id)
+);
+CREATE INDEX inv_unit_test_unit ON studio.inv_unit_test (org_id, unit_id, at);
+CREATE INDEX inv_unit_test_design ON studio.inv_unit_test (org_id, design_id, at);
+
+ALTER TABLE studio.inv_unit_test ENABLE ROW LEVEL SECURITY;
+ALTER TABLE studio.inv_unit_test FORCE ROW LEVEL SECURITY;
+CREATE POLICY org_isolation ON studio.inv_unit_test USING (org_id = studio.current_org()) WITH CHECK (org_id = studio.current_org());
+
+-- written once, like the ledger
+GRANT SELECT, INSERT ON studio.inv_unit_test TO studio_app;
+GRANT SELECT ON studio.inv_unit_test TO studio_ro;
+```
+
+Dated supplier offers: what a supplier asked for an item on a day, each part of the
+price optional; they feed only the optional cost roll-up and pack counts of a build:
+
+```sql ddl
+-- 0035_inventory_offers — dated supplier offers per library item (server/sourcing/offers.ts).
+-- Optional sourcing facts beside the inventory, never catalog data: the price, its currency and the
+-- pack may each be unknown. An offer is written once; a newer price is a newer row.
+CREATE TABLE studio.inv_offer (
+  org_id        uuid NOT NULL REFERENCES studio.org,
+  id            text NOT NULL CHECK (id ~ '^off-[0-9a-f]{10}$'),
+  item_kind     text NOT NULL CHECK (item_kind IN ('connectors', 'wires', 'components', 'pcbas', 'mechanicals', 'designs')),
+  item_id       text NOT NULL CHECK (length(item_id) BETWEEN 1 AND 200),
+  supplier      text NOT NULL CHECK (length(supplier) BETWEEN 1 AND 120),
+  supplier_ref  text CHECK (length(supplier_ref) <= 120),
+  offered_on    date NOT NULL,
+  price         numeric CHECK (price >= 0),
+  currency      text CHECK (currency ~ '^[A-Z]{3}$'),
+  unit          text NOT NULL CHECK (length(unit) BETWEEN 1 AND 8),
+  pack          numeric CHECK (pack > 0),
+  note          text CHECK (length(note) <= 2000),
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  created_by    text NOT NULL CHECK (length(created_by) <= 320),
+  PRIMARY KEY (org_id, id)
+);
+CREATE INDEX inv_offer_item ON studio.inv_offer (org_id, item_kind, item_id, offered_on DESC);
+
+ALTER TABLE studio.inv_offer ENABLE ROW LEVEL SECURITY;
+ALTER TABLE studio.inv_offer FORCE ROW LEVEL SECURITY;
+CREATE POLICY org_isolation ON studio.inv_offer USING (org_id = studio.current_org()) WITH CHECK (org_id = studio.current_org());
+
+GRANT SELECT, INSERT, DELETE ON studio.inv_offer TO studio_app;
+GRANT SELECT ON studio.inv_offer TO studio_ro;
+```
+
 ---
 
 ## 4. PgStore
@@ -1665,7 +2019,14 @@ way the request authenticates is new.
 - **Scopes** narrow what the person may do; they never widen it. `read` is always
   included. `catalog:write` covers every write route of the GUI and `POST /api/batch`;
   `imports` starts and publishes import jobs and writes imported docs (below); modules
-  declare their own scopes (`<module>:<scope>`) for their routes. At each request the
+  declare their own scopes (`<module>:<scope>`) for their routes. `drafts:write` is a
+  **draft-work grant** for an agent: it creates and edits working designs and library items
+  (and runs jobs, takes lock leases) but never deletes, renames, saves or releases a version,
+  publishes or changes settings; a batch from it holds only such writes. Any token may carry a
+  **write budget** (`write_budget`, migration 0025): each real write spends one, a batch one per
+  request, dry runs and lock leases nothing, a refused write is given back; a spent budget
+  answers 403. A short grant may last 1 or 8 hours. The MCP endpoint `/api/mcp` (`docs/mcp.md`)
+  needs `read`; its tools' requests are checked as themselves. At each request the
   effective rights are the token's scopes **and** the person's current role: a `viewer`'s
   token can only read, and a person removed from the org has no working tokens.
 - **Never through a token:** creating, listing or revoking tokens, lock take-overs (a

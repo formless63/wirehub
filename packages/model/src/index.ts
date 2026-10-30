@@ -9,12 +9,19 @@
  */
 
 export * from './model.ts';
+export { DESIGN_TAG, MAX_DESIGN_TAGS, cleanTags, isDesignTag, retagDesign, withDesignTags } from './design-tags.ts';
 export { AMPACITY_SRC, DEFAULT_AMPACITY, DEFAULT_ELECTRICAL_RULES, ampacityOfArea, electricalIssues, designElectricalProblems, electricalReport, electricalRulesProblems } from './electrical.ts';
 export type { AmpacityRow, ContactRow, DbRules, DesignElectrical, ElectricalReport, ElectricalRow, ElectricalRules } from './electrical.ts';
 export { costIssues, costingRulesProblems, costUnit, isCurrencyCode, unitPriceAt } from './cost.ts';
 export type { CostingRules, PartCost, PriceBreak } from './cost.ts';
+export { MASS_MAX, MASS_UNIT_GRAMS, PER_LENGTH_METRES, effectivePieceMass, formatGrams, formatMassValue, fromGrams, massIssues, roundMass, toGrams, toGramsPerMetre, wireMassPerMetre } from './mass.ts';
+export type { MassBound, MassMissing, MassUnit, MassValue, PerLengthUnit, PieceKind, RecordMass, RecordMassPerLength } from './mass.ts';
 export { PARAMETRIC_PARAMS, PARAMETRIC_SHAPES, isParametricAssetId, isParametricShape, parametricAssetId, parametricProblems } from './parametric.ts';
 export type { ParametricShape, ParametricSpec } from './parametric.ts';
+export { ENCLOSURE_DEFAULTS, ENCLOSURE_EDGES, FACT_BASES, enclosureProblems } from './enclosure.ts';
+export { DEVICE_ANCHORS, IDENTITY as DEVICE_IDENTITY, deviceLayoutProblems, deviceParts, deviceScene, enclosureAnchors, nodesOfInstances, openingFrame, polylineLength } from './device.ts';
+export type { DeviceAnchor, DeviceEnclosureResult, DeviceFinding, DeviceLayout, DevicePart, DevicePlacement, DevicePortRow, DeviceRoute, DeviceRouteEnd, DeviceScene, DeviceSceneInput, Mat4 as DeviceMat4, SceneNode as DeviceSceneNode, SceneNodeKind as DeviceSceneNodeKind, Vec3 as DeviceVec3 } from './device.ts';
+export type { EnclosureBoard, EnclosureEdge, EnclosureFact, EnclosureOccurrence, EnclosureOpening, EnclosureParams, EnclosurePort, EnclosureSpec, FactBasis } from './enclosure.ts';
 export { PROVENANCE_METHODS, isSourceUrl, isSpdxLike, recordMetaIssues } from './provenance.ts';
 export type { DerivedFrom, ProvenanceMethod, ProvenanceReview, ProvenanceSource, RecordMeta, RecordProvenance, VendorDoc } from './provenance.ts';
 export {
@@ -106,8 +113,12 @@ export {
   screenTerminations,
   isFoilPath,
   isTrimmedFoil,
+  stockScreens,
+  drainCutAt,
+  pigtailLandedScreens,
+  massWords,
 } from './bonds.ts';
-export type { ScreenTermination } from './bonds.ts';
+export type { ScreenTermination, StockScreens } from './bonds.ts';
 export {
   SIGNAL_KINDS,
   VOCAB_LIST_IDS,
@@ -141,7 +152,9 @@ export type {
   VocabMatch,
   WireTags,
 } from './vocab.ts';
-export { colourCodeOf, kindOfSignal, laneOfPadRole, signalOf } from './signals.ts';
+export { colourCodeOf, kindOfSignal, laneOfPadRole, laneSourceOf, signalOf } from './signals.ts';
+export { hasOwnWords, readConductor, readsAsRail, withoutColourWords } from './conductor-reading.ts';
+export type { ConductorBasis, ConductorReading } from './conductor-reading.ts';
 export {
   CHASSIS_SIGNAL,
   GROUND_SIGNAL,
@@ -151,6 +164,7 @@ export {
   readSignalWords,
   returnOf,
   signalOfLane,
+  voltageOfSignal,
 } from './signal-words.ts';
 export type { TerminalTags } from './signals.ts';
 export {
@@ -214,7 +228,7 @@ export type {
   InterfaceLibrary,
   PinFunction,
 } from './interfaces.ts';
-export { boardBuildsKey, buildPopulation, carrierRoute, definitionsOfBuild, validateBoardBuilds } from './builds.ts';
+export { boardBuildsKey, buildPopulation, carrierRoute, definitionsOfBuild, oneBoardPerFork, validateBoardBuilds } from './builds.ts';
 // ---- board parts: what is placed on each PCBA, as component records ----
 export {
   boardBuildOf,
@@ -273,7 +287,7 @@ export { KIT_PART_KINDS, KIT_SKU, findKit, kitCoverage, kitPartExists, kitPartLa
 export type { KitCoverage, KitDefinition, KitLine, KitPartKind, PartRef } from './kits.ts';
 export { definitionUsage, usageCounts } from './usage.ts';
 export type { DefinitionUse, UsageKind } from './usage.ts';
-export { connectorMountingOfInstance, connectorMountingUsage } from './connector-mounting.ts';
+export { connectorMountingOfInstance, connectorMountingUsage, integratedConnectorDuplicates } from './connector-mounting.ts';
 export type { ConnectorMounting, ConnectorMountingUsage, MountingDesign } from './connector-mounting.ts';
 
 // ---- design bodies and the override patch language ----
@@ -300,7 +314,7 @@ export type {
 } from './body.ts';
 export { proposeKnownJoints } from './connect-known.ts';
 export type { AmbiguousLanding, ConnectPlan, JointProposal, ProposalKind } from './connect-known.ts';
-export { duplicatesOf, holdersOfNumber, partNumberHolders, partNumberReport, pnDuplicateIssues } from './part-number-health.ts';
+export { duplicatesOf, holdersOfNumber, partNumberHolders, partNumberReport, pnDuplicateIssues, pnRevisionKey } from './part-number-health.ts';
 export type { PartNumberReport, PnDisagreement, PnDrawings, PnDuplicate, PnFormatFinding, PnHolder, PnUnnumbered } from './part-number-health.ts';
 export {
   DEFAULT_PART_NUMBER_SCHEME,
@@ -334,6 +348,9 @@ export type {
 export {
   DESIGN_VERSION_FORMAT,
   DESIGN_VERSION_FORMAT_V1,
+  EFFECTIVE_INPUTS_FORMAT,
+  UNCAPTURABLE_CODES,
+  versionIntegrityIssues,
   approvalStepProblem,
   approveVersion,
   artworkBlobName,
@@ -343,6 +360,7 @@ export {
   workingDiffers,
   diffIsEmpty,
   designChangeLines,
+  designChangeSummary,
   diffLines,
   diffVersions,
   editVersion,
@@ -358,6 +376,7 @@ export {
   submitVersion,
   unlockVersion,
   validateVersion,
+  devicePinAt,
   versionArtwork,
   versionDb,
   versionSummary,
@@ -367,6 +386,11 @@ export type {
   ArtworkFiles,
   DesignDiff,
   DesignVersionFile,
+  DeviceVersionPins,
+  PinnedEnclosureRun,
+  EffectiveInput,
+  EffectiveInputKind,
+  EffectiveInputs,
   FrozenDefinitions,
   InstanceChange,
   NewVersionInput,
@@ -487,6 +511,7 @@ export {
   flattenSubassemblies,
   hasSubassemblies,
   parseSubassemblyPortId,
+  openPlaced,
   pinSubassemblies,
   placedDesign,
   placedDesignIds,
@@ -519,8 +544,27 @@ export {
   ruleIssuesForLibrary,
   ruleListProblems,
   ruleProblems,
+  matchingSubjects,
+  selectorProblems,
 } from './rules.ts';
-export type { Aggregated, Condition, Literal, Operand, Quantified, RuleSubject, ValidationRule } from './rules.ts';
+export type { Aggregated, Condition, Literal, Operand, Quantified, RuleSelector, RuleSubject, ValidationRule } from './rules.ts';
+export {
+  MAX_DECLARED_PROCESSES,
+  MAX_DERIVE_PER_PROCESS,
+  MAX_PROCESSES,
+  MAX_PROCESS_MATCHES,
+  MAX_PROCESS_NOTE,
+  PROCESS_LIMITS,
+  captureProcesses,
+  declaredProcessIssues,
+  declaredProcessProblems,
+  processLibraryIssues,
+  processListProblems,
+  processProblems,
+  processesInForce,
+  requiredProcesses,
+} from './processes.ts';
+export type { DeclaredProcess, ProcessDefinition, ProcessDerive, ProcessMatch, ProcessSubject, RequiredProcess } from './processes.ts';
 
 // ---- bench build sheet types and the work-instruction hook ----
 export { benchRuleProblems, benchRulesProvider } from './bench-types.ts';
@@ -600,8 +644,29 @@ export {
   saveRecordRevision,
 } from './record-revisions.ts';
 export type { ExternalRevision, NewRevisionInput, RecordRevision, RecordRevisionFile, RevisionArt, RevisionKind, RevisionUse, RevisionWhereUsed } from './record-revisions.ts';
+export { ADOPT_KINDS, adoptImpact, adoptRevision, compareRevisions, impactNeedsLook, impactSummary, isAdoptKind, newerRevisionsInDesign, newestRevision, olderRevisions, placesRecord, revisionFamily } from './revision-adopt.ts';
+export type { AdoptImpact, AdoptKind, LostLanding, RevisionSibling, TerminalName } from './revision-adopt.ts';
+export { adoptSubassemblyRevision, newerReleasedRevision, newerSubassemblyRevisions, subassemblyAdoptImpact, subassemblyImpactSummary } from './subassembly-adopt.ts';
+export type { PortName, SubassemblyAdoptImpact } from './subassembly-adopt.ts';
 
 // ---- board and adapter proposals from resolver gaps ----
 export { openProposals, proposalPcba, proposalProblems, proposeBoards } from './proposals.ts';
 export type { BoardProposal, ProposalDecision, ProposalState, ProposedNet, ProposedPart } from './proposals.ts';
 export * from './names.ts';
+export { isSupplyNet, traceConductor } from './board-trace.ts';
+export type {
+  BoardAnchor,
+  BoardTraceView,
+  ConductorTrace,
+  HopCarrier,
+  HopKind,
+  TraceFinding,
+  TraceFindingKind,
+  TraceHop,
+  TracedEnd,
+} from './board-trace.ts';
+export { INTEGRITY_CODES, findingCounts, integrityIssues, isIntegrityIssue, savedWithFindings } from './save-policy.ts';
+
+// ---- solution exploration over the resolver, stocks, plugs, firmware and enclosure presets ----
+export { BUILT_IN_PRESETS, availabilityOf, boardFacts, explore, overrideProblems, pickConnect, pickEnclose, presetsInForce, requirementKey, requirementProblems, swapPlugs } from './explore.ts';
+export type { BomLine, ChoiceDim, Combo, ComboChoice, ConnectRequirement, EncloseRequirement, EnclosurePreset, Exploration, ExploreContext, ExploreOverride, FirmwareCandidate, FirmwareTargetRef, NativeBoardFacts, OverrideKind, PrinterCandidate, Requirement, UnknownFact, Verdict } from './explore.ts';

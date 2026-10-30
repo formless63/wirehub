@@ -41,6 +41,7 @@ import { sortLinks, type ModelLink, type ModelLinkStore } from '../models/links.
 import type { DepictionStore } from '../depictions.ts';
 import { isCatalogFilePath, isDocPath, type CatalogFileStore, type DocStore } from './doc-store.ts';
 import { StaleRecordError, type ChangeSet, type CommitResult, type DerivedKind, type RecordChange, type RecordKind } from './change-set.ts';
+import { refuseAppendOnlyRewrites } from './append-only.ts';
 
 const ref = (kind: RecordKind, key: string): string => `${kind}\u0000${key}`;
 const clone = <T>(value: T): T => structuredClone(value);
@@ -95,7 +96,7 @@ export class UnitOfWork {
     if (base.versions !== undefined) staged.versions = this.versions(base.versions);
     if (base.modelLinks !== undefined) staged.modelLinks = this.modelLinks(base.modelLinks);
     if (base.docs !== undefined) staged.docs = this.docs(base.docs);
-    if (base.files !== undefined) staged.files = this.files();
+    if (base.files !== undefined) staged.files = this.files(base.files);
     if (base.depictions !== undefined) staged.depictions = this.depictions(base.depictions, staged.docs);
     this.deps = staged;
   }
@@ -226,9 +227,10 @@ export class UnitOfWork {
         const rows = await base.list();
         const ids = new Set(rows.map((r) => r.id));
         for (const [id, c] of this.stagedKeys('asset')) if (c.op === 'put' && !ids.has(id)) rows.push(c.value as AssetSummary);
-        return rows;
+        const dropped = new Set([...this.stagedKeys('asset')].filter(([, c]) => c.op === 'delete').map(([id]) => id));
+        return dropped.size === 0 ? rows : rows.filter((r) => !dropped.has(r.id));
       },
-      get: async (id) => stagedAsset(id) ?? (await base.get(id)),
+      get: async (id) => (this.latest('asset', id)?.op === 'delete' ? undefined : stagedAsset(id) ?? (await base.get(id))),
       put: async (bytes, mime: AssetMime, originalName, src) => {
         const id = createHash('sha256').update(bytes).digest('hex');
         const existing = stagedAsset(id)?.record ?? (await base.get(id))?.record;
@@ -237,6 +239,15 @@ export class UnitOfWork {
         this.stage({ kind: 'asset', key: id, op: 'put', value: record, bytes: new Uint8Array(bytes) });
         return record;
       },
+      // staged like any change: the commit drops the entry (and on Postgres the row, which GC then sweeps)
+      ...(base.remove === undefined ? {} : {
+        remove: async (ids: readonly string[]) => {
+          const listed = new Set((await base.list()).map((r) => r.id));
+          const gone = ids.filter((id) => listed.has(id) && this.latest('asset', id)?.op !== 'delete');
+          for (const id of gone) this.stage({ kind: 'asset', key: id, op: 'delete' });
+          return gone;
+        },
+      }),
     };
   }
 
@@ -343,8 +354,22 @@ export class UnitOfWork {
     };
   }
 
-  private files(): CatalogFileStore {
+  private files(base: CatalogFileStore): CatalogFileStore {
     return {
+      // what this unit staged, else the store's
+      ...(base.read === undefined ? {} : {
+        read: async (path: string) => {
+          const c = this.latest('catalog-file', path);
+          if (c !== undefined) return c.op === 'put' ? new Uint8Array(c.bytes as Uint8Array) : undefined;
+          return base.read!(path);
+        },
+      }),
+      ...(base.has === undefined ? {} : {
+        has: async (path: string) => {
+          const c = this.latest('catalog-file', path);
+          return c !== undefined ? c.op === 'put' : base.has!(path);
+        },
+      }),
       write: (path, bytes) => {
         if (!isCatalogFilePath(path)) throw new Error(`'${path}' is not a catalog file path`);
         this.stage({ kind: 'catalog-file', key: path, op: 'put', bytes: new Uint8Array(bytes) });
@@ -622,6 +647,7 @@ export class UnitOfWork {
   async commit(context: ChangeSet['context']): Promise<CommitResult> {
     if (this.changes.length === 0 && this.derive.size === 0) return { applied: 0, derived: [] };
     const set: ChangeSet = { changes: this.changes, context };
+    await refuseAppendOnlyRewrites(this.base, this.changes);
     // a backend that commits in its own transaction (Postgres) brings `commit`; the file stores apply through themselves
     const result = this.base.commit !== undefined ? await this.base.commit(set, this.derive) : await commitChangeSet(this.base, set, this.derive);
     // what follows a commit (a model build to queue) never fails the request that made it
@@ -738,6 +764,12 @@ async function apply(base: WorkbenchDeps, change: RecordChange): Promise<void> {
       await need(base.definitions).write(key as DefinitionKind, change.value as DefinitionRecord[]);
       return;
     case 'asset': {
+      if (op === 'delete') {
+        const store = need(base.assets);
+        if (store.remove === undefined) throw new Error('this host cannot remove assets');
+        await store.remove([key]);
+        return;
+      }
       const summary = change.value as AssetSummary;
       await need(base.assets).put(Buffer.from(change.bytes as Uint8Array), summary.mime, summary.originalName, summary.src);
       return;

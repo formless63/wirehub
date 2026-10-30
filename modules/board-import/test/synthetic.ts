@@ -315,3 +315,99 @@ export const CPL_CSV = ['Designator,Mid X,Mid Y,Layer,Rotation', 'R1,15mm,-7.5mm
 
 /** A BOM with headers nobody's tool writes: the review step maps them. */
 export const ODD_BOM_CSV = ['Board parts list, synthetic', '', 'Where;What;Shape;Maker PN', 'R1;120;R_0603_1608Metric;RC-0603-120R', 'R2;1k;R_0603_1608Metric;RC-0603-1K', ''].join('\n');
+
+/* ------------------------------------------------------------------ *
+ * The schematic (KiCad 8+ `.kicad_sch`), for the disagreement check: the
+ * same parts and nets as the board, except where `SCHEMATIC_DIFFERS` says —
+ * J1 pin 3 on its own SHIELD net (the board ties it to GND), C2 never drawn,
+ * and a SENSE test point (TP7) the board does not have. Labels sit on the
+ * pin ends; the R2–C1 net is a wire with no name.
+ * ------------------------------------------------------------------ */
+
+export const SCHEMATIC_DIFFERS = { 'J1.3': '/SHIELD', omitted: ['C2'], added: { ref: 'TP7', value: 'SENSE', net: '/SENSE' } } as const;
+
+const uuid = (n: number): string => `00000000-0000-4000-8000-${n.toString(16).padStart(12, '0')}`;
+
+export function kicadSch(): string {
+  let n = 1;
+  const root = uuid(n++);
+  const font = '(effects (font (size 1.27 1.27)))';
+  const hidden = '(effects (font (size 1.27 1.27)) (hide yes))';
+  // one generic symbol per pin count; pins on the left edge, 2.54 mm apart, ends at x = -5.08
+  const symbolOf = (pins: number): string => `synthetic:P${pins}`;
+  const libSymbol = (pins: number): string =>
+    [
+      `(symbol ${q(symbolOf(pins))} (pin_names (offset 1.016)) (exclude_from_sim no) (in_bom yes) (on_board yes)`,
+      `  (property "Reference" "X" (at 0 2.54 0) ${font})`,
+      `  (property "Value" "P${pins}" (at 0 ${-2.54 * pins} 0) ${font})`,
+      `  (property "Footprint" "" (at 0 0 0) ${hidden})`,
+      `  (property "Datasheet" "" (at 0 0 0) ${hidden})`,
+      `  (symbol "P${pins}_0_1" (rectangle (start -2.54 1.27) (end 2.54 ${-2.54 * pins + 1.27}) (stroke (width 0.254) (type default)) (fill (type none))))`,
+      `  (symbol "P${pins}_1_1"`,
+      ...Array.from({ length: pins }, (_, i) => `    (pin passive line (at -5.08 ${-2.54 * i} 0) (length 2.54) (name "${i + 1}" ${font}) (number "${i + 1}" ${font}))`),
+      '  )',
+      ')',
+    ].join('\n');
+  const parts: { ref: string; value: string; lib: string; pins: string[] }[] = FOOTPRINTS.filter((fp) => !(SCHEMATIC_DIFFERS.omitted as readonly string[]).includes(fp.ref)).map((fp) => ({
+    ref: fp.ref,
+    value: fp.value,
+    lib: fp.lib,
+    pins: fp.pads.map((p) => (fp.ref === 'J1' && p.number === '3' ? SCHEMATIC_DIFFERS['J1.3'] : p.net)),
+  }));
+  parts.push({ ref: SCHEMATIC_DIFFERS.added.ref, value: SCHEMATIC_DIFFERS.added.value, lib: 'TestPoint:TestPoint_Pad_1.5x1.5mm', pins: [SCHEMATIC_DIFFERS.added.net] });
+  const counts = [...new Set(parts.map((p) => p.pins.length))].sort();
+  const body: string[] = [];
+  const wires: [number, number][] = [];
+  parts.forEach((part, i) => {
+    const sx = 50.8 + (i % 4) * 30.48;
+    const sy = 50.8 + Math.floor(i / 4) * 20.32;
+    body.push(
+      [
+        `(symbol (lib_id ${q(symbolOf(part.pins.length))}) (at ${sx} ${sy} 0) (unit 1) (exclude_from_sim no) (in_bom yes) (on_board yes) (dnp no) (uuid ${q(uuid(n++))})`,
+        `  (property "Reference" ${q(part.ref)} (at ${sx} ${sy - 3.81} 0) ${font})`,
+        `  (property "Value" ${q(part.value)} (at ${sx} ${sy + 2.54 * part.pins.length} 0) ${font})`,
+        `  (property "Footprint" ${q(part.lib)} (at ${sx} ${sy} 0) ${hidden})`,
+        `  (property "Datasheet" "" (at ${sx} ${sy} 0) ${hidden})`,
+        ...part.pins.map((_, k) => `  (pin "${k + 1}" (uuid ${q(uuid(n++))}))`),
+        `  (instances (project "${BOARD_NAME}" (path "/${root}" (reference ${q(part.ref)}) (unit 1))))`,
+        ')',
+      ].join('\n'),
+    );
+    part.pins.forEach((net, k) => {
+      // the pin end: symbol y grows down on the sheet, the library's y up
+      const x = Math.round((sx - 5.08) * 100) / 100;
+      const y = Math.round((sy + 2.54 * k) * 100) / 100;
+      if (net.startsWith('Net-(')) {
+        wires.push([x, y]);
+        return;
+      }
+      body.push(
+        net.startsWith('/')
+          ? `(label ${q(net.slice(1))} (at ${x} ${y} 180) ${font} (uuid ${q(uuid(n++))}))`
+          : `(global_label ${q(net)} (shape passive) (at ${x} ${y} 180) ${font} (uuid ${q(uuid(n++))}))`,
+      );
+    });
+  });
+  // the unnamed net: wires joining its pin ends, around the parts (a step left, down below the sheet's parts, across, up)
+  const below = 50.8 + Math.ceil(parts.length / 4) * 20.32;
+  const segment = (a: [number, number], b: [number, number]): string => `(wire (pts (xy ${a[0]} ${a[1]}) (xy ${b[0]} ${b[1]})) (stroke (width 0) (type default)) (uuid ${q(uuid(n++))}))`;
+  for (let i = 1; i < wires.length; i++) {
+    const [a, b] = [wires[i - 1]!, wires[i]!];
+    const ax = Math.round((a[0] - 1.27) * 100) / 100;
+    const bx = Math.round((b[0] - 1.27) * 100) / 100;
+    body.push(segment(a, [ax, a[1]]), segment([ax, a[1]], [ax, below]), segment([ax, below], [bx, below]), segment([bx, below], [bx, b[1]]), segment([bx, b[1]], b));
+  }
+  return [
+    '(kicad_sch (version 20231120) (generator "eeschema") (generator_version "8.0")',
+    `(uuid ${q(root)})`,
+    '(paper "A4")',
+    '(title_block (title "Synthetic adapter") (rev "2") (company "Example Shop"))',
+    '(lib_symbols',
+    ...counts.map(libSymbol),
+    ')',
+    ...body,
+    '(sheet_instances (path "/" (page "1")))',
+    ')',
+    '',
+  ].join('\n');
+}

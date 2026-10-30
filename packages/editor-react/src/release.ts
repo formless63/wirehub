@@ -9,7 +9,7 @@
  */
 
 import type { CableDesign, Db } from '@wirehub/model';
-import type { RevisionRow } from '@wirehub/docs';
+import type { PrintedApproval, RevisionRow } from '@wirehub/docs';
 import type { DepictionSource } from '@wirehub/render-svg';
 
 /** What the editor has open: the working copy, or one saved revision. */
@@ -27,6 +27,12 @@ export interface DocumentRelease {
    * a saved revision's design, resolved against its frozen definitions, and
    * the artwork it was saved with (absent: the page's own depictions)
    */
+  /**
+   * With release approvals on: a saved revision's approval (absent inside:
+   * not submitted), so the preview prints RELEASED / UNAPPROVED the way the
+   * server render does. Absent: approvals are off.
+   */
+  approvals?: (rev: number) => { approval?: PrintedApproval } | undefined;
   load: (rev: number) => Promise<{ design: CableDesign; db: Db; depictions?: DepictionSource } | undefined>;
 }
 

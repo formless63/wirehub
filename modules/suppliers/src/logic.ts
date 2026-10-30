@@ -51,6 +51,30 @@ export function quoteImportFile(record: { kind: string; id: string }, offer: Sup
   return { fileName: 'selected.supplier-quote.json', body: JSON.stringify({ format: 'wirehub.supplier-quote', version: 1, record, offer, quantity: request.quantity }, null, 2) + '\n' };
 }
 
+const SUPPLIER_LABEL: Record<string, string> = { mouser: 'Mouser', digikey: 'DigiKey', lcsc: 'LCSC' };
+
+/**
+ * A quote as the body of the host's dated supplier offer (`POST /api/inventory/offers`): the price
+ * at the requested quantity, per piece or metre, the order multiple as its pack. Nothing for an
+ * unpriced quote or one whose purchasing unit is unconfirmed.
+ */
+export function inventoryOffer(record: { kind: string; id: string }, offer: SupplierOffer, request: Pick<LookupRequest, 'quantity'>): Record<string, unknown> | undefined {
+  if (!(['connectors', 'wires', 'components', 'pcbas', 'mechanicals'] as readonly string[]).includes(record.kind) || !text(record.id) || offer.unit === 'unknown') return undefined;
+  const price = priceAt(offer, request.quantity);
+  if (price === undefined) return undefined;
+  return {
+    item: record,
+    supplier: SUPPLIER_LABEL[offer.provider] ?? offer.provider,
+    supplierRef: offer.supplierNumber.slice(0, 120),
+    offeredOn: offer.observedAt.slice(0, 10),
+    price,
+    currency: offer.currency,
+    unit: offer.unit === 'each' ? 'ea' : 'm',
+    ...(offer.orderMultiple !== undefined && offer.orderMultiple > 1 ? { pack: offer.orderMultiple } : {}),
+    note: `${request.quantity}+ price break`,
+  };
+}
+
 /** The host previews updates and applies its normal validation/read-only policy. */
 export function importQuote(input: ImportInput, db: Db): ImportResult {
   if (input.bytes.length > 64 * 1024) throw new Error('The selected quote is too large.');

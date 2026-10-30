@@ -487,7 +487,8 @@ describe('the query-backed persistence adapter', () => {
 
     const draft = editorProp<CableDesign>('design') as CableDesign;
     const broken: CableDesign = structuredClone(draft);
-    broken.instances.pcbas.push({ id: 'bad-u9', def: 'no-such-board' });
+    // two parts under one id: the kind of problem a save still refuses (an unknown part only is a finding)
+    broken.instances.pcbas.push({ id: draft.instances.connectors[0]!.id, def: 'bad-u9' });
     editorProp<(design: CableDesign) => void>('onDesignChange')(broken);
 
     const persistence = editorProp<PersistenceAdapter>('persistence');
@@ -495,7 +496,7 @@ describe('the query-backed persistence adapter', () => {
     expect(outcome.ok).toBe(false);
 
     await screen.findByText('Save rejected');
-    await screen.findByText(/unknown PCBA definition/);
+    await screen.findByText(/duplicate instance id/);
 
     // nothing was written, and the draft is still there to fix
     expect(files.get(first)).not.toContain('bad-u9');

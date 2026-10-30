@@ -121,9 +121,13 @@ describe('<LibraryTable> over the starter connectors', () => {
     expect(screen.getByText('No connectors match.')).toBeDefined();
   });
 
-  it('keeps the pack selector accessible beside an open detail', () => {
+  it('keeps the pack selector accessible beside an open detail while a pack filter is set', () => {
     const rows = libraryRows('connectors', db.connectors as ConnectorDefinition[], [], { db, packs: { 'de9-male': { pack: 'sample', version: '1.0.0' } } });
-    render(<LibraryTable kind="connectors" rows={rows} columns={libraryColumns('connectors')} query="" compact onSelect={() => {}} empty="-" />);
+    // beside a record the list keeps one control row: no source filter until one is set …
+    const { rerender } = render(<LibraryTable kind="connectors" rows={rows} columns={libraryColumns('connectors')} query="" compact onSelect={() => {}} empty="-" />);
+    expect(screen.queryByRole('combobox', { name: 'Catalog pack' })).toBeNull();
+    // … and while one is set it stays there, so it can be cleared
+    rerender(<LibraryTable kind="connectors" rows={rows} columns={libraryColumns('connectors')} query="" compact onSelect={() => {}} empty="-" packFilter="sample" onPackFilterChange={() => {}} />);
     expect(screen.getByRole('combobox', { name: 'Catalog pack' })).toBeTruthy();
   });
 
@@ -166,12 +170,11 @@ describe('<LibraryTable> over the starter connectors', () => {
     expect(document.querySelector('th[data-col="gender"]')).toBeNull();
   });
 
-  it('turns on a column that is off by default', () => {
+  it('never offers internal keys as a library column', () => {
     table();
     fireEvent.click(screen.getByRole('button', { name: 'Columns' }));
-    fireEvent.click(within(screen.getByRole('group', { name: 'Show columns' })).getByRole('menuitemcheckbox', { name: 'Id' }));
-    expect(document.querySelector('th[data-col="id"]')).not.toBeNull();
-    expect(document.querySelector('tr[data-id="jst-xh-2-dc"] td[data-col="id"]')?.textContent).toBe('jst-xh-2-dc');
+    expect(within(screen.getByRole('group', { name: 'Show columns' })).queryByRole('menuitemcheckbox', { name: 'Id' })).toBeNull();
+    expect(document.querySelector('th[data-col="id"]')).toBeNull();
   });
 
   it('keeps only PN and Name beside an open record, and has no filter bar', () => {
@@ -200,6 +203,6 @@ it('distinguishes shared body part numbers and pinouts even in the compact list'
   const rows = libraryRows('connectors', layered.connectors, [], { db: layered });
   render(<LibraryTable kind="connectors" rows={rows} columns={libraryColumns('connectors')} query="" compact onSelect={() => undefined} empty="No connectors" />);
   const row = document.querySelector(`tr[data-id="${first.id}"]`)!;
-  expect(within(row as HTMLElement).getByText('Body PN')).toBeTruthy();
+  expect(within(row as HTMLElement).getByText(/^Body PN · \d+ pinouts$/)).toBeTruthy();
   expect(row.textContent).toContain(rows.find((r) => r.id === first.id)!.pn.pinout);
 });

@@ -1,3 +1,4 @@
+import { suggestDesignId } from '../persistence.ts';
 /**
  * The Library — the parts catalog, browsable and editable.
  *
@@ -28,6 +29,7 @@
 import {
   interfacesOnBody,
   kitsContaining,
+  validateDb,
   type CableDesign,
   type ConnectorDefinition,
   type Db,
@@ -40,7 +42,7 @@ import {
   type VocabList,
 } from '@wirehub/model';
 import type { DepictionArtwork } from '@wirehub/render-svg';
-import { IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand } from '@tabler/icons-react';
+import { IconChevronDown, IconDots, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconPlus } from '@tabler/icons-react';
 import { Popover } from 'radix-ui';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type JSX, type ReactNode } from 'react';
 
@@ -88,11 +90,11 @@ import {
   recordOfDraft,
   type DefinitionDraft,
 } from '../library.ts';
-import { libraryColumns, libraryRows, type LibraryTableContext } from '../library-table.ts';
+import { factColumns, libraryColumns, libraryRows, type LibraryTableContext } from '../library-table.ts';
 import { LibraryTable } from './LibraryTable.tsx';
 import { Tab, TabList, Tabs } from '../ui/Tabs.tsx';
-import { Button, Dialog, Field, Input, notify } from '../ui/index.ts';
-import { PropertiesGrid, RecordHead, SourceBlock, WhereUsed, type RecordAction } from './RecordOverview.tsx';
+import { asFindings, Button, Dialog, Field, FindingsChip, Input, Menu, notify, Section, type Finding } from '../ui/index.ts';
+import { PropertiesGrid, RecordHead, SourceBlock, WhereUsed, type DesignFacts, type RecordAction } from './RecordOverview.tsx';
 import {
   LIBRARY_PANE_DEFAULT,
   LIBRARY_PANE_SHORTCUT,
@@ -101,16 +103,16 @@ import {
   saveLibraryPane,
   type LibraryPaneState,
 } from '../library-pane.ts';
-import { describeIssue } from '../store.ts';
+import { describeIssue, issuesAsFindings } from '../store.ts';
 import { PartNumberContext, partNumberScope, type PartNumberData } from '../part-numbers.ts';
 import { VocabContext, type RecordTags, type VocabAdapter, type VocabScope } from '../vocab.ts';
 import { ArtworkDetailPane } from './Artwork.tsx';
 import { ModelPanel } from './ModelPanel.tsx';
 import { BuiltInConnectorArt, builtInConnectorArt } from './BuiltInArt.tsx';
-import { MODEL_KINDS, type ModelsAdapter } from '../models.ts';
+import { MODEL_KINDS, type ModelCoverAdapter, type ModelsAdapter } from '../models.ts';
 import { BoardComponentsSection } from './BoardComponentsSection.tsx';
 import type { BoardJourneyHost } from '../board-journey.ts';
-import { BoardJourneyStep, BoardJourneyStrip, JOURNEY_STEPS, isJourneyTab, useBoardJourney } from './BoardJourney.tsx';
+import { BoardJourneyStep, BoardJourneyStrip, BoardSourceRow, JOURNEY_STEPS, isJourneyTab, useBoardJourney } from './BoardJourney.tsx';
 import { ComponentEditor } from './ComponentEditor.tsx';
 import { ConnectorEditor } from './ConnectorEditor.tsx';
 import { ConnectorJourney } from './ConnectorJourney.tsx';
@@ -160,6 +162,10 @@ export interface LibraryProps {
    * opens with a 2D / 3D / Photo view and Attach / Detach for its model.
    */
   models?: ModelsAdapter;
+  /** Shared, persisted item cover supplied by the host; physical artwork stays independent. */
+  recordPreview?: (record: { kind: LibraryKind; id: string; label: string }) => ReactNode;
+  /** The same shared cover, as the 3D view's "Use this view as cover" stores it. */
+  modelCover?: ModelCoverAdapter;
   /**
    * A host's compare view, when it has one: given this, a shell's or
    * board's detail gets a Compare action and the list a "Compare…" pick-two
@@ -221,7 +227,10 @@ export interface LibraryProps {
    * Panels a host adds to a stored record's detail (the studio's module
    * `library-detail` slot): called with the record's kind and id.
    */
-  detailExtras?: (record: { kind: LibraryKind; id: string }) => ReactNode;
+  /** `readOnly`: a pack or importer record the viewer cannot change — no revision or note prompts */
+  detailExtras?: (record: { kind: LibraryKind; id: string; readOnly?: boolean }) => ReactNode;
+  /** a design's PN and saved revision, for Where used */
+  designFacts?: (id: string) => DesignFacts | undefined;
   /** host-added module panels, shown after everything the Library itself shows for the record */
   moduleExtras?: (record: { kind: LibraryKind; id: string }) => ReactNode;
   /**
@@ -336,61 +345,22 @@ function LibraryArtworkTab(props: {
 }
 
 /**
- * How many things use this definition, compact — a chip in the head row
- * rather than a banner across the page. The list itself, and a way to open
- * one of the designs on it, is a popover click away (the old sentence-and-list banner was too loud for something shown before
- * anything is even typed).
+ * What the saved record still lacks or contradicts — its own `validateDb`
+ * findings (no source yet, no family yet, a lay order that disagrees). Saving
+ * keeps them (saving is not approval); this chip says so once, compactly,
+ * with the sentences in its tooltip.
  */
-function UsageChip(props: {
-  usage: DefinitionUsage | undefined;
-  onOpenDesign?: (id: string) => void;
-}): JSX.Element | null {
-  const { usage } = props;
-  if (usage === undefined || usage.count === 0) return null;
-  const bits: string[] = [];
-  if (usage.designs.length > 0) {
-    bits.push(`${usage.designs.length} design${usage.designs.length === 1 ? '' : 's'}`);
-  }
-  if (usage.definitions.length > 0) {
-    bits.push(`${usage.definitions.length} definition${usage.definitions.length === 1 ? '' : 's'}`);
-  }
-  return (
-    <Popover.Root>
-      <Popover.Trigger asChild>
-        <button
-          type="button"
-          className="cs-chip cs-usage-chip"
-          title="Shared — changes here reach everything that uses it. Click to see what."
-        >
-          {bits.join(' · ')}
-        </button>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content className="cs-popover" sideOffset={6} align="start">
-          <p className="cs-popover-label">Used by</p>
-          <ul className="cs-usage-list">
-            {usage.designs.map((design) => (
-              <li key={design.id}>
-                {props.onOpenDesign === undefined ? (
-                  <span>{design.label}</span>
-                ) : (
-                  <button type="button" className="cs-link" onClick={() => props.onOpenDesign!(design.id)}>
-                    {design.label}
-                  </button>
-                )}
-                <span className="cs-def-id cs-mono">{design.id}</span>
-              </li>
-            ))}
-            {usage.definitions.map((ref) => (
-              <li key={ref}>
-                <span className="cs-def-id cs-mono">{ref}</span>
-              </li>
-            ))}
-          </ul>
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
-  );
+function RecordFindings(props: { db: Db; kind: string; id: string | undefined; extra?: readonly Finding[] }): JSX.Element | null {
+  const { db, kind, id, extra } = props;
+  const findings = useMemo(() => {
+    if (id === undefined) return extra ?? [];
+    const at = `${kind}/${id}`;
+    const own = issuesAsFindings(validateDb(db).filter((i) => i.where === at || (i.where ?? '').startsWith(`${at}/`)));
+    // one list: a stock's live builder findings and the stored record's checks often say the same thing
+    const seen = new Set(own.map((f) => f.message));
+    return [...own, ...(extra ?? []).filter((f) => !seen.has(f.message))];
+  }, [db, kind, id, extra]);
+  return <FindingsChip findings={findings} testId="record-findings" />;
 }
 
 function Problem({ problem }: { problem: LifecycleProblem }): JSX.Element {
@@ -466,49 +436,56 @@ function InKits(props: {
     setKits((current) => current.map((kit) => (kit.id === next.id ? next : kit)));
     props.onChanged(result.change);
   };
+  const add =
+    props.readOnly || others.length === 0 ? undefined : (
+      <Pick
+        ariaLabel="add to a kit"
+        options={others.map((kit) => ({ value: kit.id, label: kit.label, hint: kit.sku }))}
+        value=""
+        placeholder="+ Add to kit"
+        disabled={busy}
+        onChange={(id) => {
+          const kit = kits.find((k) => k.id === id);
+          if (kit !== undefined) void write(kitWithPart(kit, part));
+        }}
+      />
+    );
   return (
-    <div className="cs-in-kits">
-      <span className="cs-journey-label" title="Kits are informational: a design BOM lists the parts, never the kit">
-        In kits
-      </span>
-      {inKits.length === 0 ? <span className="cs-empty">none</span> : null}
-      {inKits.map((kit) => (
-        <span key={kit.id} className="cs-chip cs-kit-chip">
-          {props.onOpenKit === undefined ? (
-            <span title={kit.label}>{kit.sku}</span>
-          ) : (
-            <button type="button" className="cs-link" title={kit.label} onClick={() => props.onOpenKit!(kit.id)}>
-              {kit.sku}
-            </button>
-          )}
-          {props.readOnly ? null : (
-            <button
-              type="button"
-              className="cs-chip-x"
-              aria-label={`remove from kit ${kit.sku}`}
-              disabled={busy}
-              onClick={() => void write(kitWithoutPart(kit, part))}
-            >
-              ×
-            </button>
-          )}
-        </span>
-      ))}
-      {props.readOnly || others.length === 0 ? null : (
-        <Pick
-          ariaLabel="add to a kit"
-          options={others.map((kit) => ({ value: kit.id, label: kit.label, hint: kit.sku }))}
-          value=""
-          placeholder="+ Add to kit"
-          disabled={busy}
-          onChange={(id) => {
-            const kit = kits.find((k) => k.id === id);
-            if (kit !== undefined) void write(kitWithPart(kit, part));
-          }}
-        />
+    <Section
+      id="in-kits"
+      title="In kits"
+      className="cs-in-kits-section"
+      summary={<span title="Kits are informational: a design BOM lists the parts, never the kit">{inKits.length === 0 ? 'none' : inKits.length}</span>}
+      {...(add === undefined ? {} : { actions: add })}
+    >
+      {inKits.length === 0 && problem === undefined ? null : (
+        <div className="cs-in-kits">
+          {inKits.map((kit) => (
+            <span key={kit.id} className="cs-chip cs-kit-chip">
+              {props.onOpenKit === undefined ? (
+                <span title={kit.label}>{kit.sku}</span>
+              ) : (
+                <button type="button" className="cs-link" title={kit.label} onClick={() => props.onOpenKit!(kit.id)}>
+                  {kit.sku}
+                </button>
+              )}
+              {props.readOnly ? null : (
+                <button
+                  type="button"
+                  className="cs-chip-x"
+                  aria-label={`remove from kit ${kit.sku}`}
+                  disabled={busy}
+                  onClick={() => void write(kitWithoutPart(kit, part))}
+                >
+                  ×
+                </button>
+              )}
+            </span>
+          ))}
+          {problem === undefined ? null : <Problem problem={problem} />}
+        </div>
       )}
-      {problem === undefined ? null : <Problem problem={problem} />}
-    </div>
+    </Section>
   );
 }
 
@@ -585,11 +562,19 @@ export function Library(props: LibraryProps): JSX.Element {
   const [advanced, setAdvanced] = useState(false);
   const [confirming, setConfirming] = useState(false);
   /** the Fork to edit dialog: the source id and the id typed for the copy */
-  const [forkAsk, setForkAsk] = useState<{ id: string; newId: string } | undefined>(undefined);
+  const [forkAsk, setForkAsk] = useState<{ id: string; newId: string; label: string } | undefined>(undefined);
   const [detailTab, setDetailTab] = useState<DetailTab>('definition');
+  const editSectionRef = useRef<HTMLElement>(null);
+  /** the form is open: Edit was pressed (a new record always has it) */
+  const [editing, setEditing] = useState(false);
+  /** bumped by Edit: the form's Name field takes the caret once it is drawn */
+  const [focusAsk, setFocusAsk] = useState(0);
   const [wireLib, setWireLib] = useState<WireLibrary | undefined>(undefined);
   const [wireNew, setWireNew] = useState<WireRecipe | undefined>(undefined);
   const [wireTab, setWireTab] = useState<WireDetailTab>('builder');
+  // the wire builder's live findings, merged into the record head's one findings chip
+  const [wireLines, setWireLines] = useState<string[]>([]);
+  const wireFindings = useMemo(() => asFindings(wireLines), [wireLines]);
 
   const { definitions, db, onSelectId, onKindChange } = props;
   /** what the catalog already says, offered as suggestions in every form */
@@ -750,6 +735,7 @@ export function Library(props: LibraryProps): JSX.Element {
     setProblem(undefined);
     setConfirming(false);
     setDetailTab('definition');
+    setEditing(false);
     if (opts.keepUrl !== true) onSelectId?.(undefined);
   };
 
@@ -768,6 +754,7 @@ export function Library(props: LibraryProps): JSX.Element {
     setConfirming(false);
     setUsage(undefined);
     setDetailTab('definition');
+    setEditing(false);
     if (definitions !== undefined) {
       void definitions.usage(kind, id).then((outcome) => {
         if (outcome.ok) setUsage(outcome.value);
@@ -856,12 +843,20 @@ export function Library(props: LibraryProps): JSX.Element {
     onSelectId?.(undefined);
   };
 
-  /** Edit: bring the record's form into view and put the caret in it. */
+  /** Edit: open the form (a board's Definition view) and put the caret in its Name. */
   const focusEditor = (): void => {
+    setEditing(true);
+    setDetailTab('definition');
+    setFocusAsk((n) => n + 1);
+  };
+  useEffect(() => {
+    if (focusAsk === 0) return;
     const section = rootRef.current?.querySelector<HTMLElement>('.cs-record-edit');
     section?.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
-    section?.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])')?.focus?.({ preventScroll: true });
-  };
+    const fields = [...(section?.querySelectorAll<HTMLElement>('input:not([disabled]):not([type=checkbox]), textarea:not([disabled])') ?? [])];
+    const name = fields.find((field) => /name/i.test(field.getAttribute('aria-label') ?? field.closest('label')?.textContent ?? '')) ?? fields[0];
+    name?.focus?.({ preventScroll: true });
+  }, [focusAsk]);
 
   /** the tag table as a save just left it, for the draft rebuilt after it */
   const tagsAfterSave = useRef<SignalTags | undefined>(undefined);
@@ -914,6 +909,8 @@ export function Library(props: LibraryProps): JSX.Element {
    * keeps — so they stay editable.
    */
   const tagsOnly = generatedRecord && kind === 'pcbas' && definitions !== undefined && vocabAdapter !== undefined;
+  /** a record the viewer cannot change: its facts, no form (Fork opens one) */
+  const factsOnly = mode.kind === 'edit' && readOnly && !tagsOnly;
 
   /* the board journey: a board's detail as the steps a new PCB takes */
   const journey = useBoardJourney({
@@ -924,15 +921,19 @@ export function Library(props: LibraryProps): JSX.Element {
     ...(props.artworkAdapter === undefined ? {} : { artwork: props.artworkAdapter }),
     ...(vocabAdapter === undefined ? {} : { vocab: vocabAdapter }),
     ...(onVocabChange === undefined ? {} : { onVocabChange }),
+    ...(packOrigin === undefined ? {} : { packOwner: packOrigin.pack }),
   });
   // a board opens on its first step still to do (once its art and build file are in)
   const autoStepFor = useRef<string | undefined>(undefined);
+  const editingRef = useRef(editing);
+  editingRef.current = editing;
   useEffect(() => {
     if (journey === undefined || !journey.loaded || autoStepFor.current === journey.def.id) return;
     autoStepFor.current = journey.def.id;
     const first = journey.steps.find((step) => step.state === 'todo' || step.state === 'warn');
     const tab = (JOURNEY_STEPS.find((step) => step.id === first?.id)?.tab ?? 'pads') as DetailTab;
-    setDetailTab((current) => (current === 'definition' ? tab : current));
+    // Edit pressed while the journey loaded: the form stays
+    if (!editingRef.current) setDetailTab((current) => (current === 'definition' ? tab : current));
   }, [journey]);
 
   // the candidate is rebuilt from the draft on every keystroke, and the whole
@@ -942,9 +943,18 @@ export function Library(props: LibraryProps): JSX.Element {
     () => (draft === undefined ? undefined : recordOfDraft(draft)),
     [draft],
   );
+  // the stored record as the form would write it back unchanged: a record the
+  // form reorders or normalises (an imported board's empty label, its key
+  // order) is not a change, so merely opening it neither arms the unsaved
+  // guard nor takes the edit lock
+  const pristine = useMemo(() => {
+    if (baseline === undefined || draft === undefined) return baseline;
+    const unchanged = draftOfRecord(draft.kind, baseline, tags);
+    return unchanged === undefined ? baseline : recordOfDraft(unchanged);
+  }, [baseline, draft?.kind, tags]);
   const recordDirty =
     candidate !== undefined &&
-    (baseline === undefined || JSON.stringify(candidate) !== JSON.stringify(baseline));
+    (baseline === undefined || JSON.stringify(candidate) !== JSON.stringify(pristine));
   /** the side-table tags this draft would change — pin signals, pad roles */
   const pendingTags = useMemo(
     () => (draft === undefined ? undefined : changedTags(draft, tags)),
@@ -964,7 +974,7 @@ export function Library(props: LibraryProps): JSX.Element {
     let result: DefinitionResult;
     if (creating) result = await createDefinition(definitions!, kind, candidate!);
     else if (recordDirty || baseline === undefined) result = await saveDefinition(definitions!, kind, candidate!);
-    else result = { ok: true, change: { kind: 'definition-saved', defKind: kind, record: baseline }, status: `saved ${baseline.id}` };
+    else result = { ok: true, change: { kind: 'definition-saved', defKind: kind, record: baseline }, status: `Saved ${baseline.label}` };
     if (!result.ok || result.change.kind === 'definition-deleted' || vocabAdapter === undefined || pendingTags === undefined) return result;
     const send = creating ? withoutBlanks(pendingTags) : pendingTags;
     if (send === undefined) return result;
@@ -974,7 +984,7 @@ export function Library(props: LibraryProps): JSX.Element {
       return {
         ok: false,
         problem: {
-          message: `${record.id} was saved, but its tags were not: ${outcome.message}`,
+          message: `${record.label} was saved, but its tags were not: ${outcome.message}`,
           ...(outcome.hint === undefined ? {} : { hint: outcome.hint }),
           details: (outcome.issues ?? []).map((issue) => describeIssue(issue)),
         },
@@ -1048,21 +1058,32 @@ export function Library(props: LibraryProps): JSX.Element {
     const fork = definitions.fork.bind(definitions);
     setForkAsk(undefined);
     void run(async () => {
-      const outcome = await fork(kind, ask.id, ask.newId.trim());
+      const outcome = await fork(kind, ask.id, ask.newId.trim(), ask.label.trim());
       if (!outcome.ok) return { ok: false, problem: { message: outcome.message, ...(outcome.hint === undefined ? {} : { hint: outcome.hint }), details: (outcome.issues ?? []).map((issue) => describeIssue(issue)) } };
-      return { ok: true, change: { kind: 'definition-created', defKind: kind, record: outcome.value }, status: `Forked ${ask.id} as ${outcome.value.id}` };
+      return { ok: true, change: { kind: 'definition-created', defKind: kind, record: outcome.value }, status: `Created ${outcome.value.label}` };
     });
+  };
+  /** a record a Where used row names: its name, PN and revision */
+  const recordFacts = (refKind: string, id: string): { label: string; pn?: string; rev?: string } | undefined => {
+    const lists: Record<string, readonly { id: string; label: string; partNumber?: string; revision?: string; sku?: string }[]> = {
+      connectors: db.connectors,
+      components: db.components,
+      wires: db.wires,
+      pcbas: db.pcbas,
+      mechanicals: db.mechanicals ?? [],
+      kits: db.kits ?? [],
+      bodies: db.bodies ?? [],
+      interfaces: db.interfaces ?? [],
+    };
+    const record = lists[refKind]?.find((r) => r.id === id);
+    if (record === undefined) return undefined;
+    const pn = record.partNumber ?? record.sku;
+    return { label: record.label === '' ? id : record.label, ...(pn === undefined || pn === '' ? {} : { pn }), ...(record.revision === undefined || record.revision === '' ? {} : { rev: record.revision }) };
   };
   /** the record head's actions: Edit, New variant / Duplicate, Compare */
   const recordActions: RecordAction[] = [];
   if (mode.kind === 'edit') {
-    recordActions.push({
-      id: 'edit',
-      label: 'Edit',
-      title: readOnly && !tagsOnly ? 'Read-only here' : 'Go to the form',
-      disabled: editLocked,
-      onClick: focusEditor,
-    });
+    if (!factsOnly && !editing) recordActions.push({ id: 'edit', label: 'Edit', disabled: editLocked, onClick: focusEditor });
     if (packOrigin !== undefined && definitions?.fork !== undefined) {
       const id = mode.id;
       recordActions.push({
@@ -1072,7 +1093,7 @@ export function Library(props: LibraryProps): JSX.Element {
         primary: true,
         disabled: busy,
         onClick: () => {
-          setForkAsk({ id, newId: `${id}-local` });
+          setForkAsk({ id, newId: suggestDesignId(`${baseline?.label ?? 'Part'} copy`, takenIds), label: `${baseline?.label ?? 'Part'} (copy)` });
         },
       });
     } else if (kind === 'connectors' && baseline !== undefined && definitions !== undefined) {
@@ -1099,9 +1120,11 @@ export function Library(props: LibraryProps): JSX.Element {
           title={mode.kind === 'new' ? (wireRecipe.label === '' ? 'New wire stock' : wireRecipe.label) : (baseline?.label ?? wireRecipe.label)}
           noun={DEFINITION_NOUNS[kind]}
           {...(mode.kind === 'edit' ? { id: mode.id } : {})}
-          chips={<UsageChip usage={usage} onOpenDesign={props.onOpenDesign} />}
+          chips={<RecordFindings db={db} kind={kind} id={mode.kind === 'edit' ? mode.id : undefined} extra={wireFindings} />}
           actions={mode.kind !== 'edit' ? [] : recordActions}
-        />
+        >
+          {mode.kind !== 'edit' ? null : props.recordPreview?.({ kind, id: mode.id, label: baseline?.label ?? wireRecipe.label })}
+        </RecordHead>
         <section className="cs-record-edit" aria-label="edit">
         <WireStockDetail
           key={mode.kind === 'edit' ? mode.id : `new:${wireRecipe.id}`}
@@ -1114,8 +1137,10 @@ export function Library(props: LibraryProps): JSX.Element {
           onTab={setWireTab}
           library={wireLib}
           onLibrary={setWireLib}
-          properties={mode.kind === 'edit' && openRow !== undefined ? <PropertiesGrid row={openRow} columns={columns} /> : null}
+          onFindings={setWireLines}
+          properties={mode.kind === 'edit' && openRow !== undefined ? <PropertiesGrid row={openRow} columns={factColumns(columns, openRow)} {...(usage === undefined ? {} : { used: usage.count })} quiet={readOnly} /> : null}
           {...(props.vendorDocuments === undefined ? {} : { documents: props.vendorDocuments })}
+          {...(props.modelCover === undefined ? {} : { cover: props.modelCover })}
           onClose={() => close()}
           onDuplicate={(recipe) => {
             const ids = new Set(takenIds);
@@ -1153,39 +1178,15 @@ export function Library(props: LibraryProps): JSX.Element {
         />
         </section>
         {mode.kind === 'edit' && openRow !== undefined ? (
-          <WhereUsed usage={usage} {...(props.onOpenDesign === undefined ? {} : { onOpenDesign: props.onOpenDesign })} onOpenRecord={openRecordOf} />
+          <WhereUsed usage={usage} {...(props.onOpenDesign === undefined ? {} : { onOpenDesign: props.onOpenDesign })} onOpenRecord={openRecordOf} recordFacts={recordFacts} {...(props.designFacts === undefined ? {} : { designFacts: props.designFacts })} />
         ) : null}
         {mode.kind === 'edit' && baseline !== undefined ? <SourceBlock src={baseline.src} /> : null}
       </>
     );
 
-  /* search and the list's actions: above the table beside a record, in its toolbar while browsing */
-  const listTools = (
+  /* the list's actions besides New: in the toolbar while browsing, behind "⋯" beside a record */
+  const moreActions = (
     <>
-        <input
-          className="cs-input"
-          type="search"
-          value={query}
-          aria-label={`search ${DEFINITION_LABELS[kind]}`}
-          placeholder={`Search ${DEFINITION_LABELS[kind].toLowerCase()}…`}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-        <div className="cs-library-actions">
-          {props.viewOnly === true ? null : (
-          <button
-            type="button"
-            className="cs-primary"
-            disabled={definitions === undefined || busy}
-            title={
-              definitions === undefined
-                ? 'This hub cannot change the parts library'
-                : `Add a ${DEFINITION_NOUNS[kind]}`
-            }
-            onClick={() => openNew()}
-          >
-            + New {DEFINITION_NOUNS[kind]}
-          </button>
-          )}
           {props.listActions?.[kind] ?? null}
           {props.onCompare !== undefined && (props.compareKinds ?? DEFAULT_COMPARE_KINDS).includes(kind) ? (
             comparePick === undefined ? (
@@ -1246,6 +1247,36 @@ export function Library(props: LibraryProps): JSX.Element {
               </Popover.Portal>
             </Popover.Root>
           ) : null}
+    </>
+  );
+  /* search and the list's actions: the table's toolbar while browsing */
+  const listTools = (
+    <>
+        <input
+          className="cs-input"
+          type="search"
+          value={query}
+          aria-label={`search ${DEFINITION_LABELS[kind]}`}
+          placeholder={`Search ${DEFINITION_LABELS[kind].toLowerCase()}…`}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        <div className="cs-library-actions">
+          {props.viewOnly === true ? null : (
+          <button
+            type="button"
+            className="cs-primary"
+            disabled={definitions === undefined || busy}
+            title={
+              definitions === undefined
+                ? 'This hub cannot change the parts library'
+                : `Add a ${DEFINITION_NOUNS[kind]}`
+            }
+            onClick={() => openNew()}
+          >
+            + New {DEFINITION_NOUNS[kind]}
+          </button>
+          )}
+          {moreActions}
           <span className="cs-count">
             {tableCount.shown === tableCount.total ? countLabel(kind, tableCount.total) : `${tableCount.shown} of ${tableCount.total}`}
           </span>
@@ -1260,6 +1291,52 @@ export function Library(props: LibraryProps): JSX.Element {
           </button>
         </div>
     </>
+  );
+  /* beside a record the pane is narrow: search, New, "⋯" and the fold on one row */
+  const compactTools = (
+    <div className="cs-library-compact-bar">
+        <input
+          className="cs-input"
+          type="search"
+          value={query}
+          aria-label={`search ${DEFINITION_LABELS[kind]}`}
+          placeholder={`Search ${DEFINITION_LABELS[kind].toLowerCase()}…`}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+      {props.viewOnly === true ? null : (
+        <button
+          type="button"
+          className="cs-icon-btn"
+          aria-label={`New ${DEFINITION_NOUNS[kind]}`}
+          title={`New ${DEFINITION_NOUNS[kind]}`}
+          disabled={definitions === undefined || busy}
+          onClick={() => openNew()}
+        >
+          <IconPlus size={16} stroke={1.75} />
+        </button>
+      )}
+      <Popover.Root>
+        <Popover.Trigger asChild>
+          <button type="button" className="cs-icon-btn" aria-label="More list actions" title="Import, compare …">
+            <IconDots size={16} stroke={1.75} />
+          </button>
+        </Popover.Trigger>
+        <Popover.Portal>
+          <Popover.Content className="cs-popover cs-library-more" sideOffset={6} align="start">
+            {moreActions}
+          </Popover.Content>
+        </Popover.Portal>
+      </Popover.Root>
+          <button
+            type="button"
+            className="cs-icon-btn cs-library-fold"
+            aria-label="Hide the list"
+            title={`Hide the list — ${shortcutHint}`}
+            onClick={toggleList}
+          >
+            <IconLayoutSidebarLeftCollapse size={16} stroke={1.75} />
+          </button>
+    </div>
   );
 
   return (
@@ -1287,6 +1364,27 @@ export function Library(props: LibraryProps): JSX.Element {
         </div>
       ) : null}
       <div className="cs-library-list" hidden={pane.collapsed || undefined}>
+        {mode.kind !== 'browse' ? (
+          <Menu
+            aria-label="parts library"
+            align="start"
+            trigger={
+              <button type="button" className="cs-ui-tab cs-library-kind-menu" title="Switch the list">
+                {DEFINITION_LABELS[kind]} <IconChevronDown size={12} stroke={1.75} aria-hidden="true" />
+              </button>
+            }
+            items={[
+              ...LIBRARY_KINDS.map((entry) => ({
+                label: DEFINITION_LABELS[entry],
+                onSelect: () => {
+                  changeKind(entry);
+                  close({ keepUrl: true });
+                },
+              })),
+              ...(props.extraTabs ?? []).map((tab) => ({ label: tab.label, onSelect: tab.onSelect })),
+            ]}
+          />
+        ) : (
         <Tabs
           value={kind}
           onValueChange={(next) => {
@@ -1303,13 +1401,15 @@ export function Library(props: LibraryProps): JSX.Element {
               </Tab>
             ))}
             {(props.extraTabs ?? []).map((tab) => (
-              <button key={tab.id} type="button" className="cs-ui-tab" {...(tab.title === undefined ? {} : { title: tab.title })} onClick={tab.onSelect}>
+              // a tab of its own page (Vocabulary): still a tab, so the tab list holds only tabs
+              <button key={tab.id} type="button" role="tab" aria-selected={false} className="cs-ui-tab" {...(tab.title === undefined ? {} : { title: tab.title })} onClick={tab.onSelect}>
                 {tab.label}
               </button>
             ))}
           </TabList>
         </Tabs>
-        {mode.kind === 'browse' ? null : listTools}
+        )}
+        {mode.kind === 'browse' ? null : compactTools}
         {mode.kind === 'browse' && props.viewOnly !== true && (definitions === undefined || status !== undefined || problem !== undefined) ? (
           <div className="cs-library-note">
             {definitions === undefined ? (
@@ -1399,6 +1499,7 @@ export function Library(props: LibraryProps): JSX.Element {
               preserved in the original definition. The cross-section and JSON below are read-only;
               nothing has been changed or flattened.
             </p>
+            {mode.kind !== 'edit' ? null : props.recordPreview?.({ kind, id: mode.id, label: baseline?.label ?? mode.id })}
             {kind === 'wires' && mode.kind === 'edit' && baseline !== undefined ? <Cutaway wire={baseline as WireDefinition} {...(props.renderCutaway === undefined ? {} : { render: props.renderCutaway })} /> : null}
             <details className="cs-advanced" open>
               <summary>Advanced: the record as JSON</summary>
@@ -1419,7 +1520,7 @@ export function Library(props: LibraryProps): JSX.Element {
         {draft === undefined || wireDetail !== null ? null : (
           <>
             <RecordHead
-              {...(openRow === undefined || mode.kind !== 'edit' ? {} : { row: openRow })}
+              {...(openRow === undefined || mode.kind !== 'edit' ? {} : { row: packOrigin === undefined ? openRow : { ...openRow, flags: openRow.flags.filter((flag) => flag !== 'Pack') } })}
               title={
                 mode.kind === 'new'
                   ? journeyStart?.variantOf !== undefined && kind === 'connectors'
@@ -1434,9 +1535,9 @@ export function Library(props: LibraryProps): JSX.Element {
                   {packOrigin !== undefined ? (
                     <span
                       className="cs-chip"
-                      title="Records from an installed pack are read-only: a pack update replaces them. Fork it to edit a copy of your own; designs move to the copy when you choose."
+                      title={`From the ${packOrigin.pack} pack ${packOrigin.version}: a pack update replaces it. Fork it to edit a copy of your own.`}
                     >
-                      From pack {packOrigin.pack} {packOrigin.version} — read-only
+                      {packOrigin.pack} · read-only
                     </span>
                   ) : generatedRecord && definitions !== undefined ? (
                     <span
@@ -1450,7 +1551,7 @@ export function Library(props: LibraryProps): JSX.Element {
                       {tagsOnly ? 'From the importer — tags editable' : 'From the importer — read-only'}
                     </span>
                   ) : null}
-                  <UsageChip usage={usage} onOpenDesign={props.onOpenDesign} />
+                  <RecordFindings db={db} kind={kind} id={mode.kind === 'edit' ? mode.id : undefined} />
                 </>
               }
               actions={mode.kind !== 'edit' ? [] : recordActions}
@@ -1462,6 +1563,7 @@ export function Library(props: LibraryProps): JSX.Element {
                   onTab={(tab) => {
                     // a step the person picked is not moved again by the auto step
                     autoStepFor.current = journey.def.id;
+                    if (tab === 'definition') setEditing(true);
                     setDetailTab(tab as DetailTab);
                   }}
                 />
@@ -1487,28 +1589,37 @@ export function Library(props: LibraryProps): JSX.Element {
                   </button>
                 </nav>
               ) : null}
+              {mode.kind !== 'edit' ? null : props.recordPreview?.({ kind, id: mode.id, label: baseline?.label ?? mode.id })}
             </RecordHead>
+
+            {/* the record's facts first, then its views and the host's sections */}
+            {mode.kind === 'edit' && openRow !== undefined ? <PropertiesGrid row={openRow} columns={factColumns(columns, openRow)} {...(usage === undefined ? {} : { used: usage.count })} quiet={readOnly} /> : null}
+            {mode.kind === 'edit' && journey !== undefined ? (
+              <BoardSourceRow
+                journey={journey}
+                onCheck={() => {
+                  autoStepFor.current = journey.def.id;
+                  setDetailTab('import');
+                  // the check sits in the Import step, below the record's sections
+                  requestAnimationFrame(() => editSectionRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }));
+                }}
+              />
+            ) : null}
 
             {mode.kind === 'edit' && props.models !== undefined && MODEL_KINDS.has(kind) ? (
               <ModelPanel
                 key={`${kind}/${mode.id}`}
                 kind={kind}
                 id={mode.id}
-                label={baseline?.label ?? mode.id}
+                label={baseline?.label ?? 'Library item'}
                 models={props.models}
                 {...(props.artworkAdapter === undefined || !hasArtworkTab(kind) ? {} : { artwork: props.artworkAdapter })}
                 {...(kind === 'connectors' && baseline !== undefined ? connectorPreviewProps(db, baseline as ConnectorDefinition) : {})}
                 readOnly={definitions === undefined}
+                {...(props.modelCover === undefined ? {} : { cover: props.modelCover })}
               />
             ) : null}
-            {mode.kind === 'edit' && props.detailExtras !== undefined ? (
-              <div className="cs-extension-slot" data-slot="library-detail">
-                {props.detailExtras({ kind, id: mode.id })}
-              </div>
-            ) : null}
-
-            {mode.kind === 'edit' && openRow !== undefined ? <PropertiesGrid row={openRow} columns={columns} /> : null}
-
+            {/* the record's own sections (parts, kits, use, reference), then the host's stack */}
             {mode.kind === 'edit' && kind === 'pcbas' && baseline !== undefined ? (
               <BoardComponentsSection
                 key={`bc:${mode.id}`}
@@ -1531,7 +1642,23 @@ export function Library(props: LibraryProps): JSX.Element {
                 onOpenKit={(id) => openRecordOf('kits', id)}
               />
             ) : null}
-            <section className="cs-record-edit" aria-label="edit">
+            {mode.kind === 'edit' && openRow !== undefined ? (
+              <WhereUsed
+                usage={usage}
+                {...(props.onOpenDesign === undefined ? {} : { onOpenDesign: props.onOpenDesign })}
+                onOpenRecord={openRecordOf}
+                recordFacts={recordFacts}
+                {...(props.designFacts === undefined ? {} : { designFacts: props.designFacts })}
+              />
+            ) : null}
+            {mode.kind === 'edit' && baseline !== undefined ? <SourceBlock src={baseline.src} /> : null}
+            {mode.kind === 'edit' && props.detailExtras !== undefined ? (
+              <div className="cs-extension-slot" data-slot="library-detail">
+                {props.detailExtras({ kind, id: mode.id, readOnly: factsOnly })}
+              </div>
+            ) : null}
+
+            <section className="cs-record-edit" aria-label="edit" ref={editSectionRef}>
             {journey !== undefined && isJourneyTab(detailTab) ? (
               <VocabContext.Provider value={vocabScope}>
                 <fieldset className="cs-lock-fence" disabled={editLocked}>
@@ -1553,7 +1680,7 @@ export function Library(props: LibraryProps): JSX.Element {
                 {...(props.assets === undefined ? {} : { assets: props.assets })}
               />
               </fieldset>
-            ) : kind === 'connectors' && ((mode.kind === 'edit' && (baseline as ConnectorDefinition | undefined)?.body !== undefined) || mode.kind === 'new') ? (
+            ) : factsOnly || (mode.kind === 'edit' && !editing && !dirty && !(kind === 'connectors' && (baseline as ConnectorDefinition | undefined)?.body !== undefined)) ? null : kind === 'connectors' && ((mode.kind === 'edit' && (baseline as ConnectorDefinition | undefined)?.body !== undefined) || mode.kind === 'new') ? (
               <VocabContext.Provider value={vocabScope}>
                 <ConnectorJourney
                   key={mode.kind === 'edit' ? `${mode.id}:${baselineVersion}` : `new:${journeyStart?.body ?? ''}:${journeyStart?.interface ?? ''}:${journeyStart?.variantOf?.id ?? ''}`}
@@ -1565,7 +1692,7 @@ export function Library(props: LibraryProps): JSX.Element {
                   takenIds={takenIds}
                   onSaved={(record, created, changes) => {
                     for (const change of changes) props.onDefinitionsChange?.(change);
-                    setStatus(created ? `Added ${record.id}.` : `Saved ${record.id}.`);
+                    setStatus(created ? `Added ${record.label}.` : `Saved ${record.label}.`);
                     setBaseline(record);
                     setDraft(draftOfRecord('connectors', record, tags));
                     setMode({ kind: 'edit', id: record.id });
@@ -1629,7 +1756,7 @@ export function Library(props: LibraryProps): JSX.Element {
                     idLocked={mode.kind === 'edit'}
                     db={db}
                     onOpenPart={(part, id) => openRecordOf(TAB_OF_PART[part], id)}
-                    onChange={(value) => setDraft({ kind: 'kits', value })}
+                    onChange={(value) => setDraft((d) => ({ kind: 'kits', value: mode.kind === 'new' && d?.kind === 'kits' ? followNameId(d.value, value, takenIds) : value }))}
                   />
                 ) : null}
                 {draft.kind === 'pcbas' ? (
@@ -1662,8 +1789,7 @@ export function Library(props: LibraryProps): JSX.Element {
               {libraryIssues.length === 0 ? null : (
                 <div className="cs-problem" role="status">
                   <strong>
-                    This change would break {libraryIssues.length === 1 ? 'something' : `${libraryIssues.length} things`}{' '}
-                    elsewhere in the library
+                    Saves with {libraryIssues.length === 1 ? 'a finding' : `${libraryIssues.length} findings`} elsewhere in the library
                   </strong>
                   <ul className="cs-problem-list">
                     {libraryIssues.map((issue, index) => (
@@ -1729,14 +1855,6 @@ export function Library(props: LibraryProps): JSX.Element {
             </form>
             )}
             </section>
-            {mode.kind === 'edit' && openRow !== undefined ? (
-              <WhereUsed
-                usage={usage}
-                {...(props.onOpenDesign === undefined ? {} : { onOpenDesign: props.onOpenDesign })}
-                onOpenRecord={openRecordOf}
-              />
-            ) : null}
-            {mode.kind === 'edit' && baseline !== undefined ? <SourceBlock src={baseline.src} /> : null}
             {/* module panels come last: the definition first, then what installed modules add */}
             {mode.kind === 'edit' && props.moduleExtras !== undefined ? (
               <div className="cs-extension-slot" data-slot="library-detail">
@@ -1755,14 +1873,14 @@ export function Library(props: LibraryProps): JSX.Element {
           footer={
             <>
               <Button onClick={() => setForkAsk(undefined)}>Cancel</Button>
-              <Button variant="primary" disabled={forkAsk === undefined || forkAsk.newId.trim() === ''} onClick={submitFork} data-testid="fork-dialog-ok">Fork</Button>
+              <Button variant="primary" disabled={forkAsk === undefined || forkAsk.label.trim() === ''} onClick={submitFork} data-testid="fork-dialog-ok">Fork</Button>
             </>
           }
         >
-          <Field label="Id for your copy" hint="Lowercase words joined by hyphens">
+          <Field label="Name for your copy">
             <Input
-              value={forkAsk?.newId ?? ''}
-              onChange={(e) => setForkAsk((ask) => (ask === undefined ? ask : { ...ask, newId: e.target.value }))}
+              value={forkAsk?.label ?? ''}
+              onChange={(e) => setForkAsk((ask) => (ask === undefined ? ask : { ...ask, label: e.target.value, newId: suggestDesignId(e.target.value, takenIds) }))}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitFork(); } }}
             />
           </Field>
@@ -1773,7 +1891,7 @@ export function Library(props: LibraryProps): JSX.Element {
             <div className="cs-modal-card">
               <h2>Delete this {DEFINITION_NOUNS[kind]}</h2>
               <p className="cs-modal-say">
-                Delete <strong>{baseline?.label}</strong> (<code>{mode.id}</code>)?
+                Delete <strong>{baseline?.label === undefined || baseline.label === '' ? mode.id : baseline.label}</strong>?
               </p>
               {usage !== undefined && usage.count > 0 ? (
                 <p className="cs-modal-warn">
@@ -1816,12 +1934,12 @@ export function Library(props: LibraryProps): JSX.Element {
                         notify.undoable(`Deleted ${gone.label === '' ? gone.id : gone.label}`, () => {
                           void createDefinition(adapter, deletedKind, gone).then(async (back) => {
                             if (!back.ok) {
-                              notify.error(`Could not restore ${gone.id}`, { description: back.problem.message });
+                              notify.error(`Could not restore ${gone.label === '' ? gone.id : gone.label}`, { description: back.problem.message });
                               return;
                             }
                             props.onDefinitionsChange?.(back.change);
                             await refresh(deletedKind);
-                            notify.success(`Restored ${gone.id}`);
+                            notify.success(`Restored ${gone.label === '' ? gone.id : gone.label}`);
                           });
                         });
                       }
@@ -1829,7 +1947,7 @@ export function Library(props: LibraryProps): JSX.Element {
                     });
                   }}
                 >
-                  {busy ? 'Deleting…' : `Delete ${mode.id}`}
+                  {busy ? 'Deleting…' : 'Delete'}
                 </button>
               </div>
             </div>

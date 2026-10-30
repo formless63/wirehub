@@ -148,6 +148,11 @@ describe('routes and part numbers', () => {
     expect(validateDesign({ ...design, maker: 'A contract maker' }, db).map((i) => i.code)).not.toContain('route-contract-no-maker');
   });
 
+  it('accepts a design kind of cable or subassembly and refuses any other', () => {
+    expect(validateDesign({ ...designs[0]!, kind: 'subassembly' }, db).map((i) => i.code)).not.toContain('invalid-kind');
+    expect(validateDesign({ ...designs[0]!, kind: 'kit' } as never, db).find((i) => i.code === 'invalid-kind')?.severity).toBe('error');
+  });
+
   it('counts product numbers as taken, and a variant numbered like its design is not a duplicate', () => {
     const lib = { ...db, products: [leads, ys] };
     expect(knownPartNumbers(lib).map((k) => k.pn)).toEqual(expect.arrayContaining(['CBL-00090-01', 'CBL-00091']));

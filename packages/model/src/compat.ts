@@ -97,7 +97,7 @@ export interface TerminalProfile {
 }
 
 /** A vocab signal id as a hint: grounds and rails fold into their kind. */
-function hintOfSignal(db: Db, id: string): SignalHint | undefined {
+export function hintOfSignal(db: Db, id: string): SignalHint | undefined {
   if (isGroundSignal(db.vocab, id)) return 'ground';
   const kind = kindOfSignal(db, id);
   if (kind === 'power') return 'power';
@@ -123,7 +123,7 @@ export function signalFromLabel(label: string | undefined, db?: Db): SignalHint 
   const id = readSignalWords(db?.vocab, label);
   if (id !== undefined && db !== undefined) return hintOfSignal(db, id);
   const text = label.toLowerCase();
-  if (/\bgnd\b|ground|\bshield\b|\bshell\b|chassis/.test(text)) return 'ground';
+  if (/\bgnd\b|ground|\bshield\b|\bshell\b|chassis|(^|[^\d.+-])0(\.0+)?\s*v\b/.test(text)) return 'ground';
   if (/[+-]?\d+(\.\d+)?\s*v\b|\bv\+|power/.test(text)) return 'power';
   return undefined;
 }

@@ -9,7 +9,8 @@ import { IconBolt, IconCopy, IconPlus, IconSearch, IconTrash } from '@tabler/ico
 import {
   Badge, BeamArt, Button, Callout, Checkbox, Chip, Combobox, ConfirmDialog, DataTable, Dialog, Drawer, EmptyState, Field, FileDrop, FilterMenu, HelpTip, IconButton, Input, Kbd, KeyValues, Menu, NumberInput,
   PageHeader, Popover, PortalContainerContext, RadioGroup, SegmentedControl, Select, SidePanel, Skeleton, StatusDot, Switch, Tab, TabList, TabPanel, Tabs, Textarea, Toolbar, Tooltip, notify,
-  type ControlSize, type DataColumn,
+  FindingsChip, FindingsList, Section, SectionAdds,
+  type ControlSize, type DataColumn, type Finding,
 } from '@wirehub/editor-react';
 import { useState, type JSX, type ReactNode } from 'react';
 
@@ -24,6 +25,12 @@ const PARTS = [
   { value: 'db9-f', label: 'DB-9 female', hint: 'D-sub' },
   { value: 'rj45', label: 'RJ45 plug', hint: 'modular' },
   { value: 'xlr3', label: 'XLR-3 male', hint: 'audio' },
+];
+
+const SAMPLE_FINDINGS: Finding[] = [
+  { level: 'error', message: 'Pin 3 is wired to two nets.', at: 'J1.3' },
+  { level: 'warn', message: 'No source cited yet.' },
+  { level: 'info', message: 'Length is an estimate.' },
 ];
 
 function Row({ title, children }: { title: string; children: ReactNode }): JSX.Element {
@@ -227,6 +234,19 @@ function Sampler(): JSX.Element {
           <Callout tone="ok">Saved.</Callout>
           <Callout tone="warn" details="Pin 3 on both ends carries a different signal.">Pinout does not match.</Callout>
           <Callout tone="err" action={<Button size="xs">Retry</Button>}>Could not reach the server.</Callout>
+        </div>
+      </Row>
+      <Row title="Findings">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
+          <FindingsChip findings={SAMPLE_FINDINGS} />
+          <FindingsList findings={SAMPLE_FINDINGS} />
+        </div>
+      </Row>
+      <Row title="Section">
+        <div style={{ width: '100%' }}>
+          <Section id="gallery-stock" title="Stock" summary="12 m on hand · 9 m free" actions={<Button size="xs">Receive…</Button>}>Lots by location.</Section>
+          <Section id="gallery-notes" title="Notes" summary="2 notes" defaultOpen={false}>Notes body.</Section>
+          <SectionAdds items={[{ id: 'firmware', label: 'Firmware…', onSelect: () => notify.info('Add firmware') }]} />
         </div>
       </Row>
       <Row title="Toast">

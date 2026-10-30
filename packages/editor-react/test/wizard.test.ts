@@ -120,14 +120,13 @@ describe('length', () => {
  * ------------------------------------------------------------------ */
 
 describe('the flow', () => {
-  it('will not leave the first step without a name, an id and a source', () => {
+  it('will not leave the first step without a name and an id (a source can come later)', () => {
     const fresh = { ...initialWizardState(db, ['de9-crossover']), src: '' };
-    expect(stepBlockers(fresh)).toHaveLength(3);
+    expect(stepBlockers(fresh)).toHaveLength(2);
 
     const blocked = wizardReducer(fresh, { type: 'next' });
     expect(blocked.step).toBe('name');
     expect(blocked.blocked.join(' ')).toContain('name');
-    expect(blocked.blocked.join(' ')).toContain('where this information comes from');
   });
 
   it('starts a hand-made design with the Reference "own design", so nobody is blocked for lack of a datasheet', () => {
@@ -204,6 +203,27 @@ describe('the plan', () => {
     expect(keys.filter((k) => k.includes('red')).length).toBe(2);
     expect(keys.filter((k) => k.includes('red')).every((k) => /\.1( |$)/.test(k))).toBe(true);
     expect(keys.filter((k) => k.includes('black')).every((k) => /\.2( |$)/.test(k))).toBe(true);
+  });
+
+  it('lands the trunk on a board read from its source, whose only pads are its connectors’ (net names as roles)', () => {
+    const board = {
+      id: 'synthetic-net-board',
+      label: 'Synthetic net-named board',
+      src: 'synthetic example',
+      terminals: [
+        { id: 'j2.1', label: 'VBUS', note: 'J2 pad 1' },
+        { id: 'j2.2', label: 'GND', note: 'J2 pad 2' },
+        { id: 'j1.6', label: 'USB_D+', note: 'J1 pad A6' },
+      ],
+      internalLinks: [],
+    } as unknown as Db['pcbas'][number];
+    const withBoard: Db = { ...db, pcbas: [...db.pcbas, board] };
+    const state = { ...answers({}), db: withBoard, source: { kind: 'connector' as const, def: 'jst-xh-2-dc', plugs: {} }, destination: { kind: 'pcba' as const, def: 'synthetic-net-board', plugs: {} }, wireDef: 'dc-2core-24awg', lengthText: '500' };
+    const plan = planCable(state);
+    expect(plan.unconnected).toEqual([]);
+    const keys = plan.design.joints.map(jointKey);
+    expect(keys.some((k) => k.includes('u1.j2.1') && k.includes('red'))).toBe(true);
+    expect(keys.some((k) => k.includes('u1.j2.2') && k.includes('black'))).toBe(true);
   });
 
   it('is the same document every time it is asked for', () => {

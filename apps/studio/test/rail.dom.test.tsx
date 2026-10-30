@@ -45,16 +45,16 @@ afterEach(() => {
 const mount = (path: string) => render(<App router={createStudioRouter(createMemoryHistory({ initialEntries: [path] }))} queryClient={new QueryClient({ defaultOptions: { queries: { retry: false } } })} modules={registry} />);
 
 describe('the rail', () => {
-  it('groups the rail: Work, Activity, then Extensions and Settings, with at most 8 items plus the avatar', async () => {
+  it('groups the rail: Work, Activity (Workshop holds Inventory, Firmware, Jobs), then Extensions and Settings, with at most 9 items plus the avatar', async () => {
     mount('/cables');
     const rail = await screen.findByRole('navigation', { name: 'sections' });
     await waitFor(() => expect(rail.querySelector('.cs-navigation-links a')).not.toBeNull());
     const names = (label: string): string[] => [...rail.querySelectorAll(`[role="group"][aria-label="${label}"] a`)].map((a) => a.getAttribute('aria-label') ?? '');
-    expect(names('Work')).toEqual(['Designs', 'Library', 'Find a design', 'Products']);
-    expect(names('Activity')).toEqual(['History', 'Jobs']);
+    expect(names('Work')).toEqual(['Designs', 'Library', 'Products', 'Projects', 'Find']);
+    expect(names('Activity')).toEqual(['Workshop', 'History']);
     expect(names('Hub')).toEqual(['Extensions', 'Settings']);
     const destinations = [...rail.querySelectorAll('a')];
-    expect(destinations.length).toBeLessThanOrEqual(8);
+    expect(destinations.length).toBeLessThanOrEqual(9);
     expect(destinations.map((a) => a.getAttribute('href')).some((href) => href?.startsWith('/m/'))).toBe(false);
     // People and API tokens are not rail items
     expect(destinations.map((a) => a.getAttribute('href'))).not.toContain('/settings/people');

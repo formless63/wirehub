@@ -1,0 +1,7 @@
+{
+  "pack": "firmware-platformio-rp2040",
+  "packVersion": "0.1.0",
+  "targets": [
+    { "id": "pico", "label": "Raspberry Pi Pico (RP2040, UF2)", "platform": "https://github.com/maxgerhardt/platform-raspberrypi.git#5d4561a05e3b212660ac6fdd3fbfb328d1988aa1", "board": "pico", "framework": "arduino", "ini": ["board_build.core = earlephilhower"] }
+  ]
+}

@@ -11,7 +11,9 @@ import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import { adoptServerValues, rotateSettingsKey, engineeringKey, runtimeSettingsKey, runtimeSettingsQuery, saveRuntimeGroup, saveRuntimeSecret, type RuntimeFieldView, type RuntimeGroupView, type RuntimeValue } from '../settings.browser.ts';
+import { IconCopy } from '@tabler/icons-react';
 import { Button, HelpTip, Input, Select, Textarea } from '@wirehub/editor-react';
+import { localDate } from '../when.ts';
 
 const DEFAULT = '__default__';
 
@@ -49,7 +51,20 @@ function ServerBadge({ field }: { field: RuntimeFieldView }): JSX.Element {
   );
 }
 
-function SecretField({ field, group, available, onSaved }: { field: RuntimeFieldView; group: RuntimeGroupView; available: boolean; onSaved: () => void }): JSX.Element {
+/** A setting's label column: the name (shortened inside its sub-group), the server badge and the `(?)` with its help. */
+function RowLabel({ field, prefix, after }: { field: RuntimeFieldView; prefix?: string; after?: JSX.Element | null }): JSX.Element {
+  const shown = shortLabel(field.label, prefix);
+  return (
+    <span className="settings-row-label">
+      <span>{shown}</span>
+      {field.help === '' ? null : <HelpTip label={`About ${field.label}`}>{field.help}</HelpTip>}
+      {field.source === 'server' ? <ServerBadge field={field} /> : null}
+      {after}
+    </span>
+  );
+}
+
+function SecretField({ field, group, available, onSaved, prefix }: { field: RuntimeFieldView; group: RuntimeGroupView; available: boolean; onSaved: () => void; prefix?: string }): JSX.Element {
   const [value, setValue] = useState('');
   const [busy, setBusy] = useState(false);
   const locked = field.source === 'server';
@@ -66,18 +81,16 @@ function SecretField({ field, group, available, onSaved }: { field: RuntimeField
     toast.success(next === undefined ? `${field.label} cleared.` : `${field.label} saved. It is kept encrypted and never shown again.`);
     onSaved();
   };
-  const state = locked ? null : field.unreadable === true ? 'Saved, but this server cannot decrypt it: enter it again.' : field.set === true ? `Set${field.setAt === undefined ? '' : ` (${field.setAt.slice(0, 10)})`}.` : 'Not set.';
+  const state = locked ? null : field.unreadable === true ? 'Cannot be decrypted: enter it again.' : field.set === true ? `Set${field.setAt === undefined ? '' : ` (${localDate(field.setAt)})`}.` : 'Not set.';
   return (
-    <div className="flex flex-col gap-0.5" data-testid={`secret-${field.key}`}>
-      <span className="flex flex-wrap items-center gap-2 font-medium">
-        {field.label} {locked ? <ServerBadge field={field} /> : <span className="font-normal text-faint">{state}</span>}
-      </span>
+    <div className="settings-row" data-testid={`secret-${field.key}`}>
+      <RowLabel field={field} {...(prefix === undefined ? {} : { prefix })} after={state === null ? null : <span className={`text-2xs ${field.unreadable === true ? 'text-err' : 'text-faint'}`}>{state}</span>} />
       {editable ? (
-        <div className="flex gap-2">
+        <div className="flex min-w-0 gap-2">
           {field.kind === 'multiline' ? (
-            <Textarea aria-label={field.label} value={value} placeholder={field.set === true ? 'Enter a new value to replace it' : field.placeholder} onChange={(e) => setValue(e.target.value)} autoComplete="off" spellCheck={false} mono className="min-h-16 flex-1" />
+            <Textarea aria-label={field.label} value={value} placeholder={field.set === true ? 'New value replaces it' : field.placeholder} onChange={(e) => setValue(e.target.value)} autoComplete="off" spellCheck={false} mono className="min-h-16 flex-1" />
           ) : (
-            <Input type="password" aria-label={field.label} value={value} placeholder={field.set === true ? 'Enter a new value to replace it' : field.placeholder} onChange={(e) => setValue(e.target.value)} autoComplete="new-password" className="flex-1" />
+            <Input type="password" aria-label={field.label} value={value} placeholder={field.set === true ? 'New value replaces it' : field.placeholder} onChange={(e) => setValue(e.target.value)} autoComplete="new-password" className="min-w-0 flex-1" />
           )}
           <Button type="button" disabled={busy || value.trim() === ''} onClick={() => void save(value)}>
             Set
@@ -88,13 +101,14 @@ function SecretField({ field, group, available, onSaved }: { field: RuntimeField
             </Button>
           ) : null}
         </div>
-      ) : null}
-      <span className="text-dim">{field.help}</span>
+      ) : (
+        <span />
+      )}
     </div>
   );
 }
 
-function Field({ field, value, disabled, set }: { field: RuntimeFieldView; value: string | boolean; disabled: boolean; set: (v: string | boolean) => void }): JSX.Element {
+function Field({ field, value, disabled, set, prefix }: { field: RuntimeFieldView; value: string | boolean; disabled: boolean; set: (v: string | boolean) => void; prefix?: string }): JSX.Element {
   const locked = field.source === 'server';
   const shown = locked ? textOf(field, field.value) : value;
   const placeholder = field.placeholder ?? (field.defaultText === undefined ? undefined : `default: ${field.defaultText}`);
@@ -126,21 +140,70 @@ function Field({ field, value, disabled, set }: { field: RuntimeFieldView; value
         value={String(shown)}
         placeholder={placeholder}
         inputMode={field.kind === 'int' ? 'numeric' : undefined}
+        className={field.kind === 'int' ? 'w-32' : undefined}
         onChange={(e) => set(e.target.value)}
       />
     );
   return (
-    <label className="flex min-w-0 flex-col gap-1 rounded border border-line p-3">
-      <span className="flex flex-wrap items-center gap-2 font-medium">
-        {field.label} {locked ? <ServerBadge field={field} /> : null}
-      </span>
+    <div className="settings-row">
+      <RowLabel field={field} {...(prefix === undefined ? {} : { prefix })} />
       {control}
-      <span className="text-dim">{field.help}</span>
-    </label>
+    </div>
   );
 }
 
-function Group({ group, draft, setDraft, secretsAvailable, refetch }: { group: RuntimeGroupView; draft: Record<string, string | boolean>; setDraft: (d: Record<string, string | boolean>) => void; secretsAvailable: boolean; refetch: () => void }): JSX.Element {
+/**
+ * The fields of a group, in sub-groups by their key's area (`github.*`, `mirror.*`): a sign-in
+ * provider or an integration reads as one collapsible row, its fields named without the
+ * repeated prefix. A provider's callback URL is shown once, as a copyable value.
+ */
+const AREAS: Readonly<Record<string, { title: string; prefix?: string; collapsed?: boolean; callback?: (values: Record<string, string | boolean>) => string }>> = {
+  auth: { title: 'Accounts' },
+  github: { title: 'GitHub', prefix: 'GitHub', collapsed: true, callback: () => 'github' },
+  google: { title: 'Google', prefix: 'Google', collapsed: true, callback: () => 'google' },
+  oidc: { title: 'Single sign-on (OIDC)', prefix: 'OIDC', collapsed: true, callback: (v) => (typeof v['oidc.providerId'] === 'string' && v['oidc.providerId'] !== '' ? v['oidc.providerId'] : 'oidc') },
+  smtp: { title: 'Magic link (email)', prefix: 'SMTP', collapsed: true },
+  limits: { title: 'API token limits', prefix: 'API token', collapsed: true },
+  store: { title: 'Catalog store', prefix: 'Store:' },
+  pdf: { title: 'PDF engine', prefix: 'PDF engine' },
+  mirror: { title: 'Git mirror', prefix: 'Git mirror', collapsed: true },
+};
+
+function shortLabel(label: string, prefix: string | undefined): string {
+  if (prefix === undefined || !label.toLowerCase().startsWith(prefix.toLowerCase())) return label;
+  const rest = label.slice(prefix.length).trim();
+  return rest === '' ? label : rest[0]!.toUpperCase() + rest.slice(1);
+}
+
+function Callback({ id }: { id: string }): JSX.Element {
+  const url = `${window.location.origin}/api/auth/callback/${id}`;
+  return (
+    <div className="settings-row">
+      <span className="settings-row-label">
+        <span>Callback URL</span>
+        <HelpTip label="About the callback URL">Register this address with the provider.</HelpTip>
+      </span>
+      <span className="flex min-w-0 items-center gap-2">
+        <code className="min-w-0 break-all text-xs" data-testid={`callback-${id}`}>{url}</code>
+        <Button type="button" size="xs" variant="ghost" icon={<IconCopy size={12} aria-hidden />} onClick={() => { void navigator.clipboard?.writeText(url); toast.success('Copied.'); }}>
+          Copy
+        </Button>
+      </span>
+    </div>
+  );
+}
+
+function areaState(fields: readonly RuntimeFieldView[], draft: Record<string, string | boolean>): string | undefined {
+  const enabled = fields.find((f) => f.kind === 'bool' && f.key.endsWith('.enabled'));
+  if (enabled !== undefined) {
+    const v = enabled.source === 'server' ? enabled.value : draft[enabled.key];
+    return v === true ? 'On' : 'Off';
+  }
+  const configured = fields.some((f) => (f.secret === true ? f.set === true || f.source === 'server' : f.source === 'server' || (draft[f.key] !== undefined && draft[f.key] !== '')));
+  return configured ? 'Configured' : 'Not set up';
+}
+
+function Group({ group, draft, setDraft, secretsAvailable, refetch, heading = true }: { group: RuntimeGroupView; draft: Record<string, string | boolean>; setDraft: (d: Record<string, string | boolean>) => void; secretsAvailable: boolean; refetch: () => void; heading?: boolean }): JSX.Element {
   const [busy, setBusy] = useState(false);
   const plain = group.fields.filter((f) => f.secret !== true);
   const save = async (): Promise<void> => {
@@ -154,34 +217,70 @@ function Group({ group, draft, setDraft, secretsAvailable, refetch }: { group: R
     toast.success(`${group.title} saved. It applies now.`);
     refetch();
   };
+  const areas: { id: string; fields: RuntimeFieldView[] }[] = [];
+  for (const field of group.fields) {
+    const id = field.key.split('.')[0] ?? field.key;
+    const last = areas[areas.length - 1];
+    if (last?.id === id) last.fields.push(field);
+    else areas.push({ id, fields: [field] });
+  }
+  const sub = areas.length > 1;
+  const row = (field: RuntimeFieldView, prefix: string | undefined): JSX.Element =>
+    field.secret === true ? (
+      <SecretField key={field.key} field={field} group={group} available={secretsAvailable} onSaved={refetch} {...(prefix === undefined ? {} : { prefix })} />
+    ) : (
+      <Field key={field.key} field={field} value={draft[field.key] ?? ''} disabled={!group.editable} set={(v) => setDraft({ ...draft, [field.key]: v })} {...(prefix === undefined ? {} : { prefix })} />
+    );
   return (
     <form
-      className="flex flex-col gap-3 rounded border border-line p-4"
+      className="flex flex-col gap-1"
       data-testid={`runtime-${group.id}`}
       onSubmit={(e) => {
         e.preventDefault();
         void save();
       }}
     >
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold">
-        {group.title}
-        <HelpTip label={`About ${group.title}`}>{group.intro} {group.applies}</HelpTip>
-      </h2>
+      {heading ? (
+        <h3 className="settings-group-title">
+          {group.title}
+          <HelpTip label={`About ${group.title}`}>{group.intro} {group.applies}</HelpTip>
+        </h3>
+      ) : null}
       {group.restricted === true ? (
-        <div className="text-dim">Shown to owners: only an owner sees and changes these settings.</div>
+        <div className="text-dim">Only an owner sees and changes these settings.</div>
       ) : (
         <>
-          {group.fields.map((field) =>
-            field.secret === true ? (
-              <SecretField key={field.key} field={field} group={group} available={secretsAvailable} onSaved={refetch} />
-            ) : (
-              <Field key={field.key} field={field} value={draft[field.key] ?? ''} disabled={!group.editable} set={(v) => setDraft({ ...draft, [field.key]: v })} />
-            ),
-          )}
+          {areas.map((area) => {
+            const meta = sub ? AREAS[area.id] : undefined;
+            const rows = (
+              <>
+                {area.fields.map((f) => row(f, meta?.prefix))}
+                {meta?.callback === undefined ? null : <Callback id={meta.callback(draft)} />}
+              </>
+            );
+            if (meta === undefined) return <div key={area.id} className="flex flex-col">{rows}</div>;
+            if (meta.collapsed !== true) {
+              return (
+                <div key={area.id} className="flex flex-col" data-area={area.id}>
+                  <div className="settings-subgroup-title">{meta.title}</div>
+                  {rows}
+                </div>
+              );
+            }
+            return (
+              <details key={area.id} className="settings-subgroup" data-area={area.id}>
+                <summary>
+                  <span>{meta.title}</span>
+                  <span className="text-2xs font-normal text-faint">{areaState(area.fields, draft)}</span>
+                </summary>
+                <div className="flex flex-col pb-2">{rows}</div>
+              </details>
+            );
+          })}
           {!group.editable ? (
             <div className="text-dim">{group.role === 'owner' ? 'An owner changes these settings.' : 'Your role can view these settings but not change them.'}</div>
           ) : plain.some((f) => f.source !== 'server') ? (
-            <div>
+            <div className="pt-2">
               <Button type="submit" disabled={busy} variant="primary">
                 {busy ? 'Saving…' : `Save ${group.title.toLowerCase()}`}
               </Button>
@@ -208,17 +307,19 @@ function AdoptServerValues({ items, onDone }: { items: { key: string; env: strin
     onDone();
   };
   return (
-    <div className="flex flex-col gap-2 rounded border border-line p-3" data-testid="adopt-server-values">
-      <span className="font-medium">The server still sets {items.length} of these</span>
-      <span className="text-faint">{items.map((i) => i.label).join(', ')}.</span>
-      <span className="text-dim">
-        Adopting copies them into Settings (secrets into the encrypted store), so you can then delete the variables from your deployment and nothing changes. While a variable is set it still wins.
+    <div className="settings-row" data-testid="adopt-server-values">
+      <span className="settings-row-label">
+        <span>Server values</span>
+        <HelpTip label="About adopting the server's values">
+          Copies these into Settings (secrets into the encrypted store), so the variables can then be deleted from the deployment and nothing changes. While a variable is set it still wins.
+        </HelpTip>
       </span>
-      <div>
-        <Button type="button" disabled={busy} onClick={() => void adopt()}>
+      <span className="flex min-w-0 flex-wrap items-center gap-2">
+        <span className="min-w-0 text-dim">{items.map((i) => i.label).join(', ')}</span>
+        <Button type="button" size="xs" disabled={busy} onClick={() => void adopt()}>
           {busy ? 'Adopting…' : 'Adopt the server’s values'}
         </Button>
-      </div>
+      </span>
     </div>
   );
 }
@@ -237,28 +338,36 @@ function RotateKey({ keyRing, onDone }: { keyRing: { previousKeys: number; stale
     toast.success(`Re-encrypted ${rotated.length} secret${rotated.length === 1 ? '' : 's'} under the current key.`, unreadable.length === 0 ? undefined : { description: `Could not be read, enter again: ${unreadable.join(', ')}.` });
     onDone();
   };
+  const state =
+    keyRing.stale > 0 ? `${keyRing.stale} secret${keyRing.stale === 1 ? '' : 's'} under a previous key` : keyRing.previousKeys > 0 ? 'All under the current key; the previous key can go' : 'All under the current key';
   return (
-    <div className="flex flex-col gap-2 rounded border border-line p-3" data-testid="rotate-key">
-      <span className="font-medium">Settings key rotation</span>
-      <span className="text-dim">
-        {keyRing.stale > 0
-          ? `${keyRing.stale} stored secret${keyRing.stale === 1 ? ' is' : 's are'} still under a previous key.`
-          : keyRing.previousKeys > 0
-            ? 'Every stored secret is under the current key; the previous key can now be removed from the server.'
-            : 'Every stored secret is under the current key.'}{' '}
-        To rotate, give the server a new <code>WIREHUB_SETTINGS_KEY</code> and the old one as <code>WIREHUB_SETTINGS_KEY_PREVIOUS</code> then re-encrypt here.
-        {keyRing.unreadable > 0 ? ` ${keyRing.unreadable} secret${keyRing.unreadable === 1 ? '' : 's'} cannot be read with any key and must be entered again.` : ''}
+    <div className="settings-row" data-testid="rotate-key">
+      <span className="settings-row-label">
+        <span>Settings key</span>
+        <HelpTip label="About settings key rotation">
+          To rotate, give the server a new WIREHUB_SETTINGS_KEY and the old one as WIREHUB_SETTINGS_KEY_PREVIOUS, then re-encrypt here.
+        </HelpTip>
       </span>
-      <div>
-        <Button type="button" disabled={busy || (keyRing.stale === 0 && keyRing.previousKeys === 0)} onClick={() => void rotate()}>
+      <span className="flex min-w-0 flex-wrap items-center gap-2">
+        <span className="text-dim">
+          {state}
+          {keyRing.unreadable > 0 ? `; ${keyRing.unreadable} cannot be read and must be entered again` : ''}.
+        </span>
+        <Button type="button" size="xs" disabled={busy || (keyRing.stale === 0 && keyRing.previousKeys === 0)} onClick={() => void rotate()}>
           {busy ? 'Re-encrypting…' : 'Rotate key'}
         </Button>
-      </div>
+      </span>
     </div>
   );
 }
 
-export function RuntimeSettings({ section }: { section?: 'authentication' | 'runtime' } = {}): JSX.Element {
+/** Which runtime groups a Settings section shows: sign-in; alerts (beside the event webhooks); the rest under System. */
+const inSection = (section: RuntimeSection | undefined, id: string): boolean =>
+  section === undefined ? true : section === 'authentication' ? id === 'sign-in' : section === 'alerts' ? id === 'notifications' : id !== 'sign-in' && id !== 'notifications';
+
+export type RuntimeSection = 'authentication' | 'runtime' | 'alerts';
+
+export function RuntimeSettings({ section }: { section?: RuntimeSection } = {}): JSX.Element {
   const client = useQueryClient();
   const query = useQuery(runtimeSettingsQuery);
   const [draft, setDraft] = useState<Draft>({});
@@ -270,26 +379,41 @@ export function RuntimeSettings({ section }: { section?: 'authentication' | 'run
     void client.invalidateQueries({ queryKey: engineeringKey });
   };
 
-  if (query.isError) return <div className="mt-8 border-t border-line pt-4 text-faint">{query.error instanceof Error ? query.error.message : 'The settings could not be read.'}</div>;
-  if (query.data === undefined) return <div className="mt-6 text-faint">Loading…</div>;
+  if (query.isError) return <div className="text-faint">{query.error instanceof Error ? query.error.message : 'The settings could not be read.'}</div>;
+  if (query.data === undefined) return <div className="text-faint">Loading…</div>;
   const data = query.data;
-  const groups = data.groups.filter((group) => section === undefined || (section === 'authentication' ? group.id === 'sign-in' : group.id !== 'sign-in'));
+  const groups = data.groups.filter((group) => inSection(section, group.id));
   const adoptable = data.adoptable?.filter((item) => groups.some((group) => group.fields.some((field) => field.key === item.key)));
+  const rotation = section !== 'authentication' && section !== 'alerts' ? data.secrets.keyRing : undefined;
+  const server = rotation !== undefined || (adoptable !== undefined && adoptable.length > 0);
   return (
-    <div className="flex max-w-xl flex-col gap-8" data-testid={`runtime-settings${section === undefined ? '' : `-${section}`}`}>
+    <div className="flex max-w-3xl flex-col gap-6" data-testid={`runtime-settings${section === undefined ? '' : `-${section}`}`}>
       {data.problems.length > 0 ? (
-        <div role="alert" className="flex flex-col gap-1 rounded border border-line p-2">
+        <div role="alert" className="flex flex-col gap-1 text-err">
           {data.problems.map((p) => (
             <span key={p}>{p}</span>
           ))}
         </div>
       ) : null}
-      {data.secrets.available ? null : <div className="text-dim">{data.secrets.note}</div>}
-      {section !== 'authentication' && data.secrets.keyRing !== undefined ? <RotateKey keyRing={data.secrets.keyRing} onDone={refetch} /> : null}
-      {adoptable !== undefined && adoptable.length > 0 ? <AdoptServerValues items={adoptable} onDone={refetch} /> : null}
+      {data.secrets.available ? null : (
+        <div className="text-xs text-warn" title={data.secrets.note}>
+          Secrets cannot be saved here: the server has no settings key.
+        </div>
+      )}
       {groups.map((group) => (
-        <Group key={group.id} group={group} draft={draft[group.id] ?? {}} setDraft={(d) => setDraft({ ...draft, [group.id]: d })} secretsAvailable={data.secrets.available} refetch={refetch} />
+        <Group key={group.id} heading={section !== 'authentication'} group={group} draft={draft[group.id] ?? {}} setDraft={(d) => setDraft({ ...draft, [group.id]: d })} secretsAvailable={data.secrets.available} refetch={refetch} />
       ))}
+      {!server ? null : (
+        <details className="settings-subgroup" data-testid="runtime-server">
+          <summary>
+            <span>Server</span>
+          </summary>
+          <div className="flex flex-col pb-2">
+            {rotation === undefined ? null : <RotateKey keyRing={rotation} onDone={refetch} />}
+            {adoptable !== undefined && adoptable.length > 0 ? <AdoptServerValues items={adoptable} onDone={refetch} /> : null}
+          </div>
+        </details>
+      )}
     </div>
   );
 }

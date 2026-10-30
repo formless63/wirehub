@@ -29,6 +29,7 @@ import { VIEW_DIRECTIONS } from '../models.ts';
 import { editedEnd, initialWireView, modelOptionsOf, withStrip, type WireLayFacts, type WireViewState } from '../wire-view.ts';
 import { buildWireObject, FALLBACK_COLOURS, type WireObject, type WirePalette } from '../wire-scene.ts';
 import { isDarkTheme, NO_WEBGL, readPalette, readToken, webglContext } from './viewer-dom.ts';
+import { CoverTools3d, type ViewerCover } from './CoverTools3d.tsx';
 
 export interface WireModel3dProps {
   wire: WireDefinition;
@@ -43,6 +44,8 @@ export interface WireModel3dProps {
   height?: number;
   /** fewer controls (the builder's live preview) */
   compact?: boolean;
+  /** The stock's shared cover, when the host offers one ("Use this view as cover"). */
+  cover?: ViewerCover;
 }
 
 type View = 'iso' | 'top' | 'front' | 'side' | 'end';
@@ -346,6 +349,7 @@ export default function WireModel3d(props: WireModel3dProps): JSX.Element {
             {v.label}
           </button>
         ))}
+        {props.cover === undefined ? null : <CoverTools3d live={live} cover={props.cover} />}
         {stats === undefined ? null : (
           <span className="cs-model-info" title={`${stats.pieces} pieces in ${stats.drawCalls} draw calls`}>
             {model?.odMm.toFixed(1)} mm Ø · {state.lengthMm} mm · {stats.triangles >= 1000 ? `${Math.round(stats.triangles / 1000)}k` : stats.triangles} tri

@@ -3,16 +3,30 @@
  * stream, check every CRC, keep only the chunks that draw the picture (IHDR,
  * PLTE, tRNS, IDAT, IEND) and drop the rest — text, EXIF, embedded profiles,
  * private chunks, anything after IEND. The result is a PNG that cannot carry
- * metadata or a payload past its pixels. Pure; no dependencies.
+ * metadata or a payload past its pixels. Pure; no dependencies. A note's photo
+ * uses the same walk with its own limits and keeps its colour chunks.
  */
 
 import { Buffer } from 'node:buffer';
 
 const SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const KEEP = new Set(['IHDR', 'PLTE', 'tRNS', 'IDAT', 'IEND']);
+/** a photo keeps how its colours are meant (gamma, primaries, sRGB intent, ICC profile): none of them say where or who */
+const KEEP_COLOUR = new Set([...KEEP, 'gAMA', 'cHRM', 'sRGB', 'iCCP', 'sBIT']);
 /** a title-block logo is small; refuse anything that could be a decompression bomb */
 export const MAX_LOGO_BYTES = 512 * 1024;
 export const MAX_LOGO_PIXELS = 4096;
+
+/** What a caller accepts: the logo's limits by default; a note's photo passes its own (`image-metadata.ts`). */
+export interface PngLimits {
+  maxBytes: number;
+  maxPixels: number;
+  /** what the messages call the file ('logo', 'photo') */
+  noun: string;
+  /** keep the colour chunks (gAMA, cHRM, sRGB, iCCP, sBIT) too */
+  keepColour?: boolean;
+}
+const LOGO_LIMITS: PngLimits = { maxBytes: MAX_LOGO_BYTES, maxPixels: MAX_LOGO_PIXELS, noun: 'logo' };
 
 const TABLE = (() => {
   const t = new Uint32Array(256);
@@ -32,10 +46,11 @@ function crc32(bytes: Uint8Array): number {
 
 export type PngResult = { ok: true; bytes: Buffer; width: number; height: number } | { ok: false; reason: string };
 
-export function sanitizePng(input: Uint8Array): PngResult {
+export function sanitizePng(input: Uint8Array, limits: PngLimits = LOGO_LIMITS): PngResult {
   const data = Buffer.from(input);
-  if (data.length > MAX_LOGO_BYTES) return { ok: false, reason: `The logo is larger than ${MAX_LOGO_BYTES / 1024} KiB.` };
-  if (data.length < 8 + 25 || !data.subarray(0, 8).equals(SIGNATURE)) return { ok: false, reason: 'The logo is not a PNG file.' };
+  const keep = limits.keepColour === true ? KEEP_COLOUR : KEEP;
+  if (data.length > limits.maxBytes) return { ok: false, reason: `The ${limits.noun} is larger than ${limits.maxBytes / 1024} KiB.` };
+  if (data.length < 8 + 25 || !data.subarray(0, 8).equals(SIGNATURE)) return { ok: false, reason: `The ${limits.noun} is not a PNG file.` };
   const out: Buffer[] = [SIGNATURE];
   let at = 8;
   let width = 0;
@@ -55,12 +70,12 @@ export function sanitizePng(input: Uint8Array): PngResult {
       if (!first || length !== 13) return { ok: false, reason: 'The PNG header is malformed.' };
       width = body.readUInt32BE(0);
       height = body.readUInt32BE(4);
-      if (width < 1 || height < 1 || width > MAX_LOGO_PIXELS || height > MAX_LOGO_PIXELS) return { ok: false, reason: `The logo must be between 1 and ${MAX_LOGO_PIXELS} pixels each way.` };
+      if (width < 1 || height < 1 || width > limits.maxPixels || height > limits.maxPixels) return { ok: false, reason: `The ${limits.noun} must be between 1 and ${limits.maxPixels} pixels each way.` };
     }
     first = false;
     if (type === 'IDAT') sawIdat = true;
     if (type === 'IEND') sawEnd = true;
-    if (KEEP.has(type)) out.push(data.subarray(at, end));
+    if (keep.has(type)) out.push(data.subarray(at, end));
     at = end;
   }
   if (!sawIdat || !sawEnd) return { ok: false, reason: 'The PNG has no picture data or no end.' };

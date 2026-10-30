@@ -29,6 +29,7 @@ import {
   designInstances,
   wireRangeText,
   insulationRangeText,
+  integratedConnectorDuplicates,
   findComponent,
   findConnector,
   findInstance,
@@ -37,6 +38,7 @@ import {
   findWire,
   flattenSubassemblies,
   hasSubassemblies,
+  humanizeNote,
   kitsContaining,
   passThroughRuns,
   placedDesign,
@@ -230,6 +232,16 @@ function attachesText(design: CableDesign, instanceId: string): string {
   return ends.size === 0 ? subText : `${endSummary(ends)}, ${subText}`;
 }
 
+/**
+ * Where a part sits: on a one-run design the end of the cable (`sideOf`); with
+ * several runs an end of one run is not an end of the cable, so it names the
+ * run ends it is joined to (`w1@b, w2@a`).
+ */
+function placeOf(design: CableDesign, ends: Set<string>): string {
+  if (design.instances.segments.length <= 1 || ends.size === 0) return sideOf(ends);
+  return endSummary(ends);
+}
+
 /** `source end (a)` / `destination end (b)` / `both ends`, from the wire ends. */
 function sideOf(ends: Set<string>): string {
   const sides = new Set([...ends].map((entry) => entry.slice(-1)));
@@ -269,11 +281,11 @@ function topicsOf(text: string): BomTopic[] {
  * touch no build-or-buy topic are dropped: a roll-up that reprints everything
  * is a roll-up nobody reads.
  */
-function rollUpNotes(design: CableDesign): BomNote[] {
+function rollUpNotes(design: CableDesign, db: Db): BomNote[] {
   const candidates: { source: string; noteIndex?: number; text: string }[] = [];
 
   (design.notes ?? []).forEach((text, index) => {
-    candidates.push({ source: `notes[${index}]`, noteIndex: index, text });
+    candidates.push({ source: `notes[${index}]`, noteIndex: index, text: humanizeNote(design, db, text) });
   });
   for (const instance of design.instances.connectors) {
     if (instance.role !== undefined) candidates.push({ source: `${instance.id}.role`, text: instance.role });
@@ -341,7 +353,7 @@ export function deriveBom(design: CableDesign, db: Db, options: BomOptions = {})
     const bom = deriveBom(flat.design, flat.db);
     return {
       ...bom,
-      notes: rollUpNotes(design),
+      notes: rollUpNotes(design, db),
       gaps: [...bom.gaps, ...flat.issues.map((i) => `sub-assembly ${i.where ?? ''}: ${i.message}`)].sort(compareStrings),
       issues: validateDesign(design, db),
     };
@@ -386,7 +398,7 @@ export function deriveBom(design: CableDesign, db: Db, options: BomOptions = {})
     if (wire === undefined) {
       gaps.push(`segment ${instance.id}: wire definition '${instance.def}' is not in the catalog`);
     } else if (wire.partNumber === undefined) {
-      gaps.push(`wire '${wire.id}': the definition carries no part number`);
+      gaps.push(`wire '${wireDisplayName(db, wire.id)}': the definition carries no part number`);
     }
     if (instance.lengthMm === undefined) {
       gaps.push(`segment ${instance.id}: no length recorded — cut length must come from the SWI`);
@@ -428,11 +440,14 @@ export function deriveBom(design: CableDesign, db: Db, options: BomOptions = {})
   for (const instance of design.instances.pcbas) {
     if (covered.has(instance.id)) continue;
     const pcba = findPcba(db, instance.def);
-    const side = sideOf(attachedEnds(design, instance.id));
-    const key = `pcba|${instance.def}|${side}`;
+    const side = placeOf(design, attachedEnds(design, instance.id));
+    // every occurrence of one board is one line with its count; the places it sits are listed
+    const key = `pcba|${instance.def}`;
     if (pcba === undefined) {
       gaps.push(`pcba ${instance.id}: definition '${instance.def}' is not in the catalog`);
     }
+    const seen = folds.get(key);
+    if (seen !== undefined && !seen.line.location.split('; ').includes(side)) seen.line = { ...seen.line, location: `${seen.line.location}; ${side}` };
     foldInto(
       folds,
       key,
@@ -461,8 +476,10 @@ export function deriveBom(design: CableDesign, db: Db, options: BomOptions = {})
   }
 
   /* --- connectors ------------------------------------------------- */
+  // a connector instance standing for a board's own integrated connector is the board's line, not a second part
+  const onBoard = integratedConnectorDuplicates(db, design);
   for (const instance of design.instances.connectors) {
-    if (covered.has(instance.id)) continue;
+    if (covered.has(instance.id) || onBoard.has(instance.id)) continue;
     const connector = findConnector(db, instance.def);
     const role = instance.role ?? 'unspecified';
     const key = `connector|${instance.def}|${role}`;
@@ -484,7 +501,7 @@ export function deriveBom(design: CableDesign, db: Db, options: BomOptions = {})
     if (connector === undefined) {
       gaps.push(`connector ${instance.id}: definition '${instance.def}' is not in the catalog`);
     } else if (identity === undefined) {
-      const gap = `connector '${connector.id}': no part number in the catalog — order by description`;
+      const gap = `connector '${connector.label}': no part number in the catalog — order by description`;
       if (!gaps.includes(gap)) gaps.push(gap);
     }
     foldInto(
@@ -514,14 +531,14 @@ export function deriveBom(design: CableDesign, db: Db, options: BomOptions = {})
   /* --- crimp contacts, seals and plugs, counted per cavity ---------- */
   // a tool is not consumed, so it is never a line (the build sheet lists it)
   for (const instance of design.instances.connectors) {
-    if (covered.has(instance.id)) continue;
+    if (covered.has(instance.id) || onBoard.has(instance.id)) continue;
     const role = instance.role ?? 'unspecified';
     for (const row of cavityRows(design, db, instance.id)) {
       for (const part of [row.contact, row.seal, row.plug]) {
         if (part === undefined) continue;
         const key = `termination|${part.id}|${role}`;
         if (part.partNumber === undefined) {
-          const gap = `${part.kind} '${part.id}': no part number in the catalog`;
+          const gap = `${part.kind} '${part.label}': no part number in the catalog`;
           if (!gaps.includes(gap)) gaps.push(gap);
         }
         foldInto(
@@ -558,7 +575,7 @@ export function deriveBom(design: CableDesign, db: Db, options: BomOptions = {})
     if (component === undefined) {
       gaps.push(`component ${instance.id}: definition '${instance.def}' is not in the catalog`);
     } else if (component.partNumber === undefined) {
-      const gap = `component '${component.id}' (${component.value ?? component.label}): no part number in the catalog`;
+      const gap = `component '${component.label}'${component.value === undefined ? '' : ` (${component.value})`}: no part number in the catalog`;
       if (!gaps.includes(gap)) gaps.push(gap);
     }
     if (instance.note !== undefined) {
@@ -604,7 +621,7 @@ export function deriveBom(design: CableDesign, db: Db, options: BomOptions = {})
     if (def === undefined) {
       gaps.push(`mechanical instance ${instance.id}: definition '${instance.def}' is not in the catalog`);
     } else if (def.partNumber === undefined) {
-      const gap = `mechanical '${def.id}': no part number in the catalog`;
+      const gap = `mechanical '${def.label}': no part number in the catalog`;
       if (!gaps.includes(gap)) gaps.push(gap);
     }
     foldInto(
@@ -643,7 +660,7 @@ export function deriveBom(design: CableDesign, db: Db, options: BomOptions = {})
     if (opened !== undefined && !opened.ok) {
       gaps.push(`sub-assembly ${instance.id}: ${opened.issue.message}`);
     } else if (placed?.productRef === undefined) {
-      const gap = `design '${instance.def}': no product part number — order or build it by name`;
+      const gap = `design '${placed?.label ?? 'Unavailable sub-assembly'}': no product part number — order or build it by name`;
       if (!gaps.includes(gap)) gaps.push(gap);
     }
     foldInto(
@@ -707,7 +724,7 @@ export function deriveBom(design: CableDesign, db: Db, options: BomOptions = {})
     ...(design.productRef === undefined ? {} : { productRef: design.productRef }),
     lines,
     assemblies: deriveAssemblies(design, db),
-    notes: rollUpNotes(design),
+    notes: rollUpNotes(design, db),
     gaps: [...gaps].sort(compareStrings),
     ...(trunk === undefined ? {} : { trunk }),
     issues: validateDesign(design, db),

@@ -13,6 +13,9 @@ export function packEventOf(method: string, path: string, body: unknown): Domain
   if (b['updated'] === true && pack !== undefined && pack !== 'install') {
     return { type: 'pack.installed', subject: { kind: 'pack', id: pack }, summary: { action: 'updated', ...(typeof b['from'] === 'string' ? { from: b['from'] } : {}), ...(typeof b['to'] === 'string' ? { version: b['to'] } : {}) } };
   }
+  if (b['released'] === true && typeof b['id'] === 'string') {
+    return { type: 'pack.installed', subject: { kind: 'pack', id: b['id'] }, summary: { action: 'released', ...(typeof b['version'] === 'string' ? { version: b['version'] } : {}), ...(typeof b['records'] === 'number' ? { records: b['records'] } : {}) } };
+  }
   if (method === 'DELETE' && typeof b['disabled'] === 'string') {
     return { type: 'pack.installed', subject: { kind: 'pack', id: b['disabled'] }, summary: { action: 'disabled', ...(typeof b['removed'] === 'number' ? { removed: b['removed'] } : {}) } };
   }

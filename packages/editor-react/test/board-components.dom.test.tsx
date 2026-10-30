@@ -44,7 +44,7 @@ describe('BoardComponentsSection', () => {
     const rows = [...document.querySelectorAll('.cs-bc-table tbody tr')].map((tr) => [...tr.querySelectorAll('td')].slice(0, 3).map((td) => td.textContent));
     expect(rows).toEqual([
       ['0', 'DNP U1', 'LM1881M SOIC-8'],
-      ['2', 'R1, R2 · DNP R3', 'R 0603 75 Ω 1%review'],
+      ['2', 'R1, R2 · DNP R3', 'R 0603 75 Ω 1%'], // no per-row review chip any more
       ['1', 'J2', 'PJ-311D jack'],
     ]);
     expect(screen.getByText('CMP-00102-00')).toBeTruthy();

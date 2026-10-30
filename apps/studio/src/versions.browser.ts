@@ -5,13 +5,15 @@
  */
 
 import type { Outcome } from '@wirehub/editor-react';
-import { DESIGN_VERSION_FORMAT_V1, type CableDesign, type DesignVersionFile, type VersionSummary } from '@wirehub/model';
+import { DESIGN_VERSION_FORMAT_V1, type CableDesign, type DesignVersionFile, type EffectiveInput, type Issue, type VersionSummary } from '@wirehub/model';
 
 import { request } from './persistence.browser.ts';
 
 export interface WorkingStatus {
   basedOnRev?: number;
   unreleased: boolean;
+  /** the design is unchanged but records it uses changed (names) */
+  inputsChanged?: string[];
   nextRev: number;
   latestRev?: number;
   /** release approvals are on */
@@ -57,7 +59,7 @@ export const getVersion = (id: string, rev: number): Promise<Outcome<DesignVersi
 export const saveVersion = (
   id: string,
   note: string,
-): Promise<Outcome<VersionListing & { version: VersionSummary; drawingTag?: string }>> =>
+): Promise<Outcome<VersionListing & { version: VersionSummary; drawingTag?: string; captured?: { design: string; rev: number; auto: boolean }[] }>> =>
   request(base(id), { method: 'POST', body: { note } });
 
 export const unlockVersion = (id: string, rev: number, reason: string): Promise<Outcome<DesignVersionFile>> =>
@@ -69,8 +71,8 @@ export const lockVersion = (id: string, rev: number): Promise<Outcome<DesignVers
 export type ApprovalStep = 'submit' | 'approve' | 'reject';
 
 /** submit, approve or reject a saved version; a comment is required */
-export const approvalStep = (id: string, rev: number, step: ApprovalStep, comment: string): Promise<Outcome<VersionListing & { version: VersionSummary }>> =>
-  request(`${base(id)}/${rev}/${step}`, { method: 'POST', body: { comment } });
+export const approvalStep = (id: string, rev: number, step: ApprovalStep, comment: string, acknowledge = false): Promise<Outcome<VersionListing & { version: VersionSummary }>> =>
+  request(`${base(id)}/${rev}/${step}`, { method: 'POST', body: { comment, ...(acknowledge ? { acknowledge: true } : {}) } });
 
 export const editVersion = (id: string, rev: number, design: CableDesign): Promise<Outcome<DesignVersionFile>> =>
   request(`${base(id)}/${rev}`, { method: 'PUT', body: { design } });
@@ -134,5 +136,46 @@ export function revisionRow(summary: VersionSummary): { rev: string; description
     description: summary.note.trim() === '' ? `Revision ${summary.rev}` : summary.note.trim(),
     date: summary.savedAt.slice(0, 10).replace(/-/g, '.'),
     by: summary.savedBy,
+  };
+}
+
+/** One captured input of a saved version, against today (`server/effective-inputs.ts` `InputStatus`). */
+export interface VersionInputStatus extends EffectiveInput {
+  state: 'same' | 'changed' | 'gone';
+  changed?: ('record' | 'artwork' | 'cover' | 'newer-version' | 'working-copy')[];
+  fields?: string[];
+  nowRecordRev?: number;
+  latestRecordRev?: number;
+  latestDesignRev?: number;
+}
+
+export interface VersionInputs {
+  rev: number;
+  capturedAt: string;
+  source: 'version-save' | 'version-edit' | 'job' | 'derived';
+  inputs: VersionInputStatus[];
+  findings: Issue[];
+  stale: number;
+}
+
+export function versionInputsKey(id: string, rev: number): readonly [string, string, string, number, string] {
+  return ['studio', 'version', id, rev, 'inputs'] as const;
+}
+
+export const getVersionInputs = (id: string, rev: number): Promise<Outcome<VersionInputs>> =>
+  request<VersionInputs>(`${base(id)}/${rev}/inputs`);
+
+/**
+ * The Documents preview's approval lookup for a listing (`DocumentRelease.approvals`):
+ * present only when release approvals are on, so the preview's state word
+ * matches the server render (`printedState`, @wirehub/docs).
+ */
+export function approvalsOf(listing: VersionListing | undefined): { approvals?: (rev: number) => { approval?: NonNullable<VersionSummary['approval']> } } {
+  if (listing?.working.approvals !== true) return {};
+  return {
+    approvals: (rev) => {
+      const approval = listing.revisions.find((r) => r.rev === rev)?.approval;
+      return approval === undefined ? {} : { approval };
+    },
   };
 }

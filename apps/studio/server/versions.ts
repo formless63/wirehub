@@ -4,6 +4,8 @@
  *   GET    /api/designs/:id/versions                     list + working status + drafts
  *   GET    /api/designs/:id/versions/:rev                one version file
  *   GET    /api/designs/:id/versions/:rev/artwork        the artwork copied into it
+ *   GET    /api/designs/:id/versions/:rev/inputs         its captured effective inputs, and which differ today
+ *   GET    /api/designs/:id/versions/:rev/documents      the released document manifest (:rev also latest | released; document-manifest.ts, routed by api.ts)
  *   POST   /api/designs/:id/versions                     { note }    save the stored working copy
  *   POST   /api/designs/:id/versions/:rev/unlock         { reason }
  *   PUT    /api/designs/:id/versions/:rev                { design }  save an unlocked version's edit, re-lock
@@ -30,8 +32,11 @@ import {
   artworkBlobName,
   canonicalVersionFile,
   createVersion,
+  designChangeSummary,
   designsDiffer,
+  freezeDefinitions,
   pinSubassemblies,
+  stableJson,
   workingDiffers,
   editVersion,
   errors,
@@ -48,6 +53,7 @@ import {
   type CableDesign,
   type Db,
   type DesignVersionFile,
+  type FrozenDefinitions,
   type Issue,
   type VersionSummary,
   approvalStepProblem,
@@ -55,12 +61,14 @@ import {
   rejectVersion,
   releasedRevision,
   submitVersion,
+  UNCAPTURABLE_CODES,
+  versionIntegrityIssues,
 } from '@wirehub/model';
 
 import type { ApiError, ApiResponse } from './api.ts';
 import type { DesignStore } from './designs.ts';
 import type { DrawingStore } from './drawings.ts';
-import type { StudioUser } from './me.ts';
+import { actorName, type StudioUser } from './me.ts';
 import { contentETag } from './etag.ts';
 import { writeFileAtomic } from './atomic-write.ts';
 import { recordWrite } from './write-journal.ts';
@@ -70,11 +78,15 @@ import { approvalPolicy } from './settings.ts';
 import { withDesignLibrary } from './assemblies.ts';
 import type { DomainEvent } from './webhooks/events.ts';
 import { hubCatalogSource } from './catalog-files.ts';
+import { inputsOf, inputsStatus, versionInputs } from './effective-inputs.ts';
+import { captureDevicePins, type PinDeps } from './devices/pins.ts';
 
 export const VERSION_ROUTES = [
   'GET    /api/designs/:id/versions',
   'GET    /api/designs/:id/versions/:rev',
   'GET    /api/designs/:id/versions/:rev/artwork',
+  'GET    /api/designs/:id/versions/:rev/inputs',
+  'GET    /api/designs/:id/versions/:rev/documents',
   'POST   /api/designs/:id/versions',
   'PUT    /api/designs/:id/versions/:rev',
   'POST   /api/designs/:id/versions/:rev/unlock',
@@ -424,7 +436,7 @@ export function memoryVersionStore(depictionsDir?: string): VersionStore {
  * What the handlers need
  * ------------------------------------------------------------------ */
 
-export interface VersionDeps {
+export interface VersionDeps extends PinDeps {
   designs: DesignStore;
   loadDb: () => Awaitable<Db>;
   versions?: VersionStore;
@@ -460,8 +472,10 @@ function parseNumber(segment: string | undefined): number | undefined {
 /** What a version list shows about the working copy. */
 export interface WorkingStatus {
   basedOnRev?: number;
-  /** the working copy's design differs from `basedOnRev`'s (true when nothing is saved yet) */
+  /** the working copy's design or its inputs differ from `basedOnRev`'s (true when nothing is saved yet) */
   unreleased: boolean;
+  /** the design is the same but records it uses changed since (board, enclosure, parts): their names */
+  inputsChanged?: string[];
   /** the number the next Save version will take */
   nextRev: number;
   latestRev?: number;
@@ -477,8 +491,42 @@ export interface VersionListing {
   drafts: DraftSummary[];
 }
 
-/** The working copy's release state — also what the cable list's chip reads. */
-export async function workingStatus(deps: VersionDeps, id: string, working: CableDesign | undefined): Promise<WorkingStatus> {
+const FROZEN_LISTS = ['connectors', 'bodies', 'interfaces', 'wires', 'components', 'pcbas', 'mechanicals'] as const satisfies readonly (keyof FrozenDefinitions)[];
+
+/**
+ * The records a working copy uses whose content differs from what `base` froze: a
+ * board updated from a new file, an enclosure with new parameters, an edited part. Names, in the
+ * order the version lists them. Empty: the version still holds exactly what the working copy uses.
+ */
+export async function inputChanges(working: CableDesign, base: Pick<DesignVersionFile, 'definitions'>, live: Db): Promise<string[]> {
+  const now = freezeDefinitions(pinSubassemblies(working, live).design, live);
+  const out: string[] = [];
+  const name = (d: unknown): string => {
+    const r = d as { id?: string; sku?: string; label?: string };
+    return r.label ?? r.id ?? r.sku ?? '?';
+  };
+  const key = (d: unknown): string => (d as { id?: string; sku?: string }).id ?? (d as { sku?: string }).sku ?? '';
+  for (const list of FROZEN_LISTS) {
+    const before = new Map(((base.definitions[list] ?? []) as unknown[]).map((d) => [key(d), d]));
+    const after = new Set<string>();
+    for (const d of now[list] as unknown[]) {
+      after.add(key(d));
+      const old = before.get(key(d));
+      if (old === undefined || stableJson(old) !== stableJson(d)) out.push(name(d));
+    }
+    for (const [k, d] of before) if (!after.has(k)) out.push(name(d));
+  }
+  // tags follow the records they tag: named only when nothing else says why they moved
+  if (out.length === 0 && stableJson(base.definitions.tags ?? null) !== stableJson(now.tags ?? null)) out.push('signal tags');
+  return out;
+}
+
+/**
+ * The working copy's release state — also what the cable list's chip reads. A change to the records
+ * it uses counts as a change (`inputsChanged`), so the next version can capture them; `inputs:
+ * false` skips that check where only the revision numbers matter.
+ */
+export async function workingStatus(deps: VersionDeps, id: string, working: CableDesign | undefined, options: { inputs?: boolean; db?: Db } = {}): Promise<WorkingStatus> {
   const store = deps.versions;
   const revs = await store?.revisions(id) ?? [];
   const latestRev = revs[revs.length - 1];
@@ -486,7 +534,12 @@ export async function workingStatus(deps: VersionDeps, id: string, working: Cabl
   const basedOnRev = state.basedOnRev ?? latestRev;
   const base = basedOnRev === undefined ? undefined : await store?.read(id, basedOnRev);
   // the pins a save froze its sub-assemblies to are not a change
-  const unreleased = working === undefined || base === undefined ? true : workingDiffers(working, base.design);
+  const designChanged = working === undefined || base === undefined ? true : workingDiffers(working, base.design);
+  let inputsChanged: string[] = [];
+  if (!designChanged && working !== undefined && base !== undefined && options.inputs !== false) {
+    inputsChanged = await inputChanges(working, base, await withDesignLibrary(deps, working, options.db ?? await deps.loadDb()));
+  }
+  const unreleased = designChanged || inputsChanged.length > 0;
   const policy = await approvalPolicy(deps.docs);
   let releasedRev: number | undefined;
   if (policy.enabled && store !== undefined) {
@@ -501,6 +554,7 @@ export async function workingStatus(deps: VersionDeps, id: string, working: Cabl
     ...(policy.enabled ? { approvals: true, ...(releasedRev === undefined ? {} : { releasedRev }) } : {}),
     ...(basedOnRev === undefined ? {} : { basedOnRev }),
     unreleased,
+    ...(inputsChanged.length === 0 ? {} : { inputsChanged }),
     nextRev: nextRevision(revs, (await deps.drawings?.read(id))?.meta.revision),
     ...(latestRev === undefined ? {} : { latestRev }),
   };
@@ -554,39 +608,113 @@ function versionRejected(id: string, rev: number, issues: Issue[]): ApiResponse 
   );
 }
 
-async function saveVersion(deps: VersionDeps, store: VersionStore, id: string, body: unknown, user: StudioUser): Promise<ApiResponse> {
-  const note = text(objectBody(body).note);
-  if (note === '') {
-    return fail(400, 'A saved version needs a note.', 'Say what this revision is — "first release", "moved sync to pin 20" …');
+/** A placed design captured for a save: the saved revision it is pinned to, and whether this save wrote it. */
+export interface CapturedSubassembly {
+  design: string;
+  rev: number;
+  auto: boolean;
+}
+
+/**
+ * Pin every sub-assembly that follows a working copy to the saved version that captures that working
+ * copy: the revision it equals, or — when it equals none — a version saved for it now, automatically.
+ * Nobody has to freeze or release a child first; release is a separate, deliberate step. `chain` is
+ * the designs being saved above this one (a cycle is left to validation, which refuses it).
+ */
+async function captureSubassemblies(
+  deps: VersionDeps,
+  store: VersionStore,
+  design: CableDesign,
+  forRev: { id: string; rev: number },
+  user: StudioUser,
+  chain: readonly string[],
+): Promise<{ ok: true; design: CableDesign; captured: CapturedSubassembly[]; events: DomainEvent[] } | { ok: false; response: ApiResponse }> {
+  const subs = design.instances.subassemblies ?? [];
+  const captured: CapturedSubassembly[] = [];
+  const events: DomainEvent[] = [];
+  const revOf = new Map<string, number>();
+  for (const sub of subs) {
+    if (sub.rev !== undefined || revOf.has(sub.def) || chain.includes(sub.def) || sub.def === design.id) continue;
+    const child = await deps.designs.read(sub.def);
+    if (child === undefined) continue;
+    const status = await workingStatus(deps, sub.def, child);
+    if (!status.unreleased && status.basedOnRev !== undefined) {
+      revOf.set(sub.def, status.basedOnRev);
+      captured.push({ design: sub.def, rev: status.basedOnRev, auto: false });
+      continue;
+    }
+    const saved = await saveVersion(deps, store, sub.def, { note: `Captured with ${forRev.id} Rev ${forRev.rev}` }, user, [...chain, design.id]);
+    if (saved.status >= 300) {
+      const body = saved.body as ApiError;
+      return { ok: false, response: fail(saved.status, `The placed design '${sub.def}' could not be captured: ${body.error}`, body.hint, body.issues) };
+    }
+    const rev = (saved.body as { version: VersionSummary }).version.rev;
+    revOf.set(sub.def, rev);
+    captured.push({ design: sub.def, rev, auto: true }, ...(((saved.body as { captured?: CapturedSubassembly[] }).captured) ?? []));
+    events.push(...(saved.events ?? []));
   }
-  const design = await deps.designs.read(id);
-  if (design === undefined) return fail(404, `There is no design called '${id}'.`, 'Pick one from the cable list.');
-  // the designs it places, as a saved version freezes them (each pinned to its released revision)
-  const live = await withDesignLibrary(deps, design, await deps.loadDb());
-  const failures = errors([...validateDesign(design, live), ...pinSubassemblies(design, live).issues]);
-  if (failures.length > 0) {
-    return fail(422, `'${id}' has problems that have to be fixed before it can be released.`, 'Nothing was saved. Fix them in the editor, save, then save the version.', failures);
-  }
+  if (revOf.size === 0) return { ok: true, design, captured, events };
+  const pinned = subs.map((sub) => (sub.rev === undefined && revOf.has(sub.def) ? { ...sub, rev: revOf.get(sub.def) as number } : sub));
+  return { ok: true, design: { ...design, instances: { ...design.instances, subassemblies: pinned } }, captured, events };
+}
+
+/** Findings a version keeps, and the ones that stop it being captured at all. */
+function splitFindings(issues: Issue[]): { findings: Issue[]; blocking: Issue[] } {
+  return {
+    findings: issues,
+    blocking: issues.filter((issue) => issue.severity === 'error' && UNCAPTURABLE_CODES.has(issue.code)),
+  };
+}
+
+async function saveVersion(
+  deps: VersionDeps,
+  store: VersionStore,
+  id: string,
+  body: unknown,
+  user: StudioUser,
+  chain: readonly string[] = [],
+): Promise<ApiResponse> {
+  const working = await deps.designs.read(id);
+  if (working === undefined) return fail(404, `There is no design called '${id}'.`, 'Pick one from the cable list.');
   const revs = await store.revisions(id);
-  const status = await workingStatus(deps, id, design);
+  const status = await workingStatus(deps, id, working);
   if (revs.length > 0 && !status.unreleased) {
-    return fail(409, `The working copy is identical to Rev ${String(status.basedOnRev)}.`, 'There is nothing new to release — make a change first.');
+    return fail(409, `The working copy is identical to Rev ${String(status.basedOnRev)}.`, 'There is nothing new to save — make a change first.');
   }
+  // the note is optional: without one, the version says what changed since the one it descends from
+  const given = text(objectBody(body).note);
+  const note = given !== ''
+    ? given
+    : (designChangeSummary(status.basedOnRev === undefined ? undefined : (await store.read(id, status.basedOnRev))?.design, working)
+      ?? (status.inputsChanged === undefined ? 'No design changes' : `Changed ${status.inputsChanged.join(', ')}`));
   const drawing = await deps.drawings?.read(id);
   const rev = nextRevision(revs, drawing?.meta.revision);
+  // the designs it places are captured as they are now (saved automatically where nothing saved matches)
+  const subs = await captureSubassemblies(deps, store, working, { id, rev }, user, chain);
+  if (!subs.ok) return subs.response;
+  const design = subs.design;
+  const live = await withDesignLibrary(deps, design, await deps.loadDb());
+  // saving preserves work: design findings are kept with the version, not a reason to refuse it
+  const { findings, blocking } = splitFindings([...validateDesign(design, live), ...pinSubassemblies(design, live).issues]);
+  if (blocking.length > 0) {
+    return fail(422, `'${id}' cannot be captured as a version.`, 'Nothing was saved. A placed design is missing or places itself — fix that in the editor first.', blocking);
+  }
   const at = (deps.now ?? (() => new Date().toISOString()))();
   const draft = createVersion({
     design,
     db: live,
     rev,
     at,
-    by: user.name,
+    by: actorName(user) ?? user.name,
     note,
     ...(status.basedOnRev === undefined ? {} : { basedOnRev: status.basedOnRev }),
   });
   const art = await artwork(store, draft);
-  const file = canonicalVersionFile({ ...draft, depictions: art.files });
-  const issues = errors(validateVersion(file, live.assemblies));
+  const inputs = await inputsOf(deps, draft.design, draft.definitions, art.files, 'version-save', { withCovers: true, at });
+  // a device version keeps the enclosure generations and board 3D exports it was saved with
+  const device = await captureDevicePins(deps, draft.design, live);
+  const file = canonicalVersionFile({ ...draft, depictions: art.files, inputs, findings, ...(device === undefined ? {} : { device }) });
+  const issues = errors(versionIntegrityIssues(file));
   if (issues.length > 0) return versionRejected(id, rev, issues);
   await writeWithArtwork(store, file, art);
   await store.setWorking(id, { basedOnRev: rev });
@@ -603,10 +731,13 @@ async function saveVersion(deps: VersionDeps, store: VersionStore, id: string, b
   const drawingTag = drawingRewritten ? { drawingTag: contentETag(await deps.drawings?.read(id)) } : {};
   const subject = { kind: 'design', id, label: design.label, rev };
   const approvalsOn = (await approvalPolicy(deps.docs)).enabled;
-  const events: DomainEvent[] = [{ type: 'version.saved', subject, summary: { rev, note, ...(status.basedOnRev === undefined ? {} : { basedOnRev: status.basedOnRev }) } }];
-  // with approvals off a saved revision is the released one; with them on it is released when approved
-  if (!approvalsOn) events.push({ type: 'version.released', subject, summary: { rev, note, approved: false } });
-  return { ...ok({ version: versionSummary(file), ...drawingTag, ...await listing(deps, store, id) }, 201), events };
+  const errorCount = errors(findings).length;
+  const findingSummary = findings.length === 0 ? {} : { findings: { errors: errorCount, warnings: findings.length - errorCount } };
+  const events: DomainEvent[] = [...subs.events, { type: 'version.saved', subject, summary: { rev, note, ...findingSummary, ...(status.basedOnRev === undefined ? {} : { basedOnRev: status.basedOnRev }) } }];
+  // with approvals off a saved revision is the released one (when it has no unresolved errors); with them on it is released when approved
+  if (!approvalsOn && errorCount === 0) events.push({ type: 'version.released', subject, summary: { rev, note, approved: false } });
+  const captured = subs.captured.length === 0 ? {} : { captured: subs.captured };
+  return { ...ok({ version: versionSummary(file), ...captured, ...drawingTag, ...await listing(deps, store, id) }, 201), events };
 }
 
 async function readVersion(store: VersionStore, id: string, rev: number): Promise<{ ok: true; file: DesignVersionFile } | { ok: false; response: ApiResponse }> {
@@ -635,6 +766,21 @@ async function relock(deps: VersionDeps, store: VersionStore, file: DesignVersio
   return ok(next);
 }
 
+/** What the release boundary names: errors the version was saved with, and pins to unreleased placed designs. */
+async function releaseProblems(deps: VersionDeps, file: DesignVersionFile): Promise<Issue[]> {
+  const out: Issue[] = errors(file.findings ?? []);
+  if (!hasPins(file.design)) return out;
+  const live = await withDesignLibrary(deps, file.design, await deps.loadDb());
+  for (const sub of file.design.instances.subassemblies ?? []) {
+    if (sub.rev === undefined) continue;
+    const version = live.assemblies?.versions?.find((v) => v.designId === sub.def && v.rev === sub.rev);
+    if (version !== undefined && !version.released) out.push({ code: 'subassembly-rev-unreleased', severity: 'error', where: sub.id, message: `sub-assembly '${sub.id}' is pinned to Rev ${sub.rev} of '${sub.def}', which is not released` });
+  }
+  return out;
+}
+
+const hasPins = (design: CableDesign): boolean => (design.instances.subassemblies ?? []).some((s) => s.rev !== undefined);
+
 /** submit, approve or reject a saved version, with the person's role checked and a comment required */
 async function approvalStep(
   deps: VersionDeps,
@@ -655,8 +801,23 @@ async function approvalStep(
   if (comment === '') return fail(400, `A ${step} needs a comment.`, step === 'submit' ? 'Say what the reviewer should look at.' : 'Say why — it is kept in the version history and printed with the approval.');
   const problem = approvalStepProblem(file, step);
   if (problem !== undefined) return fail(409, problem);
+  // the deliberate release boundary: unresolved errors and placed designs pinned to unreleased
+  // revisions are named and need an explicit acknowledgement (saving never asked for one)
+  const unresolved = step === 'reject' ? [] : await releaseProblems(deps, file);
+  if (unresolved.length > 0 && objectBody(body).acknowledge !== true) {
+    return {
+      status: 409,
+      body: {
+        error: `Rev ${file.rev} has ${unresolved.length} unresolved item${unresolved.length === 1 ? '' : 's'} to acknowledge before it is ${step === 'submit' ? 'submitted' : 'approved'}.`,
+        hint: 'Fix them in a new version, or send { acknowledge: true } with the comment to release it as it is.',
+        needsAcknowledgement: true,
+        issues: unresolved,
+      },
+    };
+  }
+  const said = unresolved.length === 0 ? comment : `${comment} [acknowledged ${unresolved.length} unresolved: ${unresolved.map((u) => u.message).join('; ')}]`;
   const at = (deps.now ?? (() => new Date().toISOString()))();
-  const next = (step === 'submit' ? submitVersion : step === 'approve' ? approveVersion : rejectVersion)(file, at, user.name, comment);
+  const next = (step === 'submit' ? submitVersion : step === 'approve' ? approveVersion : rejectVersion)(file, at, user.name, said);
   await store.write(next);
   const subject = { kind: 'design', id: file.designId, label: file.design.label, rev: file.rev };
   const summary = { rev: file.rev, comment, by: user.name };
@@ -670,32 +831,41 @@ async function approvalStep(
 }
 
 async function editLocked(deps: VersionDeps, store: VersionStore, file: DesignVersionFile, body: unknown, user: StudioUser): Promise<ApiResponse> {
+  let design: CableDesign;
   if (file.unlocked === undefined) {
     return fail(409, `Rev ${file.rev} is locked.`, 'Unlock it with a reason first — a saved version never changes silently.');
   }
-  const design = objectBody(body).design as CableDesign | undefined;
-  if (design === undefined || typeof design !== 'object' || !Array.isArray(design.joints) || typeof design.instances !== 'object') {
+  const sent = objectBody(body).design as CableDesign | undefined;
+  if (sent === undefined || typeof sent !== 'object' || !Array.isArray(sent.joints) || typeof sent.instances !== 'object') {
     return fail(400, 'That is not a cable design document.', 'Send { design } — the edited version.');
   }
-  if (design.id !== file.designId) {
-    return fail(400, `This edit is for '${file.designId}', but the document says '${String(design.id)}'.`, 'A version cannot be moved to another design.');
+  if (sent.id !== file.designId) {
+    return fail(400, `This edit is for '${file.designId}', but the document says '${String(sent.id)}'.`, 'A version cannot be moved to another design.');
   }
+  design = sent;
+  // a sub-assembly added in the edit is captured like one in a new save
+  const subs = await captureSubassemblies(deps, store, design, { id: file.designId, rev: file.rev }, user, []);
+  if (!subs.ok) return subs.response;
+  design = subs.design;
   const live = await withDesignLibrary(deps, design, await deps.loadDb());
   const frozenDb = versionDb(file.definitions, live);
   const checkDb = live.assemblies === undefined ? frozenDb : { ...frozenDb, assemblies: live.assemblies };
-  const failures = errors([...validateDesign(design, checkDb), ...pinSubassemblies(design, checkDb).issues]);
-  if (failures.length > 0) {
-    return fail(422, `Rev ${file.rev} has problems that have to be fixed before it can be locked again.`, 'Nothing was written.', failures);
+  const { findings, blocking } = splitFindings([...validateDesign(design, checkDb), ...pinSubassemblies(design, checkDb).issues]);
+  if (blocking.length > 0) {
+    return fail(422, `Rev ${file.rev} cannot be locked again as it is.`, 'Nothing was written. A placed design is missing or places itself.', blocking);
   }
-  const edited = editVersion(file, design, live, (deps.now ?? (() => new Date().toISOString()))(), user.name);
+  const at = (deps.now ?? (() => new Date().toISOString()))();
+  const edited = editVersion(file, design, live, at, user.name);
   // artwork the revision already kept stays its own; a part new to it is copied as it is today
   const art = await artwork(store, edited);
   const fresh = Object.fromEntries(Object.entries(art.files).filter(([defId]) => edited.depictions[defId] === undefined));
-  const next = canonicalVersionFile({ ...edited, depictions: { ...edited.depictions, ...fresh } });
-  const issues = errors(validateVersion(next, live.assemblies));
+  const depictions = { ...edited.depictions, ...fresh };
+  const inputs = await inputsOf(deps, edited.design, edited.definitions, depictions, 'version-edit', { withCovers: true, at });
+  const next = canonicalVersionFile({ ...edited, depictions, inputs, findings });
+  const issues = errors(versionIntegrityIssues(next));
   if (issues.length > 0) return versionRejected(file.designId, file.rev, issues);
   await writeWithArtwork(store, next, art);
-  return ok(next);
+  return { ...ok(next), ...(subs.events.length === 0 ? {} : { events: subs.events }) };
 }
 
 /** Replace the working copy with `design`, keeping the one it displaces as a draft. */
@@ -724,7 +894,7 @@ async function replaceWorking(
     const state = await store.working(id);
     draft = await store.addDraft(id, {
       savedAt: (deps.now ?? (() => new Date().toISOString()))(),
-      savedBy: user.name,
+      savedBy: actorName(user) ?? user.name,
       ...(state.basedOnRev === undefined ? {} : { basedOnRev: state.basedOnRev }),
       reason,
       design: current,
@@ -801,6 +971,12 @@ export async function handleVersionRequest(
   if (second === 'artwork') {
     if (method !== 'GET') return fail(405, `${method} is not something this address accepts.`, 'It answers GET.');
     return ok(await readVersionArtwork(store, file));
+  }
+  if (second === 'inputs') {
+    if (method !== 'GET') return fail(405, `${method} is not something this address accepts.`, 'It answers GET.');
+    const captured = await versionInputs(deps, file);
+    const inputs = await inputsStatus(deps, captured, file.definitions);
+    return ok({ rev: file.rev, capturedAt: captured.capturedAt, source: captured.source, inputs, findings: file.findings ?? [], stale: inputs.filter((i) => i.state !== 'same').length });
   }
   if (method !== 'POST') return fail(405, `${method} is not something this address accepts.`, 'It answers POST.');
   if (second === 'unlock') return await unlock(deps, store, file, body, user);

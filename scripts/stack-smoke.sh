@@ -14,8 +14,8 @@
 #   bash scripts/stack-smoke.sh [--upgrade] [--backup] [--restore] [--pdf] [--old-backrest-config] [image]
 #
 # --upgrade  first, a hub on the file backend (as before v0.1.0) set up and
-#            edited, then started with this compose.yaml's defaults: migrate
-#            moves its catalog into the database, and the first admin claims
+#            edited, then started with this compose.yaml's defaults: the app's
+#            startup moves its catalog into the database, and the first admin claims
 #            the hub at /setup with the setup code.
 # --backup   runs again with COMPOSE_PROFILES=backup (a pack installed at
 #            setup this time): the dump (as studio_ro, with row counts), the
@@ -155,10 +155,11 @@ check_stack() { # $1: modules to enable at setup (JSON array)
   compose up -d --quiet-pull >/dev/null 2>&1 || fail "docker compose up"
   wait_for "http://127.0.0.1:$port/healthz" 180 || fail "the app did not answer on port $port"
   echo "smoke: app answers /healthz"
-  log_has bootstrap 'postgres_password: (generated|kept)' || fail "bootstrap did not fill the secrets volume"
-  log_has migrate 'applied|up to date' || fail "migrate did not run the migrations"
-  log_has migrate 'adopt: a fresh install' || fail "migrate did not leave the fresh install to setup"
-  echo "smoke: migrate ran the migrations and left the fresh install to /setup"
+  # the stack initialises inside the app and the worker (apps/studio/stack/start.ts): no one-shot containers
+  log_has wirehub '\[init\] secrets: /run/wirehub ready' || fail "the app's startup did not fill the secrets volume"
+  { log_has wirehub 'migrations: (applied|the database is up to date)' && log_has worker 'migrations: (applied|the database is up to date)'; } || fail "the startup did not run the migrations"
+  log_has wirehub 'adopt: a fresh install' || fail "the startup did not leave the fresh install to setup"
+  echo "smoke: the startup ran the migrations (under the lock, app and worker) and left the fresh install to /setup"
   local code=""
   for _ in $(seq 1 30); do
     code="$(compose logs --no-log-prefix wirehub | grep -oE '^ +[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$' | tail -1 | tr -d ' ' || true)"
@@ -189,7 +190,8 @@ check_stack() { # $1: modules to enable at setup (JSON array)
   echo "smoke: a design save lands; the indicator says Saved (the database)"
   local photo
   etag="$(curl -fsS -b "$jar" -D - -o /dev/null "$origin/api/drawings/dc-y-splitter" | tr -d '\r' | awk 'tolower($1)=="etag:"{print $2}')"
-  photo="data:image/png;base64,$(printf 'wirehub smoke %s' "$$" | base64)"
+  # A real 1×1 RGB PNG: photo metadata validation correctly rejects arbitrary text.
+  photo="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP438AAAAQBAYDFKhhdAAAAAElFTkSuQmCC"
   curl -fsS -b "$jar" -X PUT -H 'content-type: application/json' -H "origin: $origin" -H "if-match: $etag" -d "{\"photo\":\"$photo\"}" "$origin/api/drawings/dc-y-splitter/photo" >/dev/null || fail "photo upload"
   docker run --rm --network "${project}_internal" -v "${project}_secrets:/run/wirehub:ro" --entrypoint sh rclone/rclone:1.75.1 -c \
     'RCLONE_CONFIG_G_TYPE=s3 RCLONE_CONFIG_G_PROVIDER=Other RCLONE_CONFIG_G_ENDPOINT=http://garage:3900 RCLONE_CONFIG_G_REGION=garage RCLONE_CONFIG_G_FORCE_PATH_STYLE=true RCLONE_CONFIG_G_ACCESS_KEY_ID=$(cat /run/wirehub/s3_backup_access_key_id) RCLONE_CONFIG_G_SECRET_ACCESS_KEY=$(cat /run/wirehub/s3_backup_secret_access_key) rclone ls g:wirehub 2>/dev/null' \
@@ -232,8 +234,8 @@ if [ "$upgrade" = 1 ]; then
   curl -fsS -X PUT -H 'content-type: application/json' -H "origin: $origin" -H "if-match: $etag" -d "$(sed 's/"label": *"[^"]*"/"label":"Edited on the file backend"/' "$scratch/design.json")" "$origin/api/designs/de9-crossover" >/dev/null || fail "file-backend save"
   echo "smoke: the file-backend hub is set up (networking) and has a save"
   compose up -d --quiet-pull >/dev/null 2>&1 || fail "the upgraded stack did not start"
-  log_has migrate 'adopt: imported' || fail "migrate did not move the file catalog into the database"
-  echo "smoke: $(compose logs --no-log-prefix migrate | grep 'adopt:' | tail -1)"
+  log_has wirehub 'adopt: imported' || fail "the startup did not move the file catalog into the database"
+  echo "smoke: $(compose logs --no-log-prefix wirehub | grep 'adopt:' | tail -1)"
   wait_for "$origin/healthz" 180 || fail "the upgraded app did not answer"
   [ "$(curl -s -o /dev/null -w '%{http_code}' "$origin/api/designs")" = 503 ] || fail "an unclaimed hub answered other than 503"
   curl -fsS "$origin/api/setup" | contains '"claim": true' || fail "/setup does not offer to make the first admin"
@@ -326,14 +328,23 @@ EOF
     # the drill: another stack, as on another machine; started once (roles, bucket), setup left alone
     b up -d --quiet-pull >/dev/null 2>&1 || fail "the second stack did not start"
     wait_for "http://127.0.0.1:$((port + 1))/healthz" 180 || fail "the second stack's app did not answer"
-    # the first stack's backups/ — what Backrest restores from its snapshot
-    docker run --rm -v "${project}_backups:/from:ro" -v "${second}_backups:/to" alpine sh -c 'rm -rf /to/* && cp -a /from/. /to/' || fail "copying the backups"
-    b stop wirehub >/dev/null 2>&1
-    b run --rm -T --entrypoint bash backup-dump /run/wirehub/backup/pg-restore.sh > "$scratch/restore.log" 2>&1 || true
+    # Keep both processes stopped throughout restore: compose run otherwise starts dependencies
+    # against the empty database and caches its pre-restore setup state.
+    b stop wirehub worker >/dev/null 2>&1
+    # Restore the complete snapshot, including the separate SQLite sign-in database.
+    # Copying only backups/ restores Postgres and blobs but loses accounts and installed packs.
+    docker run --rm --entrypoint restic \
+      -v "${project}_restic_repo:/repos:ro" -v "${project}_secrets:/run/wirehub:ro" \
+      -v "${second}_backups:/restore/sources/backups" -v "${second}_catalog:/restore/sources/catalog" \
+      -v "${second}_auth:/restore/sources/auth" -v "${second}_packs:/restore/sources/packs" \
+      garethgeorge/backrest:v1.14.1 --no-lock --no-cache -r /repos/wirehub \
+      --password-file /run/wirehub/restic_password restore latest --target /restore --delete \
+      > "$scratch/snapshot-restore.log" 2>&1 || fail "snapshot restore: $(cat "$scratch/snapshot-restore.log")"
+    b run --rm --no-deps -T --entrypoint bash backup-dump /run/wirehub/backup/pg-restore.sh > "$scratch/restore.log" 2>&1 || true
     grep -q 'restore: done' "$scratch/restore.log" || fail "pg-restore: $(cat "$scratch/restore.log")"
-    b run --rm -T --entrypoint sh backup-mirror /run/wirehub/backup/blob-restore.sh >> "$scratch/restore.log" 2>&1 || true
+    b run --rm --no-deps -T --entrypoint sh backup-mirror /run/wirehub/backup/blob-restore.sh >> "$scratch/restore.log" 2>&1 || true
     grep -q 'blob-restore: copied' "$scratch/restore.log" || fail "blob-restore: $(cat "$scratch/restore.log")"
-    b start wirehub >/dev/null 2>&1
+    b start wirehub worker >/dev/null 2>&1
     wait_for "http://127.0.0.1:$((port + 1))/healthz" 120 || fail "the restored app did not answer"
     origin2="http://127.0.0.1:$((port + 1))"
     rm -f "$jar"

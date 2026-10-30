@@ -27,7 +27,7 @@ export interface ImportProposal {
 export interface JobView {
   id: string;
   kind: string;
-  status: 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
+  status: 'queued' | 'running' | 'done' | 'failed' | 'cancelled' | 'interrupted';
   request: { module?: string; importer?: string; fileName?: string; reason?: string; [key: string]: unknown };
   steps: JobStepView[];
   result?: { importer?: string; fileName?: string; notes?: string[]; proposed?: number; proposal?: ImportProposal; changes?: number; [key: string]: unknown };
@@ -97,7 +97,21 @@ export function publishJob(id: string): Promise<JobAnswer<{ job: JobView; commit
   return call('POST', `/api/jobs/${encodeURIComponent(id)}/publish`, {});
 }
 
+/** Cancel a queued or running job: a running tool pack's container is killed. */
+export function cancelJob(id: string): Promise<JobAnswer<{ job: JobView }>> {
+  return call('POST', `/api/jobs/${encodeURIComponent(id)}/cancel`, {});
+}
+
+/** Run a finished (failed, cancelled, interrupted) job of a repeatable kind again: a new job from the same request. */
+export function retryJob(id: string): Promise<JobAnswer<{ job: JobView }>> {
+  return call('POST', `/api/jobs/${encodeURIComponent(id)}/retry`, {});
+}
+
+/** Kinds a finished job of which can be run again (`server/jobs/types.ts` REPEATABLE_KINDS). */
+export const REPEATABLE_KINDS: readonly string[] = ['board-outputs', 'firmware-compile', 'enclosure-generate', 'model-cache', 'derive', 'convert'];
+export const canRetry = (job: JobView): boolean => REPEATABLE_KINDS.includes(job.kind) && (job.status === 'failed' || job.status === 'cancelled' || job.status === 'interrupted');
+
 export const jobsKey = ['studio', 'jobs'] as const;
 export const jobKey = (id: string): readonly [string, string, string] => ['studio', 'job', id];
 
-export const isFinished = (job: JobView): boolean => job.status === 'done' || job.status === 'failed' || job.status === 'cancelled';
+export const isFinished = (job: JobView): boolean => job.status === 'done' || job.status === 'failed' || job.status === 'cancelled' || job.status === 'interrupted';

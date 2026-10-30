@@ -39,15 +39,18 @@ The API (owner, session): `GET`/`PUT /api/settings/webhooks`, `PUT`/`DELETE
 
 | Event | When |
 | --- | --- |
-| `design.saved` | a cable was created, saved, duplicated or renamed (the working copy) |
+| `design.saved` | a cable was created, saved, duplicated or renamed (the working copy); bulk tagging raises one per design it changed ([design tags](design-tags.md)) |
 | `design.deleted` | a cable was deleted |
 | `version.saved` | a revision was saved and locked |
 | `version.submitted` / `version.approved` / `version.rejected` | the release approval steps (approvals on) |
-| `version.released` | a version became the released revision: on save with approvals off, on approve with them on |
+| `version.released` | a version became the released revision: on save with approvals off (when it was saved without unresolved errors), on approve with them on |
 | `part-number.assigned` | a number was set or changed on a cable (`productRef`), a drawing, or a library part |
 | `product.changed` | a product family was created, changed, merged, split or removed (`docs/products.md`); the payload links the family and the lineup |
-| `pack.installed` | a catalog pack was installed, updated or disabled |
+| `pack.installed` | a catalog pack was installed, updated, disabled or released to the hub (`summary.action`: `installed`, `updated`, `disabled`, `released`) |
 | `job.finished` | a background job finished or failed (not a webhook delivery itself) |
+| `inventory.changed` | stock was received, moved, adjusted, reserved, consumed, returned or released, a lot's details were edited, units or a print batch were recorded (subject `batch`), or a location changed (`docs/inventory.md`); not a catalog change, so no `catalog.changed` with it |
+| `note.changed` | a note or decision was created, saved or deleted (subject `note`; summary: action, kind, the records it links) |
+| `project.changed` | a project was created, saved or deleted (subject `project`; summary: action, item count) |
 | `catalog.changed` | any committed change: the records it touched |
 | `webhook.test` | only from **Send a test** |
 
@@ -72,7 +75,9 @@ could break a receiver becomes `/2`):
     "auth": "GET these with the header \"Authorization: Bearer <API token>\" (Settings, API tokens)",
     "design": "https://wirehub.example.com/api/designs/de9-crossover",
     "version": "https://wirehub.example.com/api/designs/de9-crossover/versions/3",
-    "exports": { "bom.csv": "https://wirehub.example.com/api/designs/de9-crossover/exports/bom.csv?rev=3", "production.xlsx": "…", "continuity.json": "…" }
+    "exports": { "bom.csv": "https://wirehub.example.com/api/designs/de9-crossover/exports/bom.csv?rev=3", "production.xlsx": "…", "continuity.json": "…", "mass.json": "…", "processes.json": "…" },
+    "released": "https://wirehub.example.com/api/designs/de9-crossover/exports/bom.csv?rev=released",
+    "documents": "https://wirehub.example.com/api/designs/de9-crossover/versions/3/documents"
   }
 }
 ```
@@ -83,6 +88,11 @@ could break a receiver becomes `/2`):
   lines such as joints added or moved, at most 30) and counts; for `catalog.changed`, the `records`
   touched (`{ kind, key, op }`, at most 50); for `part-number.assigned`, the field, the number and
   the previous one. The full data is never in the payload: fetch it.
+- A design's `fetch.exports` links `bom.csv`, `wire-list.csv`, `cut-list.csv`, `production.xlsx`,
+  `continuity.json`, `mass.json` and `processes.json` (each one this hub offers), at the event's
+  revision when it names one. A `version.*` event that names a revision also has `fetch.documents`:
+  that revision's **released document manifest** (`docs/document-manifest.md`), every document's
+  URL and SHA-256 and a `packageHash` over them all. `catalog.changed` is unchanged.
 - Links are absolute when the hub knows its public address (`WIREHUB_PUBLIC_URL`), else paths.
 - The `fetch` URLs need an **API token** (a person's token from the account page, with their role;
   read tokens are enough to pull). The base API is the same one the exports page and the CLI use
@@ -140,7 +150,9 @@ delivery with an active retry stay until that delivery finishes. Other job histo
    **Part number assigned** if it should hear numbers), make the secret, paste it into the ERP.
 3. When a version is released the receiver gets `version.released`, verifies it, then
    `GET <fetch.exports["bom.csv"]>` (and the wire list, cut list or `continuity.json`) with its
-   token, and creates or updates its item.
+   token, and creates or updates its item. To keep the released drawings and sheets as well, it
+   reads `GET <fetch.documents>` (the manifest), compares its `packageHash` with the one it stored
+   last time, and downloads only the files whose `sha256` it does not have.
 4. To write back (an ERP item number, a status), it calls the API with the same token: `PUT
    /api/designs/:id`, `PUT /api/drawings/:id`, `PUT /api/definitions/…`, or `POST /api/batch` for
    several records as one change set (`docs/self-hosting.md`, "API tokens").

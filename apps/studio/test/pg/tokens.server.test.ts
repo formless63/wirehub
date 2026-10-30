@@ -93,7 +93,7 @@ describePg('personal API tokens', () => {
     const set = await inOrg(pgh.db, orgId, async (tx) =>
       (await sql<{ actor_label: string; actor_id: string; api_token_id: string }>`SELECT actor_label, actor_id::text AS actor_id, api_token_id::text AS api_token_id FROM studio.change_set ORDER BY id DESC LIMIT 1`.execute(tx)).rows[0],
     );
-    expect(set).toEqual({ actor_label: 'Ed Editor', actor_id: editor.id, api_token_id: token.id });
+    expect(set).toEqual({ actor_label: 'Ed Editor via token laptop scripts', actor_id: editor.id, api_token_id: token.id });
   });
 
   it('refuses: another environment, garbage, revoked, expired', async () => {

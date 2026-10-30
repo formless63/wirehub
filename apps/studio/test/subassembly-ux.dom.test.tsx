@@ -134,13 +134,13 @@ describe('Place in… on the cable list', () => {
     render(<App router={router} />);
     const rowLink = await screen.findByRole('link', { name: /DC pigtail lead/ });
     fireEvent.click(rowLink.closest('tr')!);
-    const button = await screen.findByLabelText('Place dc-pigtail-lead in…');
+    const button = await screen.findByLabelText(/Place .*DC pigtail lead in…/);
     fireEvent.click(button);
     // not itself; the other cables are offered
     const choices = await screen.findByRole('group', { name: 'designs to place it in' });
     const options = within(choices).getAllByRole('button');
     expect(options.map((o) => o.textContent)).not.toContain('dc-pigtail-lead');
-    fireEvent.click(options.find((o) => o.textContent?.includes('dc-y-from-leads'))!);
+    fireEvent.click(options.find((o) => o.textContent?.includes('DC Y built from two pigtail leads'))!);
     await waitFor(() => expect(screen.getByTestId('open-id').textContent).toBe('dc-y-from-leads'));
     await waitFor(() => expect(seen.placed).toEqual(['dc-pigtail-lead']));
     // the parameter is dropped, so a reload does not place it again
@@ -154,7 +154,7 @@ describe('the Used in panel', () => {
     render(<App router={buildRouter('/cables/dc-pigtail-lead')} />);
     const panel = await screen.findByTestId('used-in');
     expect(panel.textContent).toContain('Used in');
-    expect(panel.textContent).toContain('dc-y-from-leads');
+    expect(panel.textContent).toContain('DC Y built from two pigtail leads'); // the parent's name; its id is only on hover
   });
 
   it('is absent when nothing places it', async () => {

@@ -319,12 +319,11 @@ describe('POST /api/definitions/:kind', () => {
     expect(ids).toHaveLength(CATALOG.connectors.length + 1);
   });
 
-  it('insists on a family, in words a person can act on', async () => {
+  it('saves a connector whose family is not known yet, with a finding', async () => {
     const { family: _family, ...withoutFamily } = PLUG;
     const response = await call('POST', '/api/definitions/connectors', withoutFamily);
-    expect(response.status).toBe(400);
-    expect((response.body as ApiError).error).toContain('family');
-    expect(await definitions.list('connectors')).toHaveLength(CATALOG.connectors.length);
+    expect(response.status).toBe(201);
+    expect(response.headers?.['X-WireHub-Findings']).toContain('warning');
   });
 
   it('refuses a pin with no number of its own', async () => {
@@ -385,14 +384,10 @@ describe('POST /api/definitions/:kind', () => {
       },
       src: 'test fixture',
     };
+    // a lay order that disagrees with the cores is a finding saved with the draft stock
     const response = await call('POST', '/api/definitions/wires', body);
-    expect(response.status).toBe(422);
-    expect((response.body as ApiError).issues?.some((i) => i.code === 'lay-order-arrangement-mismatch')).toBe(
-      true,
-    );
-
-    const { layOrder: _lay, ...plain } = body;
-    expect((await call('POST', '/api/definitions/wires', plain)).status).toBe(201);
+    expect(response.status).toBe(201);
+    expect(response.headers?.['X-WireHub-Findings']).toContain('problem');
   });
 
   it('refuses a diameter written as words', async () => {
@@ -462,8 +457,9 @@ describe('crimp contacts, seals, plugs and tools', () => {
     const words = await call('POST', '/api/definitions/mechanicals', { ...CONTACT, termination: { wireMinMm2: '0.5 mm²' } });
     expect(words.status).toBe(400);
     expect((words.body as ApiError).error).toContain('wireMinMm2');
+    // naming a part that is not a tool is a finding on the draft, not a refusal
     const tool = await call('POST', '/api/definitions/mechanicals', { ...CONTACT, termination: { tool: 'de9-backshell' } });
-    expect(tool.status).toBe(422);
+    expect(tool.status).toBe(201);
   });
 
   it('takes further tools with their own heights, and refuses a malformed or unknown one (cs-5k1.28)', async () => {
@@ -474,7 +470,7 @@ describe('crimp contacts, seals, plugs and tools', () => {
     expect(bad.status).toBe(400);
     expect((bad.body as ApiError).error).toContain('other crimp tools');
     const unknown = await call('POST', '/api/definitions/mechanicals', { ...withTools, id: 'test-socket-4', termination: { tools: [{ tool: 'de9-backshell' }] } });
-    expect(unknown.status).toBe(422);
+    expect(unknown.status).toBe(201);
   });
 
   it('refuses a housing with a sealing it does not know', async () => {
@@ -562,8 +558,8 @@ describe('bodies and pinouts', () => {
     expect(response.status, JSON.stringify(response.body)).toBe(201);
   });
 
-  it('refuses a body with no gender, and a pinout with no signal', async () => {
-    expect((await call('POST', '/api/definitions/bodies', { ...body, gender: undefined })).status).toBe(400);
+  it('saves a draft body with no gender yet, and refuses a pinout with no signal', async () => {
+    expect((await call('POST', '/api/definitions/bodies', { ...body, gender: undefined })).status).toBe(201);
     const bad = await call('POST', '/api/definitions/interfaces', { ...iface, pins: { '1': { label: 'R' } } });
     expect(bad.status).toBe(400);
     expect(bad.body.error).toContain('signal');

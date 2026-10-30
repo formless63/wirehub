@@ -26,7 +26,7 @@ import { SHEET_STYLESHEET } from './styles.ts';
 import { resolveTestParameters } from './exports/test-params.ts';
 import { deriveTestSpec } from './test-spec.ts';
 import { testSpecToHtml } from './test-spec-render.ts';
-import { escapeHtml, facts } from './text.ts';
+import { escapeHtml } from './text.ts';
 
 /**
  * The `.cs-root` element for a one-section document: the frame's title block
@@ -39,9 +39,6 @@ export function documentBody(header: SheetHeader, section: string): string {
     `<style>${SHEET_STYLESHEET}${headerFrameCss(header)}${brandSheetCss()}</style>`,
     headerHtml(header),
     section,
-    `<footer class="cs-foot">${escapeHtml(
-      facts([header.designId, 'derived from the canonical model — one derivation, however it is printed']),
-    )}</footer>`,
     footHtml(header),
     '</div>',
   ].join('');

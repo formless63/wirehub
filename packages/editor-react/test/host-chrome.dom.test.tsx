@@ -83,11 +83,11 @@ describe('EditorHandle', () => {
     ref.current?.openLifecycle('rename');
     expect(await screen.findByRole('heading', { name: 'Rename this design' })).toBeTruthy();
 
-    const id = screen.getByLabelText(/^Id/) as HTMLInputElement;
-    fireEvent.change(id, { target: { value: 'renamed-cable' } });
+    const name = screen.getByLabelText(/^Name/) as HTMLInputElement;
+    fireEvent.change(name, { target: { value: 'Renamed cable' } });
     fireEvent.click(screen.getByRole('button', { name: 'Rename this design' }));
 
-    await waitFor(() => expect(adapter.stored.has('renamed-cable')).toBe(true));
+    await waitFor(() => expect(adapter.stored.get(REAL.id)?.label).toBe('Renamed cable'));
   });
 
   it("openLifecycle('delete') opens the delete confirm", async () => {
@@ -100,14 +100,14 @@ describe('EditorHandle', () => {
 
     ref.current?.openLifecycle('delete');
     const dialog = await screen.findByRole('dialog');
-    expect(dialog.textContent).toContain(REAL.id);
+    expect(dialog.textContent).toContain(REAL.label);
   });
 });
 
 describe('a rejected edit in host chrome', () => {
   /**
    * `store.ts`'s `load-design` sets `rejection` when a *newly handed-in*
-   * design (a prop change, not the first mount) fails validation — the same
+   * design (a prop change, not the first mount) cannot be represented — the same
    * path a bad hand-edited JSON re-opened by a host would hit. It is the
    * simplest real rejection to drive from outside the canvas (no React Flow
    * drag-to-connect gesture needed) and exercises exactly the code path
@@ -116,7 +116,8 @@ describe('a rejected edit in host chrome', () => {
   it('calls onEditRejected instead of showing the in-canvas alert', async () => {
     const design = loadDesignFromDisk('de9-crossover');
     const broken = structuredClone(design);
-    broken.instances.connectors.push({ id: 'j99', def: 'no-such-connector' });
+    // two parts under one id: an integrity problem (design findings never reject)
+    broken.instances.connectors.push({ id: design.instances.connectors[0]!.id, def: 'no-such-connector' });
 
     const onEditRejected = vi.fn();
     const { container, rerender } = render(
@@ -125,20 +126,21 @@ describe('a rejected edit in host chrome', () => {
     rerender(<CableEditor design={broken} db={db} chrome="host" onEditRejected={onEditRejected} />);
 
     await waitFor(() => expect(onEditRejected).toHaveBeenCalledTimes(1));
-    expect(onEditRejected.mock.calls[0]?.[0]).toContain('no-such-connector');
+    expect(onEditRejected.mock.calls[0]?.[0]).toContain('duplicate instance id');
     expect(container.querySelector('.cs-rejection')).toBeNull();
   });
 
   it('shows the in-canvas alert instead, in full chrome', async () => {
     const design = loadDesignFromDisk('de9-crossover');
     const broken = structuredClone(design);
-    broken.instances.connectors.push({ id: 'j99', def: 'no-such-connector' });
+    // two parts under one id: an integrity problem (design findings never reject)
+    broken.instances.connectors.push({ id: design.instances.connectors[0]!.id, def: 'no-such-connector' });
 
     const { container, rerender } = render(<CableEditor design={design} db={db} />);
     rerender(<CableEditor design={broken} db={db} />);
 
     const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toContain('no-such-connector');
+    expect(alert.textContent).toContain('duplicate instance id');
     expect(container.querySelector('.cs-rejection')).not.toBeNull();
   });
 });

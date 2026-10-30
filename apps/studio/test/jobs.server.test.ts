@@ -104,7 +104,8 @@ describe('the import job on the file backend', () => {
     const started = await handleWorkbenchRequest({ method: 'POST', path: EXAMPLE_IMPORT_PATH, body: exampleBody('Bad Id,Label,SHL-00092,shell') }, deps);
     const job = await deps.jobs.wait((started.body as { job: { id: string } }).job.id, 30_000);
     expect(job.status).toBe('failed');
-    expect(job.error).toMatch(/1 of 1 proposed record\(s\) were refused; the first, POST \/api\/definitions\/mechanicals:/);
+    expect(job.error).toMatch(/^mechanicals\/.* was not saved: /);
+    expect(job.error).not.toMatch(/POST|\/api\//);
   }, 60_000);
 });
 

@@ -7,6 +7,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { listDesignIds, loadDb, loadDesign } from '@wirehub/catalog';
+import { findWire } from '@wirehub/model';
 
 import {
   BOM_CATEGORY_ORDER,
@@ -120,7 +121,7 @@ describe('ground landings', () => {
   it('lists the shield pigtail of the terminal board lead at both ends', () => {
     const landings = deriveGroundLandings(loadDesign('de9-terminal-board'), db);
     expect(landings.map((l) => l.end).sort()).toEqual(['a', 'b']);
-    expect(landings.map((l) => l.landing).sort()).toEqual(['j1 shell', 'u1 SHLD']);
+    expect(landings.map((l) => l.landing).sort()).toEqual(['J1 shell', 'U1 · Shield']);
   });
 
   it('lists none for an unshielded lead', () => {
@@ -190,10 +191,20 @@ describe('units', () => {
   });
 });
 
-describe('ground landing wording for a bonded mass', () => {
-  const wire = { id: 'x' } as unknown as Parameters<typeof massText>[0];
-  it('never says "all 0 copper screens"', () => {
-    expect(massText(wire, ['drain'])).toBe('shields (drain only, bonded; no copper screens)');
-    expect(massText(wire, [])).toBe('shields (no copper screens, bonded)');
+describe('a foil + drain stock with the drain cut at the destination', () => {
+  // the synthetic terminal-board lead, with the wizard's drain policy note
+  const base = loadDesign('de9-terminal-board');
+  const design = { ...base, notes: [...(base.notes ?? []), 'Drain policy: w1 drain @b is deliberately cut at the destination.'] };
+  it('lands nothing at the destination, and every document calls the shield the drain', () => {
+    const bench = deriveBench(design, db);
+    const b = bench.ends.find((e) => e.side === 'b')!;
+    expect(b.terminations.flatMap((t) => t.landings).filter((l) => l.element.kind === 'pigtail')).toEqual([]);
+    const drainAtB = b.segmentEnds.find((s) => s.segment === 'w1')!.rows.find((r) => r.element.kind === 'drain');
+    expect(drainAtB?.treatment.kind).toBe('cut');
+    const landings = deriveGroundLandings(design, db);
+    expect(landings.map((l) => [l.end, l.membersText])).toEqual([['a', 'drain']]);
+    const html = renderBuildSheet(design, db, { depictions: false });
+    expect(html).not.toMatch(/copper screen|Shield mass/i);
+    expect(massText(findWire(db, 'shielded-2pair-24awg')!, ['foil', 'drain'])).toBe('drain');
   });
 });

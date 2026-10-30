@@ -97,7 +97,7 @@ describe('bulk CSV import', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Review 2 new records' }));
     const job = await screen.findByRole('dialog', { name: 'Import job' });
     await waitFor(() => expect(within(job).getByTestId('job-status').getAttribute('data-status')).toBe('done'), { timeout: 5000 });
-    expect(job.textContent).toContain('2 new components: test-resistor-1, test-resistor-2');
+    expect(job.textContent).toContain('2 new components: Test resistor 1, Test resistor 2');
     fireEvent.click(within(job).getByRole('button', { name: 'Publish 2 records' }));
     await waitFor(() => expect(within(job).getByTestId('job-message').textContent).toContain('Published'));
     const made = await handleWorkbenchRequest({ method: 'GET', path: '/api/definitions/components/test-resistor-2' }, deps);
@@ -119,7 +119,7 @@ describe('bulk CSV import', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Review 1 updated record' }));
     const job = await screen.findByRole('dialog', { name: 'Import job' });
     await waitFor(() => expect(within(job).getByTestId('job-status').getAttribute('data-status')).toBe('done'), { timeout: 5000 });
-    expect(job.textContent).toContain('1 updated components: r-150');
+    expect(job.textContent).toContain('1 updated components: Resistor 150 Ω, 0.25 W');
     fireEvent.click(within(job).getByRole('button', { name: 'Publish 1 record' }));
     await waitFor(() => expect(within(job).getByTestId('job-message').textContent).toContain('Published'));
     expect((await handleWorkbenchRequest({ method: 'GET', path: '/api/definitions/components/r-150' }, deps)).body).toMatchObject({ package: '0805' });

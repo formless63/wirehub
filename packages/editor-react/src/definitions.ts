@@ -110,7 +110,8 @@ export const DEFINITION_BLURBS: Record<DefinitionKind, string> = {
 export interface DefinitionUsage {
   kind: DefinitionKind;
   id: string;
-  designs: { id: string; label: string }[];
+  /** with each design's PN and saved revision when it has them */
+  designs: { id: string; label: string; pn?: string; rev?: string }[];
   /** other definitions that name it, as `pcbas/PCA-00110-rev4` */
   definitions: string[];
   count: number;
@@ -147,7 +148,7 @@ export interface DefinitionsAdapter {
    * Copy a pack's record under a new id of the deployment's own, remembering
    * where it came from (`derivedFrom`). Absent: the host cannot fork.
    */
-  fork?(kind: DefinitionKind, id: string, newId: string): Promise<Outcome<DefinitionRecord>>;
+  fork?(kind: DefinitionKind, id: string, newId: string, label?: string): Promise<Outcome<DefinitionRecord>>;
   /** who uses this definition — what the "used by N designs" caution is built from */
   usage(kind: DefinitionKind, id: string): Promise<Outcome<DefinitionUsage>>;
 }
@@ -197,12 +198,7 @@ export function checkDefinition(kind: DefinitionKind, record: DefinitionRecord):
       'Give it the words a builder will see on the schematic and the build sheet.',
     );
   }
-  if (record.src.trim() === '') {
-    return refuse(
-      `This ${noun} needs to say where its information comes from.`,
-      'Name the spec sheet, the measurement or the board you are working from — or say that the values are inferred.',
-    );
-  }
+  // a missing source is a finding (`missing-src`) on the saved record, not a refusal
   return undefined;
 }
 
@@ -211,6 +207,12 @@ function settle(
   done: (record: DefinitionRecord) => DefinitionResult,
 ): DefinitionResult {
   return outcome.ok ? done(outcome.value) : { ok: false, problem: problemOf(outcome as Refusal) };
+}
+
+/** What a status line calls a record: its label, its id only when it has none. */
+function recordName(record: DefinitionRecord): string {
+  const label = (record as { label?: unknown }).label;
+  return typeof label === 'string' && label.trim() !== '' ? label : record.id;
 }
 
 export async function saveDefinition(
@@ -223,7 +225,7 @@ export async function saveDefinition(
   return settle(await adapter.save(kind, record), (saved) => ({
     ok: true,
     change: { kind: 'definition-saved', defKind: kind, record: saved },
-    status: `saved ${saved.id}`,
+    status: 'saved',
   }));
 }
 
@@ -237,7 +239,7 @@ export async function createDefinition(
   return settle(await adapter.create(kind, record), (created) => ({
     ok: true,
     change: { kind: 'definition-created', defKind: kind, record: created },
-    status: `added ${created.id}`,
+    status: `added ${recordName(created)}`,
   }));
 }
 
@@ -265,7 +267,7 @@ export async function deleteDefinition(
   return {
     ok: true,
     change: { kind: 'definition-deleted', defKind: kind, id },
-    status: `deleted ${id}`,
+    status: 'deleted',
   };
 }
 
@@ -299,7 +301,7 @@ export function usageSentence(usage: DefinitionUsage | undefined): string | unde
 export function usageNames(usage: DefinitionUsage | undefined): string[] {
   if (usage === undefined) return [];
   return [
-    ...usage.designs.map((design) => `${design.id} — ${design.label}`),
+    ...usage.designs.map((design) => (design.label === '' ? design.id : design.label)),
     ...usage.definitions,
   ];
 }

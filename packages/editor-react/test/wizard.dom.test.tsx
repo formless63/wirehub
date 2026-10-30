@@ -41,45 +41,40 @@ const next = (): void => {
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 };
 
-function name(id = 'wizard-cable'): void {
+function name(): void {
   fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: 'Wizard cable' } });
-  fireEvent.change(screen.getByLabelText(/^Id/), { target: { value: id } });
   fireEvent.change(screen.getByLabelText(/^Reference/), { target: { value: 'unit test' } });
 }
 
-/** Pick a part out of the searchable list by its id. */
+/** Pick a part out of the searchable list by its id (rows show names; the id is only on the row). */
 function pick(id: string): void {
-  fireEvent.click(screen.getByText(id));
+  const row = document.querySelector(`[data-id="${id}"]`);
+  if (row === null) throw new Error(`no row ${id}`);
+  fireEvent.click(row);
 }
 
 describe('the first step', () => {
-  it('will not go on without a name, an id and a source, and says so in sentences', () => {
+  it('will not go on without a name, and says so in sentences', () => {
     setup();
     fireEvent.change(screen.getByLabelText(/^Reference/), { target: { value: '' } });
     next();
     const alert = screen.getByRole('alert');
     expect(alert.textContent).toContain('Give the design a name');
-    expect(alert.textContent).toContain('where this information comes from');
+    // an empty Reference is allowed now (saved with a missing-src finding), so it is not named here
+    expect(alert.textContent).not.toContain('where this information comes from');
     // still on step one
     expect(screen.getByRole('heading', { level: 3 }).textContent).toContain('called');
   });
 
-  it('suggests an id from the name', () => {
+  it('assigns a unique key automatically when a name matches another design', () => {
     setup();
-    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: 'Mixer (Main) → Stage' } });
-    expect((screen.getByLabelText(/^Id/) as HTMLInputElement).value).toBe('mixer-main-stage');
+    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: 'DE9 crossover' } });
+    expect(screen.queryByLabelText(/^Id/)).toBeNull();
+    next();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByLabelText('A connector')).toBeTruthy();
   });
 
-  it('refuses an id another design already has', () => {
-    setup();
-    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: 'x' } });
-    fireEvent.change(screen.getByLabelText(/^Id/), {
-      target: { value: 'de9-crossover' },
-    });
-    fireEvent.change(screen.getByLabelText(/^Reference/), { target: { value: 'x' } });
-    next();
-    expect(screen.getByRole('alert').textContent).toContain('already exists');
-  });
 });
 
 describe('the part lists', () => {
@@ -90,7 +85,7 @@ describe('the part lists', () => {
     next();
     fireEvent.click(screen.getByLabelText('A board'));
     fireEvent.change(screen.getByLabelText(/Which board/), { target: { value: 'zzzz' } });
-    expect(screen.getByText(/Clear the search/)).toBeTruthy();
+    expect(screen.getByText(/Nothing matches/)).toBeTruthy();
   });
 });
 
@@ -116,8 +111,8 @@ describe('the review verdict', () => {
   it('says what is floating, in names, and never "Nothing is wrong"', () => {
     toReview('cat5e-utp');
     const verdict = screen.getByTestId('wizard-verdict');
-    expect(verdict.textContent).toMatch(/things? to look at/);
-    expect(screen.queryByText(/Nothing is wrong/)).toBeNull();
+    expect(verdict.textContent).toContain('is not connected');
+    expect(screen.queryByText(/No problems found/)).toBeNull();
     const text = screen.getByRole('heading', { name: /Checks/ }).parentElement?.textContent ?? '';
     expect(text).toContain('W1 pair 1 · blue is not connected at either end');
     expect(text).not.toMatch(/pair-1\.a/);
@@ -145,7 +140,7 @@ describe('connecting the new design', () => {
     const group = screen.getByRole('radiogroup', { name: 'Connect' });
     const modes = [...group.querySelectorAll('[role="radio"]')].map((b) => b.textContent);
     expect(modes).toEqual(['By signal', 'By colour', 'Leave open']);
-    const soldered = (): number => Number(/\((\d+)\)/.exec(screen.getByRole('heading', { name: /What it will solder/ }).textContent ?? '')?.[1]);
+    const soldered = (): number => Number(/\((\d+)\)/.exec(screen.getByRole('heading', { name: /Wiring/ }).textContent ?? '')?.[1]);
     // this stock names no conductor, so by colour only the shield and drain find a ground; open joins nothing
     const colour = (): number => (fireEvent.click(screen.getByRole('radio', { name: 'By colour' })), soldered());
     const open = (): number => (fireEvent.click(screen.getByRole('radio', { name: 'Leave open' })), soldered());
@@ -159,7 +154,7 @@ describe('connecting the new design', () => {
 describe('generic assembly defaults', () => {
   it('starts with connectors and excludes shell contacts from the pin count', () => {
     setup(); name(); next();
-    expect((screen.getByLabelText('A connector') as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByLabelText('A connector').getAttribute('aria-checked')).toBe('true');
     expect(screen.getAllByText(/9 pins \+ shell/).length).toBeGreaterThan(0);
     expect(screen.queryByText(/10 pins/)).toBeNull();
   });

@@ -6,10 +6,14 @@ conflict rather than silently choosing.
 
 ## Mission
 
-An **engineering tool for cable assemblies**: capture the cables a shop actually builds as
+An **engineering workshop built on cable assemblies**: capture the cables a shop actually builds as
 canonical, machine-readable definitions, from which wiring schematics, build sheets, BOMs,
-continuity/test specifications and drawings derive. It documents cables as built; it is not
-a generative configurator. It is also not WireViz: the model is hierarchical (cables contain
+continuity/test specifications and drawings derive. Extend these working workflows with source-based
+visuals, reusable assemblies, native PCB and mechanical tooling, solution exploration, firmware,
+workshop records, reproducible jobs and external-agent access. These are incremental extensions;
+they retain the current application, storage seams and ordinary draft editing. Saved versions
+capture effective inputs; deliberate release may impose stronger criteria than draft work.
+The model is hierarchical (cables contain
 coax which contain conductors and shields), connectors are reusable library assets composed
 of a physical body and a pinout, and PCBAs are first-class black boxes with declared internal
 continuity.
@@ -20,7 +24,7 @@ shop knows (its devices, its numbering, its rules) is **data** a private pack or
 (`docs/catalog-store.md`). What was deliberately left out of the base is recorded in
 `docs/boundaries.md`.
 
-There is no 3D renderer for whole cable assemblies; cable documents are 2D. Parts in the
+There is currently no 3D renderer for whole cable assemblies; cable documents are 2D. Parts in the
 Library may show 3D models (KiCad's library, uploads), and wire stocks render parametrically
 in 3D from their definitions.
 
@@ -39,7 +43,16 @@ the base never interprets it.
   Pure functions; loaders take data in and return typed results.
 - Every catalog data record carries `"src"`: a short citation for where its values came from
   (a public standard, a datasheet, a measurement, or "synthetic example"). Inferred values
-  are flagged in the src text.
+  are flagged in the src text. A working record or design may be saved without one yet (a
+  `missing-src` finding); a published pack is where the citation is insisted on.
+- **Saving preserves work; it does not certify it** (`save-policy.ts`, `docs/saving-and-findings.md`).
+  Findings fall in three classes: (a) representation integrity — two records or parts under one
+  id, a sub-assembly placing itself, a malformed field — refuses the save; (b) design findings —
+  unknown definitions, missing pins or ports, incompatible or open connections, shop rules,
+  missing provenance — are saved with the work and shown compactly; (c) a deliberate release or
+  publication still refuses on errors. An editor gesture is refused only when it introduces (a)
+  or names something that is not there (a pin the part lacks); findings already present never
+  freeze editing. Authorization, stale-write (`If-Match`) and path/upload safety are unchanged.
 - TypeScript strict everywhere; ESM (`"type": "module"`); packages export TS source
   (`main: ./src/index.ts`, `build` = `tsc --noEmit`). IDs are kebab-case strings.
 - Zero runtime dependencies in `model`, `catalog` and `modules`. Dev deps pinned:
@@ -183,6 +196,8 @@ interface PcbaDefinition {
   // Declared internal continuity — enough for end-to-end tracing without modelling the
   // electronics:
   internalLinks: { from: string; to: string; via?: string; note?: string }[];
+  // The board's own nets, when it was read from a board file (`traceConductor`):
+  netlist?: { src: string; terminals: Record<string, string>; parts: PcbaNetPart[] };
   status?: 'active' | 'development' | 'legacy' | 'retired';   // absent = active
   src: string;
 }
@@ -198,6 +213,35 @@ A **mechanical** is a non-electrical physical part: a shell/housing/boot, a fast
 heat-shrink, or a crimp termination part. `{ id, label, partNumber?, revision?, kind: 'shell' |
 'fastener' | 'other' | 'contact' | 'seal' | 'plug' | 'tool', termination?, src }`.
 It has **no terminals**, so it lives outside the joint/net/trace graph.
+
+**Generated enclosures** (`enclosure.ts`). A shell may carry `enclosure: { boards, occurrences,
+params?, openings? }`: the design inputs of a case around boards. Each board is `native` (outline,
+holes and footprints read from its KiCad board file when the solid is generated) or `declared`
+(width, length, holes for a black-box board). Board facts (`widthMm`, `heightAboveMm`, port sizes …)
+are `{ value | null, basis: measured | declared | estimated | unknown }` — unknown is never zero.
+Design parameters (wall, clearance, standoff height, lid flat/split, vents …) have editable
+defaults. Occurrences place one board any number of times. The `enclosure` tool pack
+(`tools/enclosure/`, build123d/Open CASCADE) turns them into STEP/STL solids, a GLB linked as the
+shell's 3D model and a preview image; collisions and unknown heights are warnings, never a reason
+to refuse a save. The run's exact inputs, tool identity and findings are kept beside the record
+(`data/enclosures/<id>.json`), not in it.
+
+**Devices** (`device.ts`). A design may also say where its parts sit: `device: { enclosure?, placements,
+routes? }`, millimetres, z up, in the frame of its generated shell (a `mechanical` instance carrying an
+`enclosure`). A board occurrence (`pcbas` instance) names the enclosure occurrence that places it and takes
+the generator's matrix from the last generation (`result.json`), never a re-derived one; hardware (a
+`mechanical` instance with `qty`) goes to an anchor of the enclosure (`board-mounts`, `board-supports`,
+`lid-screws`, `feet`), one copy per point (`screws#3`), and a count that differs from `qty` is a finding;
+anything else may sit `at` a position with `rotDeg`. A placed design (`subassemblies`) that is itself a
+device is composed in its own frame, every node re-identified by path (`upper/board-1`), so two copies keep
+distinct identities; a placed design or segment that is a cable is drawn as a schematic route between two
+openings (an estimate, beside its declared length; a declared length shorter than the route warns). External
+ports are derived: each opening the generator cut for a board port, the board terminals behind it (by the
+port's id or footprint reference) and the cable that plugs in (by route or by joint). `deviceScene` is pure
+and never refuses: what it cannot place it reports as findings. The BOM is the design's own (an assembled
+board and a placed design are one line each). Exploded and section views are presentation over the scene and
+never change the layout. Simple hardware is parametric (`screw`, `standoff`, `foot` shapes; a model link may be
+written as `{ parametric, src }`).
 
 **Crimp terminations** (`crimp.ts`). A crimp housing — a body's or connector's `housing`
 (`{ systems?, sealing?: 'none' | 'per-wire' | 'mat', plugUnused?, cavities?, src? }`; the
@@ -225,6 +269,14 @@ a backshell with its jackscrews, say.
 Every definition record may carry an optional `cost` (`{ unit, currency?, per?, breaks?, moq?, src? }`,
 `docs/interop.md`, "Costing"), and a design an optional `labourMinutes`: additive fields that feed the
 BOM's cost roll-up and change nothing else.
+
+A connector, connector body, component, PCBA or mechanical may carry an optional `mass: { g, src? }` and a
+wire stock `massPerLength: { gPerM, src? }` (`docs/mass.md`): grams only, absent = unknown, 0 a value, the
+wrong field for the kind a `record-mass` error; a connector's own mass wins over its body's. The design's mass
+is derived per BOM line and for one unit (`deriveMass`, `mass.json`, a Mass column and row on the BOM when any
+part has one): exact when everything is known, a floor naming every missing input otherwise, a sub-assembly at
+its pinned revision's own total (or its parts, exploded; never both). Saved revisions freeze record masses
+with the rest of the record; inventory shows a batch's measured unit mass beside the derived one, never in an export.
 
 The electrical rules (`packages/model/src/electrical.ts`: conductor ampacity, contact rating, voltage
 drop; warnings, silent without declared currents) read a pin's `currentA` or its signal's default
@@ -262,6 +314,7 @@ interface CableDesign {
   extensions?: Record<string, unknown>;   // module-owned data, keyed by module id
   recipe?: CableRecipe;              // the devices it connects and the resolver's choices
   route?: 'make' | 'contract' | 'buy'; maker?: string; suppliers?: PartSupplier[];
+  device?: DeviceLayout;             // where its parts sit in 3D (`device.ts`)
   src: string;
 }
 
@@ -313,9 +366,12 @@ stock — continuous copper, no joint. **Terminated**: it ends in the mould, sol
 **Sub-assemblies** (`subassemblies.ts`). A design may place other designs: a harness made of
 cables, a Y made of two leads. A sub-assembly instance names the design (`def`) and, optionally, a
 saved version (`rev`); absent, it follows the working copy, and **saving a version pins every
-unpinned sub-assembly to that design's released revision** (approved when approvals are on, else
-the latest saved) — a version always names the same parts, and is refused when a placed design has
-nothing released. The placed design's unconnected ends are its **ports**: every connector pin
+unpinned sub-assembly to the saved version that captures its working copy** — the revision it equals,
+or, when it equals none, a version of it saved automatically with the parent ("Captured with
+<parent> Rev N"). A version always names the same parts; nobody has to freeze or release a child
+first. Release is the deliberate boundary: submitting or approving a version whose pins name
+unreleased revisions, or which was saved with unresolved errors, names them and needs an explicit
+acknowledgement (kept with the approval comment). The placed design's unconnected ends are its **ports**: every connector pin
 (including a board's integrated connector), each conductor and screen of a wire end nothing is
 soldered to and that is in no breakout and twists no pigtail (a **flying lead**), and the free ports
 of its own sub-assemblies. A port is a terminal of the instance named `<instance>:<terminal>` or
@@ -348,6 +404,16 @@ it; deleting or renaming such a design is refused, naming them; on Postgres each
 JSON. The base validates only its shape (`invalid-extensions`), keeps it through edits,
 versions and serialization, and never reads it.
 
+**Required processes.** `processes` (`[{ id, note? }]`, at most 100, unique ids) declares the
+manufacturing processes a design needs beyond plain assembly; the ids name entries of the hub's
+process vocabulary (`processes.json`, an array of records a pack may ship; Settings → Processes).
+A vocabulary entry may also say when a design needs it without being told (`derive`: rule-language
+selectors, `each` + `where`). `requiredProcesses(design, db)` joins both, each with its source
+(`declared`, `derived`, `both`) and the matching subjects; a malformed declaration refuses a save
+(`invalid-processes`), an unknown or switched-off id is a warning (`process-unknown`). A saved
+version captures the entries it declared or matched (`FrozenDefinitions.processes`) and never reads
+the live vocabulary; `processes.json` is the export ([docs/processes.md](docs/processes.md)).
+
 ### Derived views
 
 - `resolveTerminal(design, db, ref)` — validates and resolves a TerminalRef; the foundation
@@ -368,6 +434,18 @@ versions and serialization, and never reads it.
 - `trace(design, db, from)` — walks outward through joints, plain links, two-terminal
   components (annotating each passage) and `via` links; returns reachable terminals with the
   ordered list of things passed through. The continuity spec derives from it.
+- `traceConductor(design, db, from)` (`board-trace.ts`) — the same walk, continued into a board's
+  **native nets** when its definition carries a `netlist` (terminal → net, parts with category, value,
+  pins, `dnp`, a settled `state`, position; written by the board importer from the board file). Each
+  hop is `copper` (joint, conductor, one net, a closed jumper), `passive` (resistor, capacitor,
+  inductor/ferrite, with its value) or stops as `active` (IC, regulator, transistor, diode) or
+  `unknown` (no net for a terminal, a board with neither nets nor a declared link, a do-not-populate
+  part, a jumper/switch whose state neither the file nor the occurrence's `partStates` declares, a part
+  of unknown kind). A supply net is copper to everything on it but leads off only through series parts.
+  A declared plain link the board file splits, or a link declared through a DNP part, is a
+  `contradiction` finding. Findings never block editing and never become continuity claims; two
+  occurrences of one board trace independently. The continuity spec prints it as "Through board nets";
+  the editor lights the route on each board view by hop kind (`--trace-*` tokens).
 - `validateDb(db)`: duplicate ids, bad element trees, PCBA links or integrated-connector
   prefixes referencing unknown terminals/defs, bonded members that are not screens, missing
   `src` (warning).
@@ -414,7 +492,8 @@ number without a person accepting it.
 `contains`, `some`/`every`/`none` over lists, counts) over a design and its library records, with a
 subject (`connector`, `conductor`, `signal-path`, `cable-end`, `connector-def` …), a severity and a message
 template. No code runs: evaluation is bounded (depth, node count, a step budget). Their issues
-carry the code `rule:<id>`. Code rules in a module remain for the complex cases.
+carry the code `rule:<id>`. Code rules in a module remain for the complex cases. A rule's `error`
+is a finding on a saved draft and refuses a release, never a save.
 
 ### Devices and the resolver
 
@@ -441,6 +520,13 @@ When nothing is complete, `proposeBoards` drafts boards and adapters for the mis
 people decline them (remembered in `proposals.json`) or start a development board from one.
 All of it is data a pack ships; the engine knows no field's devices.
 
+**Solution exploration** (`explore.ts`, `docs/explore.md`) widens the question: a requirement (connect
+two ports carrying named signals, or a board in an enclosure with named ports reachable) enumerates
+combinations of resolver options, fitting stocks, mating plugs, firmware projects and enclosure presets,
+each **valid**, **invalid** (reasons) or **unknown** (the facts nobody stated). Manual decisions
+(`exclude`, `prefer`, `include`, `assume`) are kept per requirement and re-applied; a stale one is
+reported. A pick becomes a draft design or enclosure; nothing is saved before a decision or pick.
+
 ### Products, variants, the lineup and routes
 
 `products.ts`, `docs/products.md`. A **product family** (`products.json`, `Db.products`) groups the
@@ -454,6 +540,35 @@ duplicate report; a family's next variant number comes from the scheme (`variant
 Every record (`RecordMeta`) and design may carry a **route** — `make`, `contract` (with its
 `maker`) or `buy` (with `suppliers`) — checked as warnings (`route-buy-no-supplier`,
 `route-contract-no-maker`) and shown as a badge. A product change raises `product.changed`.
+
+### Saved versions capture their effective inputs
+
+Saving a version is not approving it. The save records, automatically, the exact effective inputs
+(`DesignVersionFile.inputs`, `wirehub/effective-inputs@1`): every referenced connector, body,
+pinout, stock, component, board, hardware record and placed design, each with its own revision
+text, the saved library-record revision it equalled, a content hash of the record as used, a hash
+of its artwork files and, for a board, the shared cover choice in force. The version also keeps the
+design findings it was saved with (`findings`); only what cannot be captured at all (a placed design
+that is missing or places itself) refuses the save. `GET /api/designs/:id/versions/:rev/inputs` lists
+the inputs against today (same, changed — record, artwork, cover, newer version — or gone), and the
+version view's **Inputs** panel shows "Changed since this version" with a compare link where a saved
+record revision exists. A version renders with its own frozen definitions and copied artwork,
+never silently with newer geometry. Versions saved before capture existed derive the same list from
+what they froze (no covers). A job whose request names a design (`design`: an id or `{ id, rev }`)
+records the same capture on its request as `effectiveInputs`. Both backends store it inside the
+version file / job request; no schema change.
+
+A locked revision's document package is listed by `GET /api/designs/:id/versions/:rev/documents`
+(`:rev` a number, `latest` or `released`; `docs/document-manifest.md`): every document kind in each
+format (but `csv` and the label `png`/`lbx`) and every base export, each with its URL, size and the
+SHA-256 of the exact bytes that URL returns, and a `packageHash` over the `[name, sha256]` pairs.
+Revision renders with default options are kept by a **render key** (the version file with its
+approval, the drawing sidecar but its revision, branding, test defaults, approvals on, PDF engine,
+modules, `DOCUMENT_CACHE_VERSION`), first render wins: a newer revision, live edits or a hub
+upgrade never move a released revision's hashes, approving does. They are dated with the release
+date and carry no part-number proposals. Kept in `data/.document-cache/` (files) or as `derived_blob`
+rows with cache `document` (Postgres), never exported or backed up; `version.*` webhooks link the
+manifest as `fetch.documents`.
 
 ### Revisions of library records, and compare
 
@@ -478,6 +593,15 @@ backoff, logged and redeliverable. The receiver pulls full data through the API 
 (`docs/webhooks.md`).
 
 ---
+
+### Linked knowledge and projects
+
+Notes, decisions (a note with a status), photos and files link to any number of records by their
+record key (`design:<id>`, `definition:<kind>:<id>`, `project:<id>` …). A project groups references
+to existing records and keeps its own notes and files. Both are catalog documents
+(`data/knowledge/…`) written through the ordinary document change set on files and PostgreSQL, with
+attachments in the shared asset store. They never copy or change the records they point at. A
+board's note photos are cover candidates, never geometry. `specs/knowledge.md`.
 
 ## Modules (`packages/modules`)
 

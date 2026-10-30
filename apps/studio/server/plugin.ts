@@ -29,6 +29,8 @@ import { editLockLayer, type EditLockDeps } from './locks/lock-api.ts';
 import { LOCK_HEADER } from '../src/locks/records.ts';
 
 import { isModelPath, MAX_MODEL_REQUEST_BYTES } from './models/api.ts';
+import { isKnowledgeUploadPath } from './knowledge.ts';
+import { isPrintUploadPath } from './print/files.ts';
 import { runtimeEnv } from './runtime-settings.ts';
 import { importUploadLimit, importUploadRefusal, isImportPath, startImportUpload } from './jobs/api.ts';
 import { parseModuleIoPath } from './module-io.ts';
@@ -57,7 +59,7 @@ export function guardWrite(req: IncomingMessage, upload: boolean, hasBody: boole
 
 function readBody(req: IncomingMessage): Promise<string> {
   // a model upload (50a.55) is a base64 file, bigger than any document
-  const MAX_BODY_BYTES = isModelPath(req.url ?? '') || isImportPath(req.url ?? '') ? MAX_MODEL_REQUEST_BYTES : MAX_JSON_BYTES;
+  const MAX_BODY_BYTES = isModelPath(req.url ?? '') || isImportPath(req.url ?? '') || isKnowledgeUploadPath(req.url ?? '') || isPrintUploadPath(req.url ?? '') ? MAX_MODEL_REQUEST_BYTES : MAX_JSON_BYTES;
   return new Promise((resolve, reject) => {
     let text = '';
     let size = 0;
@@ -207,12 +209,14 @@ export function workbenchJsonMiddleware(
           return;
         }
         const ifMatch = ifMatchOf(req);
+        const ifNoneMatch = header(req, 'if-none-match');
+        const lockHeader = header(req, LOCK_HEADER);
         const response = await handleWorkbenchRequest(
           {
             method: req.method ?? 'GET',
             path,
             ...(body === undefined ? {} : { body }),
-            ...(ifMatch === undefined ? {} : { headers: { 'if-match': ifMatch } }),
+            ...(ifMatch === undefined && ifNoneMatch === undefined && lockHeader === undefined ? {} : { headers: { ...(ifMatch === undefined ? {} : { 'if-match': ifMatch }), ...(ifNoneMatch === undefined ? {} : { 'if-none-match': ifNoneMatch }), ...(lockHeader === undefined ? {} : { [LOCK_HEADER]: lockHeader }) } }),
           },
           deps,
         );
@@ -221,6 +225,7 @@ export function workbenchJsonMiddleware(
           res.setHeader('content-type', response.contentType ?? 'application/octet-stream');
           res.setHeader('cache-control', 'no-store');
           res.setHeader('x-content-type-options', 'nosniff');
+          for (const [name, value] of Object.entries(response.headers ?? {})) res.setHeader(name, value);
           res.end(Buffer.from(response.bytes));
           return;
         }

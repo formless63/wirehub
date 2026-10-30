@@ -21,6 +21,7 @@ import {
   type ConnectorGender,
   type Interface,
   type PinFunction,
+  type RecordMass,
   type Vocab,
 } from '@wirehub/model';
 
@@ -38,7 +39,8 @@ export interface BodyDraft {
   id: string;
   label: string;
   family: string;
-  gender: ConnectorGender;
+  /** `''`: not known yet — a draft body may be saved without it */
+  gender: ConnectorGender | '';
   /** a `BODY_TEMPLATES` id, or `custom` */
   template: string;
   /** custom layouts: how many numbered positions, and whether the shell is one */
@@ -86,7 +88,7 @@ export function bodyDraftOf(body: ConnectorBody): BodyDraft {
     id: body.id,
     label: body.label,
     family: body.family,
-    gender: body.gender,
+    gender: body.gender ?? '',
     template: template?.id ?? CUSTOM_TEMPLATE,
     count: String(numberedCount),
     shell: body.positions.some((p) => p.kind === 'shell'),
@@ -133,7 +135,7 @@ export function bodyOfDraft(draft: BodyDraft): ConnectorBody {
     id: draft.id.trim(),
     label: draft.label.trim(),
     family: draft.family,
-    gender: draft.gender,
+    ...(draft.gender === '' ? {} : { gender: draft.gender }),
     positions: draftPositions(draft),
     ...(draft.mates.trim() === '' ? {} : { mates: draft.mates.trim() }),
     ...(draft.partNumber.trim() === '' ? {} : { partNumber: draft.partNumber.trim() }),
@@ -160,8 +162,8 @@ export function withBodyField(draft: BodyDraft, patch: Partial<BodyDraft>, taken
   }
   const template = templatesFor(next.family).find((t) => t.id === next.template);
   const stem = template?.stem ?? (next.family === '' ? '' : `${next.family}-${draftPositions(next).filter((p) => /^\d+$/.test(p.id)).length}`);
-  if (!next.idTouched && stem !== '') next.id = suggestBodyId(stem, next.gender, taken);
-  if (!next.labelTouched && template !== undefined) next.label = `${template.label} ${next.gender}`;
+  if (!next.idTouched && stem !== '') next.id = next.gender === '' ? suggestBodyId(stem, 'body', taken) : suggestBodyId(stem, next.gender, taken);
+  if (!next.labelTouched && template !== undefined) next.label = `${template.label} ${next.gender}`.trim();
   return next;
 }
 
@@ -322,10 +324,15 @@ export interface ConnectorIdentity {
   construction: string;
   /** a vocab `connector-sourcing` id, or '' — terminated on the bench as normal */
   sourcing: string;
+  /** grams per piece (`mass.ts`); absent = unknown, or the body's */
+  mass?: RecordMass;
   src: string;
   idTouched: boolean;
   labelTouched: boolean;
 }
+
+/** The connector fields the journey writes itself; every other field of the record is kept. */
+const JOURNEY_FIELDS: ReadonlySet<string> = new Set(['id', 'label', 'aliases', 'family', 'gender', 'partNumber', 'construction', 'sourcing', 'mass', 'pins', 'src', 'body', 'interface']);
 
 /**
  * The connector record: identity + the pair, pins composed from them — what
@@ -350,6 +357,8 @@ export function composeJourneyConnector(
   const construction = identity.construction.trim();
   const sourcing = identity.sourcing.trim();
   const label = identity.label.trim();
+  // what the journey does not edit (price, sourcing route, licence, housing …) stays as it was
+  const kept = baseline === undefined ? {} : Object.fromEntries(Object.entries(baseline).filter(([key]) => !JOURNEY_FIELDS.has(key)));
   // a renamed connector keeps its earlier names, so a search for one still finds it
   const earlier = baseline?.aliases ?? [];
   const aliases = baseline !== undefined && baseline.label !== label && !earlier.includes(baseline.label) ? [...earlier, baseline.label] : earlier;
@@ -358,10 +367,12 @@ export function composeJourneyConnector(
     label,
     ...(aliases.length === 0 ? {} : { aliases }),
     family: familyWords,
-    gender: body.gender,
+    ...(body.gender === undefined ? {} : { gender: body.gender }),
     ...(partNumber === '' ? {} : { partNumber }),
     ...(construction === '' ? {} : { construction }),
     ...(sourcing === '' ? {} : { sourcing }),
+    ...(identity.mass === undefined ? {} : { mass: identity.mass }),
+    ...kept,
     pins: composePins(body, iface, vocab),
     src: identity.src.trim(),
     body: body.id,

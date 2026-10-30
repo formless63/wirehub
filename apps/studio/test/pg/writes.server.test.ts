@@ -90,7 +90,8 @@ describePg('the write path on Postgres', () => {
       expect(Number(head)).toBe(sets.length);
       const person = (await sql<{ email: string }>`SELECT email FROM studio.person`.execute(tx)).rows.map((r) => r.email);
       expect(person).toEqual(['alex@example.com']);
-      const unattributed = (await sql<{ n: string }>`SELECT count(*)::text AS n FROM studio.audit_log WHERE change_set_id IS NULL AND org_id = ${orgId}::uuid`.execute(tx)).rows[0]?.n;
+      // derived-cache blobs (documents, models) are written outside a change set, as audit-watch allows
+      const unattributed = (await sql<{ n: string }>`SELECT count(*)::text AS n FROM studio.audit_log WHERE change_set_id IS NULL AND table_name <> 'blob' AND org_id = ${orgId}::uuid`.execute(tx)).rows[0]?.n;
       expect(unattributed).toBe('0');
       // the renamed design kept its entity (and so its uuid): no design entity is left without rows
       const orphans = (await sql<{ slug: string }>`

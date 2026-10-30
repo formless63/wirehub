@@ -101,18 +101,88 @@ kept in the `secrets` volume; set `WIREHUB_SETUP_CODE` to choose your own.
 
 | Service | Image | What it does |
 | --- | --- | --- |
-| `bootstrap` | the app image | one-shot, first: fills the `secrets` volume (below) and writes Garage's config |
+| `wirehub` | `ghcr.io/formless63/wirehub` | the app: UI and API, the only published port. It initialises the stack when it starts ("Startup" below) |
 | `postgres` | `postgres:18.6-bookworm` | PostgreSQL 18, internal network only |
-| `migrate` | the app image | one-shot: WireHub's database roles (`studio_owner`, `studio_app`, `studio_ro`), every pending migration, and once a catalog kept in files before the database moved in ("Upgrades") |
 | `garage` | `dxflrs/garage:v2.4.1` | S3-compatible object store for uploaded files (photos, datasheets, 3D models), single node, internal only |
-| `garage-init` | the app image | one-shot: Garage's layout, the bucket, and the app's and the backup's keys — **created by Garage** and written to the `secrets` volume |
-| `wirehub` | `ghcr.io/formless63/wirehub` | the app: UI and API, the only published port |
 | `worker` | the app image | background jobs ("Jobs" below): module imports, converting a STEP upload to a 3D model, building imported models, and housekeeping |
+| `bootstrap`, `migrate`, `garage-init` (profile `init-services`) | the app image | optional: the earlier one-shot containers that did the startup's work before the app did; kept while the startup path proves itself ("Startup" below) |
+| `tool-proxy` (profile `tools`) | `wollomatic/socket-proxy:1.10.0` | optional: the worker's allow-listed path to Docker for native tool packs (image inspect, container list/create/start/wait/kill/remove, and image pull when `WIREHUB_TOOL_REGISTRY` is set); with `WIREHUB_TOOL_RUNNER=docker` the worker runs KiCad board outputs as throwaway, network-less containers (`docs/jobs-and-tool-packs.md`), internal only |
 | `pdf` (profile `pdf`) | `gotenberg/gotenberg:8.37.0-chromium` | optional: the browser PDF engine that prints the HTML sheets to PDF ("Printed PDFs" below), internal only |
 
-Every service waits for the ones it needs (`depends_on` with
-`service_completed_successfully` / `service_healthy`), so one `up` brings the
-whole stack up in order.
+One `up` brings the whole stack up: there are no one-shot containers. The app
+writes the secrets the others need, PostgreSQL waits for its password file,
+and Garage, started before its configuration exists, exits and is restarted
+until it does (on a first start only, and usually not at all).
+
+### Startup
+
+When the `wirehub` container starts (`apps/studio/stack/start.ts`), before the
+server itself:
+
+1. **Secrets.** It fills the `secrets` volume (below) and writes Garage's
+   configuration. This step alone runs as root (the volume may be owned by
+   root, after an upgrade); the process then runs as the image's `node` user.
+2. **The S3 store** (bundled Garage only): the cluster layout, the app's and
+   the backup's access keys — **created by Garage** and written to the
+   `secrets` volume — and the bucket.
+3. **The database**, under a PostgreSQL advisory lock, so only one process at a
+   time does it: WireHub's roles (`studio_owner`, `studio_app`, `studio_ro`),
+   every pending migration shipped in the image, and once a catalog kept in
+   files before the database moved in ("Upgrades").
+
+The `worker` waits for the secrets the app writes, then takes the same lock
+and runs any pending migration itself — a no-op when the app got there first
+— before it starts working.
+
+Every step is idempotent and runs on every start: a restart or an upgrade
+redoes nothing that is done. While it runs, the app's port answers 503 and
+`/healthz` says what it is doing:
+
+```
+{"ok":false,"status":"initialising","step":"running migrations"}
+```
+
+A failure stays there, and in the log, with what failed:
+
+```
+{"ok":false,"status":"failed","error":"migration failed: Migration 0031_x failed: …"}
+```
+
+The container is then reported unhealthy. Nothing is retried in a loop, and no
+migration is ever generated, skipped or repaired, nothing is deleted: fix the
+cause, then `docker compose restart wirehub worker`. Only a database that is not
+reachable yet is waited for (it may still be starting); `/healthz` then says
+`waiting for the database (…)`. The container's health check allows five
+minutes for a first start or a long migration.
+
+**The earlier one-shots.** Up to v0.8.0, three one-shot containers did this work
+before the app started: `bootstrap`, `migrate` and `garage-init`. They are kept
+behind the `init-services` profile: `COMPOSE_PROFILES=init-services` runs them
+first, as before (the app's startup then finds everything done), and
+`WIREHUB_INIT=off` turns the app's and the worker's startup step off. The
+`backup` profile's `backup-init` stays a one-shot.
+
+**What it changed** (measured on one machine, a 6-core laptop CPU, both stacks
+on the same image build, a fresh install with no organisation yet unless
+noted; idle = two to five minutes after `/healthz` first answered 200):
+
+| | One-shot services | Startup in the app |
+| --- | --- | --- |
+| Containers created | 7 (3 exit after their run) | 4 |
+| Fresh install, `up -d` to `/healthz` 200 | 19.0 s, 18.6 s | 11.8 s, 11.4 s |
+| Restart (`stop`, then `up -d`) to `/healthz` 200 | 17.1 s | 4.9 s, 6.3 s |
+| Upgrade (old layout's volumes, new `compose.yaml`) to `/healthz` 200 | — | 3.4 s |
+| Idle memory, all services (`docker stats`) | 237 MiB | 247 MiB |
+| of which the app | 112 MiB | 120 MiB |
+| Idle CPU, all services (cgroup CPU time per minute, two 2-minute windows) | 0.72 s, 0.76 s | 1.05 s, 0.93 s |
+
+Startup is faster because nothing waits for a container to be created, run
+and reaped before the next one starts, and a restart does almost nothing. Idle
+use is essentially the same: the one-shots had already exited. The app keeps
+about 8 MiB more (the startup's code stays loaded) and used about 0.1 s more
+CPU per minute in these windows; most idle CPU is PostgreSQL's background work
+and the app's health check (a `node` process every 30 s), which vary from one
+window to the next.
 
 **What holds your data.** PostgreSQL (`pg_data`) holds the catalog, designs,
 drawings, saved versions, the accounts, people and API tokens, and the
@@ -122,7 +192,7 @@ before the database (`WIREHUB_BACKEND=files`, still available for a small
 single-user hub — see "Settings"); a new hub leaves them as they came.
 
 **Memory.** Each service has a cap (`mem_limit`): the app 768 MiB, the worker
-1.5 GiB, PostgreSQL 512 MiB, Garage 256 MiB, the one-shots less. The worker's
+1.5 GiB, PostgreSQL 512 MiB, Garage 256 MiB. The worker's
 cap is sized for one STEP conversion at a time (they peak at about 1.1 GB);
 a STEP that would need more than `WIREHUB_STEP_RSS_LIMIT_MB` (1280) is refused
 with a sentence rather than taking the worker down. The whole stack fits a
@@ -162,7 +232,7 @@ The file backend (`WIREHUB_BACKEND=files`) always runs its jobs in the app.
 
 ### Secrets: the `secrets` volume
 
-On first start, `bootstrap` generates every secret the stack needs and keeps
+On its first start, the app generates every secret the stack needs and keeps
 it in the `secrets` volume (mounted at `/run/wirehub`):
 
 | File | What |
@@ -174,7 +244,7 @@ it in the `secrets` volume (mounted at `/run/wirehub`):
 | `settings_key` | encrypts the secrets entered in Settings (`WIREHUB_SETTINGS_KEY_FILE`); generated on the first start after an upgrade too |
 | `settings_key_previous` | retired settings keys, only while a rotation is under way ("Rotating the settings key" under Settings) |
 | `garage_rpc_secret`, `garage_admin_token` | Garage's |
-| `s3_access_key_id`, `s3_secret_access_key`, `s3_backup_*` | the S3 keys Garage created (`garage-init`) |
+| `s3_access_key_id`, `s3_secret_access_key`, `s3_backup_*` | the S3 keys Garage created (the app's startup) |
 | `setup_code` | the first-run setup code |
 | `restic_password` | the backup repository's password (profile `backup`) |
 
@@ -242,8 +312,9 @@ key ring, the current key plus the previous ones
 (`WIREHUB_SETTINGS_KEY_PREVIOUS`, comma separated, or the volume's
 `settings_key_previous`, one per line), and always writes with the current one.
 
-1. Make the new key. In the compose stack the bootstrap does it and retires the
-   old one into `settings_key_previous`:
+1. Make the new key. In the compose stack the `bootstrap` one-shot does it (a
+   `run` starts it even though its profile is off) and retires the old one
+   into `settings_key_previous`:
 
    ```
    docker compose run --rm -e WIREHUB_ROTATE_SETTINGS_KEY=1 bootstrap
@@ -253,7 +324,7 @@ key ring, the current key plus the previous ones
    (The second command restarts the app and the worker with both keys; every
    secret still reads, and a secret saved from now on is under the new key.)
    If you set `WIREHUB_SETTINGS_KEY` yourself in `.env`, put the new value there
-   and `up -d`: the bootstrap retires the file's old key on its own. Outside
+   and `up -d`: the app's startup retires the file's old key on its own. Outside
    compose, make a key with `pnpm --filter studio settings-key generate`, set it
    as `WIREHUB_SETTINGS_KEY` and the old one as `WIREHUB_SETTINGS_KEY_PREVIOUS`.
 2. Re-encrypt what is stored, as an owner: **Settings > Rotate key** (it shows
@@ -334,7 +405,7 @@ cap or another container.
 | `WIREHUB_SUGGESTED_MODULES` | read only at first-run setup, before there is a Settings page; `/setup` itself lets you choose |
 | `WIREHUB_LOCAL_USER` | who a hub with sign-in off names; sign-in off is itself an install choice |
 | `DATABASE_ADMIN_URL`, `DATABASE_OWNER_URL`, `DATABASE_URL`, `DATABASE_RO_URL` | where the database is: needed to read anything |
-| `POSTGRES_PASSWORD`, `WIREHUB_OWNER_PASSWORD`, `WIREHUB_APP_PASSWORD`, `WIREHUB_RO_PASSWORD`, `WIREHUB_DB_NAME` | the database's roles, created by `bootstrap` and `migrate` |
+| `POSTGRES_PASSWORD`, `WIREHUB_OWNER_PASSWORD`, `WIREHUB_APP_PASSWORD`, `WIREHUB_RO_PASSWORD`, `WIREHUB_DB_NAME` | the database's roles, created at startup (read only then, and dropped from the server's environment) |
 | `WIREHUB_BLOBS`, `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | where uploaded files are: needed to serve anything |
 | `S3_BACKUP_ACCESS_KEY_ID`, `S3_BACKUP_SECRET_ACCESS_KEY` | the backup mirror's key, read by the `backup-mirror` container |
 | `GARAGE_RPC_SECRET`, `GARAGE_ADMIN_TOKEN`, `GARAGE_CAPACITY` | the bundled Garage's own configuration |
@@ -353,7 +424,8 @@ cap or another container.
 | `BACKUP_DUMP_AT`, `BACKUP_KEEP_DUMPS`, `BACKUP_CHECK_DAY`, `BACKUP_MIRROR_INTERVAL` | read by the `backup-dump` and `backup-mirror` containers, which have no database of settings |
 | `BACKREST_BIND`, `BACKREST_PORT` | Backrest's published port |
 | `WIREHUB_GIT_AUTOCOMMIT`, `WIREHUB_GIT_DIR`, `WIREHUB_GIT_REMOTE`, `WIREHUB_GIT_BRANCH` (and their old `STUDIO_*` names) | the file backend's git export, which pulls before the server starts |
-| `WIREHUB_SECRETS_DIR` | where the stack's one-shots write the secrets |
+| `WIREHUB_SECRETS_DIR` | where the startup writes the secrets |
+| `WIREHUB_INIT` | `off` skips the startup initialisation (the `init-services` profile's one-shots do it) |
 | `WIREHUB_VERSION`, `WIREHUB_REVISION`, `WIREHUB_BLOB_VERIFY`, `WIREHUB_WORKER_BEAT_FILE`, `WIREHUB_DERIVE_CRON`, `WIREHUB_GC_CRON`, `WIREHUB_BACKUP_WATCH_CRON` | set by the image, or internal tuning for development and tests |
 | `WIREHUB_API_URL`, `WIREHUB_API_TOKEN`, `WIREHUB_API_ENV`, `WIREHUB_PACK_SIGNING_KEY`, `WIREHUB_STORE_SIGNING_KEY` | read by the command-line tools on your machine, not by the server |
 
@@ -496,7 +568,7 @@ The bundled services sit between marker comments in `compose.yaml`
 and set:
 
 - **PostgreSQL:** `DATABASE_ADMIN_URL`, a connection as a role that may create
-  roles and the database. `migrate` creates WireHub's roles with it, and their
+  roles and the database. The app's startup creates WireHub's roles with it, and their
   connections are derived from it (same host, port, database and options). On
   a managed database without such a role, create the roles yourself and give
   `DATABASE_OWNER_URL` and `DATABASE_URL` instead.
@@ -517,7 +589,7 @@ its vendor has scaled back the open-source edition.
 - **Garage** (Deuxfleurs, AGPL-3.0) is mature — releases since 2022, a 2.x
   line with a stable admin API — and designed for small, self-hosted storage
   that runs in a few tens of MB of RAM. Its cost is setup (a cluster layout,
-  keys, a bucket), which `garage-init` does on every start, idempotently.
+  keys, a bucket), which the app's startup does on every start, idempotently.
 - **RustFS** (Apache-2.0) is simpler to start but young — 1.0 release
   candidates as of 2026 — and a hub's uploads are not where to try a new
   storage engine.
@@ -553,6 +625,15 @@ never rewritten, and a restore can itself be restored. The same is under
 `GET /api/history` (`apps/studio/README.md`). Changes saved before this
 version recorded earlier states (migration 0017) show what they changed but
 may lack their "before".
+
+**Agent checkpoints.** Every change made with a personal API token (an
+agent working over MCP, a script) records the token. History's **Agent**
+filter shows one token's changes as one checkpoint: the records it changed
+and **Undo this agent's work**, which brings them all back to how they were
+before its first change — records it created are deleted, list entries and
+build files go back, and Explore's kept explorations and picks return — as one
+new change set. If anyone else changed one of those records since, nothing is undone and
+the page says which record to restore from its own History instead.
 
 What each backend keeps:
 
@@ -791,12 +872,20 @@ backup) for the volumes and the bucket.
 ## Upgrades
 
 Take a backup, then set a newer `WIREHUB_IMAGE` tag (or download the newer
-release's `compose.yaml`, which pins it) and deploy again: `migrate` brings
-the database up to date before the app starts.
+release's `compose.yaml`, which pins it) and deploy again: the app's startup
+brings the database up to date before the server starts ("Startup").
+
+**From the one-shot layout** (a `compose.yaml` with `bootstrap`, `migrate` and
+`garage-init` running by default): deploy the new `compose.yaml` over the same
+volumes. The secrets, the database and the bucket are kept as they are, and
+the old one-shot containers stay exited until removed (`docker compose down`
+before the switch does it). If you
+override those services by name (a `compose.override.yaml`), the overrides
+still apply: the services exist, behind the `init-services` profile.
 
 **From a hub that kept its catalog in files** (before v0.1.0, or with
 `WIREHUB_BACKEND=files`): deploy the new `compose.yaml` over the same volumes.
-On its first start `migrate` imports the `catalog` volume, with the packs in
+On its first start the app's startup imports the `catalog` volume, with the packs in
 `packs` merged in, into the database as one organisation (it does this only
 while the database holds none, and only for a catalog that was in use — a
 fresh install goes to `/setup`). With sign-in on, `/setup` then asks for the

@@ -13,6 +13,7 @@ import {
   conductorLandings,
   definitionsOfBuild,
   footprintPadMap,
+  oneBoardPerFork,
   validateBoardBuilds,
   type BoardBuilds,
   type ConductorLanding,
@@ -21,6 +22,8 @@ import {
   type PcbaDefinition,
   type SignalRef,
 } from '@wirehub/model';
+
+import type { ReactNode } from 'react';
 
 import type { DepictionMeta, EntryGuide } from './artwork.ts';
 import type { Outcome } from './persistence.ts';
@@ -49,17 +52,22 @@ export interface PadMapEdits {
 
 export interface BoardJourneyHost {
   builds?: BuildsAdapter;
-  /** open the board's import (a re-run), carrying pad-map edits for it to apply */
-  onImport?: (board: { partNumber: string; revision: string }, edits?: PadMapEdits) => void;
+  /** open the board's import (an update from a new board file), carrying pad-map edits for it to apply */
+  onImport?: (board: { id?: string; partNumber: string; revision: string }, edits?: PadMapEdits) => void;
+  /** what the host shows under the Import step about the board's native files (the app's KiCad check) */
+  sourceCheck?: (board: PcbaDefinition) => ReactNode;
 }
 
 /* ------------------------------------------------------------------ *
  * Reads
  * ------------------------------------------------------------------ */
 
-/** Every definition of the same board revision (one per build). */
-export function boardSiblings(db: Db, def: Pick<PcbaDefinition, 'partNumber' | 'revision'>): PcbaDefinition[] {
-  return db.pcbas.filter((p) => p.partNumber === def.partNumber && p.revision === def.revision);
+/** Every definition of the same board revision (one per build; a pack board and its local fork are one). */
+export function boardSiblings(db: Db, def: Pick<PcbaDefinition, 'partNumber' | 'revision'> & { id?: string }): PcbaDefinition[] {
+  return oneBoardPerFork(
+    db.pcbas.filter((p) => p.partNumber === def.partNumber && p.revision === def.revision),
+    def.id,
+  );
 }
 
 /** The build file this board revision reads, with its name. */
@@ -144,21 +152,24 @@ export function journeySteps(input: JourneyInput): StepStatus[] {
   const gerber = meta?.views['board-top']?.sourceKind === 'gerber';
   const builds = draft?.builds ?? [];
   const unemitted = builds.filter((b) => draft !== undefined && definitionsOfBuild(draft, b, db.pcbas).length === 0);
-  const importStep: StepStatus = !gerber
-    ? { id: 'import', state: 'todo', note: 'no gerber art', title: 'Run an importer: art, pads and definitions come from the board files' }
-    : unemitted.length > 0
-      ? {
-          id: 'import',
-          state: 'warn',
-          note: `${unemitted.length} build${unemitted.length === 1 ? '' : 's'} not emitted`,
-          title: `Re-run the import to make definitions for: ${unemitted.map((b) => b.key).join(', ')}`,
-        }
-      : { id: 'import', state: 'done', note: 'imported', title: 'Art, pads and definitions come from the production files' };
+  // a native KiCad render is real art from the board's own file: only Gerber-bound work (entry guides) waits for more
+  const native = !gerber && meta?.views['board-top']?.sourceKind === 'kicad';
+  const notEmitted = unemitted.length === 0 ? '' : ` · not emitted yet: ${unemitted.map((b) => b.key).join(', ')} (Update from file makes them)`;
+  const importStep: StepStatus = native
+    ? { id: 'import', state: 'done', note: 'KiCad', title: `Art, pads and definitions come from the KiCad board file${notEmitted}` }
+    : !gerber
+      ? { id: 'import', state: 'todo', note: 'needs board art', title: 'Import the board file (or its Gerbers) for art and pads' }
+      : { id: 'import', state: 'done', note: 'imported', title: `Art, pads and definitions come from the production files${notEmitted}` };
 
   const uncertain = uncertainPads(db, def, meta);
+  const padCount = cablePads(def).length;
   const padsStep: StepStatus =
-    uncertain.length === 0
-      ? { id: 'pads', state: 'done', note: `${cablePads(def).length} pads`, title: 'Every cable pad has a role and sits on the art' }
+    padCount === 0 && def.terminals.length > 0
+      ? { id: 'pads', state: 'none', note: 'pins only', title: 'Cables land on this board\'s connector pins (see Connector), not on wire pads' }
+      : padCount === 0
+      ? { id: 'pads', state: 'todo', note: 'no pads', title: 'This board has no terminals a cable can land on: re-run the import, or add pads on the record' }
+      : uncertain.length === 0
+      ? { id: 'pads', state: 'done', note: `${padCount} pads`, title: 'Every cable pad has a role and sits on the art' }
       : { id: 'pads', state: 'todo', note: `${uncertain.length} to check`, title: `No role or no anchor: ${uncertain.join(', ')}` };
 
   const prefixes = connectorPrefixes(def);
@@ -185,7 +196,20 @@ export function journeySteps(input: JourneyInput): StepStatus[] {
         ? { id: 'connector', state: 'todo', note: `${missing} to pick`, title: 'Pick the interface each connector footprint carries' }
         : mismatches > 0
           ? { id: 'connector', state: 'warn', note: `${mismatches} mismatch${mismatches === 1 ? '' : 'es'}`, title: 'Some footprint pads do not land on the interface as tagged' }
-          : { id: 'connector', state: 'done', note: prefixes.join(' · '), title: 'Every footprint pad lands on its interface' };
+          : (() => {
+              // the interfaces by name; the footprint references only in the tooltip
+              const named = prefixes.map((prefix) => {
+                const fp = draft?.footprints?.find((f) => f.prefix === prefix);
+                const iface = (db.interfaces ?? []).find((i) => i.id === fp?.interface);
+                return { prefix, short: iface?.short ?? iface?.label ?? prefix, label: iface?.label ?? prefix };
+              });
+              return {
+                id: 'connector' as const,
+                state: 'done' as const,
+                note: [...new Set(named.map((n) => n.short))].join(' · '),
+                title: `Every footprint pad lands on its interface: ${named.map((n) => `${n.prefix} ${n.label}`).join(', ')}`,
+              };
+            })();
   }
 
   let buildsStep: StepStatus;
@@ -201,14 +225,25 @@ export function journeySteps(input: JourneyInput): StepStatus[] {
     buildsStep =
       errs > 0
         ? { id: 'builds', state: 'warn', note: `${errs} issue${errs === 1 ? '' : 's'}`, title: issues.map((i) => i.message).join('\n') }
-        : { id: 'builds', state: 'done', note: `${builds.length} build${builds.length === 1 ? '' : 's'}`, title: 'Every build checks out' };
+        : (() => {
+            // the builds the catalog has, as the facts' Builds counts them; one the file plans but no import made yet is in the tooltip
+            const made = boardSiblings(db, def).length;
+            return {
+              id: 'builds' as const,
+              state: 'done' as const,
+              note: `${made} build${made === 1 ? '' : 's'}`,
+              title: unemitted.length === 0 ? 'Every build checks out' : `Every build checks out · ${unemitted.length} more in the build file, not emitted yet: ${unemitted.map((b) => b.key).join(', ')}`,
+            };
+          })();
   }
 
   const stored = meta?.entryGuides ?? [];
   const sides = new Set(input.guidesNeeded.map((g) => g.side));
   const unset = [...sides].filter((s) => !stored.some((g) => g.side === s));
-  const guidesStep: StepStatus = !gerber
-    ? { id: 'guides', state: 'todo', note: 'no art', title: 'Guides are set on the gerber art' }
+  const guidesStep: StepStatus = native
+    ? { id: 'guides', state: 'none', note: 'with Gerbers', title: 'Entry guides are set on Gerber art: Native outputs can make the Gerbers and use them as art' }
+    : !gerber
+    ? { id: 'guides', state: 'todo', note: 'needs board art', title: 'Entry guides are set on Gerber art: import the board\'s Gerbers' }
     : sides.size === 0
       ? { id: 'guides', state: 'none', note: 'not needed', title: 'No angled pad row: wires go straight in' }
       : unset.length === 0

@@ -64,6 +64,21 @@ function laneOfConductor(db: Db, wire: WireDefinition, path: string, element: El
   return vocabEntry<ColourCodeEntry>(db.vocab, 'colour-codes', code)?.lanes?.[element.color];
 }
 
+/**
+ * Where a conductor's lane comes from: `own` when the stock or its tag table
+ * names the lane of this very conductor, `colour-code` when only the colour
+ * code reads it off the insulation colour (yellow is a supply in one code, a
+ * sync line in another). `undefined` when it has no lane.
+ */
+export function laneSourceOf(db: Db, wire: WireDefinition, path: string): { lane: string; from: 'own' | 'colour-code' } | undefined {
+  const element = resolveElementPath(wire.structure, path);
+  if (element === undefined || element.kind !== 'conductor') return undefined;
+  const own = element.lane ?? db.tags?.wires?.[wire.id]?.lanes?.[path];
+  if (own !== undefined) return { lane: own, from: 'own' };
+  const lane = laneOfConductor(db, wire, path, element);
+  return lane === undefined ? undefined : { lane, from: 'colour-code' };
+}
+
 /** A conductor label that says it is unused: `spare`, `spare 2`, `NC`, `n/c`, `unused`, `not connected`. */
 const UNUSED_LABEL = /^\s*(spare|unused|nc|n\/c|no connection|not connected)\b/i;
 

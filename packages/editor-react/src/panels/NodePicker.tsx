@@ -113,6 +113,7 @@ function PickerRow({
       role="option"
       aria-selected={active}
       data-picker-row={`${entry.kind}:${entry.def}`}
+      title={entry.def}
       // mousedown, not click: the search input keeps focus, so a pointer
       // choice and Enter go through the exact same `choose`
       onMouseDown={(event) => {
@@ -122,7 +123,8 @@ function PickerRow({
     >
       <KindIcon kind={entry.kind} />
       <span className="cs-picker-label">{entry.label}</span>
-      <span className="cs-picker-id">{entry.def}</span>
+      {/* names, not ids: the record id is the row's tooltip */}
+      {entry.detail === undefined || entry.detail === '' ? null : <span className="cs-picker-id">{entry.detail}</span>}
     </div>
   );
 }

@@ -63,9 +63,8 @@ describe('checkDefinition', () => {
     expect(result?.ok === false && result.problem.message).toContain("'Not A Slug'");
   });
 
-  it('insists on provenance, in the spec’s own words', () => {
-    const result = checkDefinition('wires', { ...NEW_PLUG, src: '   ' } as never);
-    expect(result?.ok === false && result.problem.message).toContain('where its information comes from');
+  it('lets a draft record go without provenance (a missing-src finding, not a refusal)', () => {
+    expect(checkDefinition('wires', { ...NEW_PLUG, src: '   ' } as never)).toBeUndefined();
   });
 
   it('knows a usable id when it sees one', () => {
@@ -84,7 +83,7 @@ describe('saveDefinition', () => {
 
   it('does not reach the host at all when the record is obviously incomplete', async () => {
     const adapter = host();
-    const result = await saveDefinition(adapter, 'connectors', { ...NEW_PLUG, src: '' });
+    const result = await saveDefinition(adapter, 'connectors', { ...NEW_PLUG, id: '' });
     expect(result.ok).toBe(false);
     expect(adapter.calls).toEqual([]);
   });
@@ -107,7 +106,7 @@ describe('createDefinition', () => {
     const adapter = host();
     const result = await createDefinition(adapter, 'connectors', NEW_PLUG);
     expect(result.ok).toBe(true);
-    expect(result.ok && result.status).toBe('added test-2p-header');
+    expect(result.ok && result.status).toBe('added Test 2-pin header');
     expect(adapter.db().connectors.at(-1)?.id).toBe('test-2p-header');
   });
 
@@ -193,6 +192,6 @@ describe('the caution line', () => {
         definitions: ['pcbas/x'],
         count: 2,
       }),
-    ).toEqual(['a — A cable', 'pcbas/x']);
+    ).toEqual(['A cable', 'pcbas/x']);
   });
 });

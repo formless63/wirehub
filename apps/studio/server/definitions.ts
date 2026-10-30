@@ -37,9 +37,13 @@ import {
   connectorMountingUsage,
   decomposeConnector,
   definitionUsage,
+  enclosureProblems,
   errors,
   kitsContaining,
+  massIssues,
   recordMetaIssues,
+  isIntegrityIssue,
+  savedWithFindings,
   validateDb,
   validateDesign,
   type CableDesign,
@@ -73,6 +77,7 @@ import {
   type DefinitionStore,
 } from './definition-store.ts';
 import { readAllDesigns, type DesignStore } from './designs.ts';
+import { designPartNumber } from '../src/cable-list.ts';
 import { checkIfMatch, contentETag } from './etag.ts';
 import type { Awaitable } from './storage/change-set.ts';
 
@@ -103,6 +108,9 @@ export interface DefinitionDeps {
   /** where the numbering scheme comes from (`part-number-scheme.ts`); absent: the default scheme */
   loadPartNumberFiles?: () => Awaitable<{ scheme?: unknown }>;
   modules?: Pick<ModuleRegistry, 'partNumberScheme'>;
+  /** Where used names each design's PN (drawing title block) and saved revision — the workbench's own stores */
+  drawings?: { read(id: string): Awaitable<{ meta: { partNumber?: string } }> };
+  versions?: { revisions(id: string): Awaitable<number[]>; working(id: string): Awaitable<{ basedOnRev?: number }> };
 }
 
 /* ------------------------------------------------------------------ *
@@ -193,10 +201,9 @@ function isOptionalNumber(value: unknown): boolean {
  * The checks every definition shares: it is an object, it has a usable id, it
  * has a name, and it says where its information came from.
  *
- * `validateDb` reports a missing `src` as a *warning*, because the library has
- * to stay loadable when an old record predates the rule. A new or edited
- * record coming through the GUI has no such excuse: the spec makes provenance
- * a required input, and this is where that is enforced.
+ * `validateDb` reports a missing `src` as a *warning*, and that is all it is
+ * for a working record: saving preserves work, it does not certify it
+ * (`save-policy.ts`). Publishing a pack is where provenance is insisted on.
  */
 function gateCommon(kind: DefinitionKind, value: unknown): Gate<Record<string, unknown>> {
   if (!isObject(value)) {
@@ -217,32 +224,37 @@ function gateCommon(kind: DefinitionKind, value: unknown): Gate<Record<string, u
       'Give it a label — the words a builder will see on the schematic and the build sheet.',
     );
   }
-  if (!isFilledString(value['src'])) {
+  // provenance is advisory on a working record (validateDb's `missing-src` warning); only its shape is checked
+  if (value['src'] !== undefined && typeof value['src'] !== 'string') {
     return reject(
-      `This ${KIND_NOUN[kind]} does not say where its information comes from.`,
-      'Fill in "Where does this information come from?" — a spec sheet, a measurement, or a note that the values were inferred.',
+      `This ${KIND_NOUN[kind]}'s source note is not text.`,
+      'src is a sentence saying where the information comes from — or leave it empty for now.',
     );
   }
-  const meta = recordMetaIssues(value, String(value['id']))[0];
+  const record: Record<string, unknown> = value['src'] === undefined ? { ...value, src: '' } : value;
+  // the record's directory decides which mass field belongs (`mass.ts`)
+  const meta = recordMetaIssues(record, String(record['id']))[0] ?? massIssues(record, `${kind}/${String(record['id'])}`)[0];
   if (meta !== undefined) {
     return reject(
-      `This ${KIND_NOUN[kind]}'s ${meta.code === 'record-license' ? 'licence' : meta.code === 'record-derived-from' ? 'fork origin' : 'provenance'} is not in the right form.`,
+      `This ${KIND_NOUN[kind]}'s ${meta.code === 'record-license' ? 'licence' : meta.code === 'record-derived-from' ? 'fork origin' : meta.code === 'record-mass' ? 'mass' : 'provenance'} is not in the right form.`,
       meta.message,
     );
   }
-  return { ok: true, record: value };
+  return { ok: true, record };
 }
 
 function gateConnector(value: unknown): Gate<ConnectorDefinition> {
   const common = gateCommon('connectors', value);
   if (!common.ok) return common;
   const record = common.record;
-  if (!isFilledString(record['family'])) {
+  // an unnamed family is a finding on a draft (unknown, not a fact); only a non-text family is refused
+  if (record['family'] !== undefined && typeof record['family'] !== 'string') {
     return reject(
-      'This connector does not say what family it belongs to.',
-      'Name the connector family — D-Sub, DIN, RJ45, XLR, RCA …',
+      "The connector's family is not text.",
+      'Name the connector family — D-Sub, DIN, RJ45, XLR, RCA … — or leave it empty for now.',
     );
   }
+  if (record['family'] === undefined) record['family'] = '';
   const gender = record['gender'];
   if (gender !== undefined && gender !== 'male' && gender !== 'female') {
     return reject(
@@ -283,6 +295,8 @@ function gateConnector(value: unknown): Gate<ConnectorDefinition> {
     if (!isOptionalString(pin['label'])) {
       return reject(`${at}'s label is not text.`, 'A pin label is the signal it carries, in words.');
     }
+    // an unlabelled draft pin is stored with an empty label (the record type's readers expect text)
+    if (pin['label'] === undefined) pin['label'] = '';
     const aliases = pin['aliases'];
     if (aliases !== undefined && (!Array.isArray(aliases) || aliases.some((a) => typeof a !== 'string'))) {
       return reject(
@@ -297,7 +311,7 @@ function gateConnector(value: unknown): Gate<ConnectorDefinition> {
       return reject(`${at}'s note is not text.`, 'A note is a sentence about this pin.');
     }
   }
-  return { ok: true, record: value as ConnectorDefinition };
+  return { ok: true, record: common.record as unknown as ConnectorDefinition };
 }
 
 const COMPONENT_KINDS = ['resistor', 'capacitor', 'ic', 'switch', 'other'] as const;
@@ -336,6 +350,7 @@ function gateComponent(value: unknown): Gate<ComponentDefinition> {
     if (!isOptionalString(terminal['label'])) {
       return reject(`${at}'s label is not text.`, 'A terminal label is what that leg is called.');
     }
+    if (terminal['label'] === undefined) terminal['label'] = '';
     const polarity = terminal['polarity'];
     if (polarity !== undefined && polarity !== '+' && polarity !== '-') {
       return reject(
@@ -344,7 +359,7 @@ function gateComponent(value: unknown): Gate<ComponentDefinition> {
       );
     }
   }
-  return { ok: true, record: value as ComponentDefinition };
+  return { ok: true, record: common.record as unknown as ComponentDefinition };
 }
 
 /** The element tree, checked for shape only — `validateDb` judges the content. */
@@ -438,31 +453,24 @@ function gateWire(value: unknown): Gate<WireDefinition> {
         'The ring is the list of cores on the outside, in the order they are laid.',
       );
     }
-    if (!isFilledString(lay['src'])) {
-      return reject(
-        'The lay order does not say where it comes from.',
-        'The lay order is a fact of the stock — cite the spec sheet that prints the colour order.',
-      );
+    // an uncited lay order is a `missing-src` finding, not a refusal
+    if (lay['src'] !== undefined && typeof lay['src'] !== 'string') {
+      return reject('The lay order\'s source is not text.', 'Cite the spec sheet that prints the colour order, or leave it empty for now.');
     }
   }
-  return { ok: true, record: value as WireDefinition };
+  return { ok: true, record: common.record as unknown as WireDefinition };
 }
 
 function gatePcba(value: unknown): Gate<PcbaDefinition> {
   const common = gateCommon('pcbas', value);
   if (!common.ok) return common;
   const record = common.record;
-  if (!isFilledString(record['partNumber'])) {
-    return reject(
-      'This board has no part number.',
-      'Use the number printed on the board — PCA-00001.',
-    );
-  }
-  if (!isFilledString(record['revision'])) {
-    return reject(
-      'This board does not say which revision it is.',
-      'Boards change; the revision is what tells two of them apart — Rev6.',
-    );
+  // a bought or unidentified board may have no number or revision yet: unknown, kept as empty text
+  for (const field of ['partNumber', 'revision'] as const) {
+    if (record[field] !== undefined && typeof record[field] !== 'string') {
+      return reject(`This board's ${field === 'partNumber' ? 'part number' : 'revision'} is not text.`, 'Write it as printed on the board, or leave it empty for now.');
+    }
+    if (record[field] === undefined) record[field] = '';
   }
   if (!isOptionalString(record['build']) || !isOptionalString(record['kicadProject'])) {
     return reject(
@@ -487,6 +495,7 @@ function gatePcba(value: unknown): Gate<PcbaDefinition> {
     if (!isOptionalString(terminal['label']) || !isOptionalString(terminal['note'])) {
       return reject(`Pad '${String(terminal['id'])}' has a label or note that is not text.`, 'Both are sentences.');
     }
+    if (terminal['label'] === undefined) terminal['label'] = '';
   }
   const integrated = record['integratedConnectors'];
   if (integrated !== undefined) {
@@ -526,7 +535,7 @@ function gatePcba(value: unknown): Gate<PcbaDefinition> {
       );
     }
   }
-  return { ok: true, record: value as PcbaDefinition };
+  return { ok: true, record: common.record as unknown as PcbaDefinition };
 }
 
 const POSITION_KINDS = ['pin', 'shell', 'key'] as const;
@@ -535,11 +544,15 @@ function gateBody(value: unknown): Gate<ConnectorBody> {
   const common = gateCommon('bodies', value);
   if (!common.ok) return common;
   const record = common.record;
-  if (!isFilledString(record['family'])) {
-    return reject('This body does not say what family it belongs to.', 'Pick the connector family — DIN, Mini-DIN, D-Sub, RJ45 …');
+  // an unnamed family is a finding on a draft body, not a refusal
+  if (record['family'] !== undefined && typeof record['family'] !== 'string') {
+    return reject("The body's family is not text.", 'Pick the connector family — DIN, Mini-DIN, D-Sub, RJ45 … — or leave it empty for now.');
   }
-  if (record['gender'] !== 'male' && record['gender'] !== 'female') {
-    return reject('A connector body is a plug (male) or a socket (female).', 'Pick the gender.');
+  if (record['family'] === undefined) record['family'] = '';
+  // an unknown gender is a finding on a draft body too: absent or empty means not known yet
+  if (record['gender'] === '' || record['gender'] === null) delete record['gender'];
+  if (record['gender'] !== undefined && record['gender'] !== 'male' && record['gender'] !== 'female') {
+    return reject('A connector body is a plug (male) or a socket (female).', 'Pick the gender, or leave it unset on a draft.');
   }
   const housing = gateHousing(record['housing']);
   if (housing !== undefined) return reject(housing.error, housing.hint);
@@ -559,7 +572,7 @@ function gateBody(value: unknown): Gate<ConnectorBody> {
   for (const field of ['mates', 'partNumber', 'drawing', 'construction']) {
     if (!isOptionalString(record[field])) return reject(`The body's ${field} is not text.`, 'Leave it out, or write it as words.');
   }
-  return { ok: true, record: value as ConnectorBody };
+  return { ok: true, record: common.record as unknown as ConnectorBody };
 }
 
 const PIN_DIRS = ['out', 'in', 'bidir', 'passive'] as const;
@@ -601,7 +614,7 @@ function gateInterface(value: unknown): Gate<Interface> {
   if (record['confidence'] !== undefined && !(CONFIDENCES as readonly unknown[]).includes(record['confidence'])) {
     return reject(`Confidence '${String(record['confidence'])}' is not one this hub knows.`, `Pick one of ${CONFIDENCES.join(', ')}.`);
   }
-  return { ok: true, record: value as Interface };
+  return { ok: true, record: common.record as unknown as Interface };
 }
 
 const MECHANICAL_KINDS = ['shell', 'fastener', 'boot', 'other', 'contact', 'seal', 'plug', 'tool'] as const;
@@ -653,10 +666,15 @@ function gateMechanical(value: unknown): Gate<MechanicalDefinition> {
   }
   const termination = gateTermination(record['termination']);
   if (termination !== undefined) return reject(termination.error, termination.hint);
+  if (record['enclosure'] !== undefined) {
+    if (record['kind'] !== 'shell') return reject('Only a shell can carry enclosure parameters.', 'Set the kind to shell, or remove the enclosure.');
+    const problems = enclosureProblems(record['enclosure']);
+    if (problems.length > 0) return reject(problems[0]!, problems.length > 1 ? `${problems.length - 1} more: ${problems.slice(1, 4).join(' ')}` : 'Fix it in the enclosure panel and save again.');
+  }
   if (!isOptionalString(record['partNumber']) || !isOptionalString(record['revision'])) {
     return reject('The part number and revision have to be text.', 'Write them as printed — SHL-00102-00, Rev 3.');
   }
-  return { ok: true, record: value as MechanicalDefinition };
+  return { ok: true, record: common.record as unknown as MechanicalDefinition };
 }
 
 function gateKit(value: unknown): Gate<KitDefinition> {
@@ -684,7 +702,7 @@ function gateKit(value: unknown): Gate<KitDefinition> {
     }
     if (!isOptionalString(line['note']) || !isOptionalString(line['src'])) return reject(`${at}'s note or source is not text.`, 'Write them as words.');
   }
-  return { ok: true, record: value as KitDefinition };
+  return { ok: true, record: common.record as unknown as KitDefinition };
 }
 
 /** The structural gate for one kind. Exported so the tests can hold it directly. */
@@ -804,21 +822,33 @@ async function validatedLibrary(
   scheme?: PartNumberScheme,
   /** a save (not a delete) refuses a part number newly taken by two parts, though validation only warns */
   refuseDuplicateNumbers = false,
+  /** filled with what the change introduced that does not refuse it — saved as findings */
+  found?: Issue[],
 ): Promise<ApiResponse | undefined> {
-  const blockers = (issues: Issue[]): Issue[] => issues.filter((i) => i.severity === 'error' || (refuseDuplicateNumbers && i.code === 'pn-duplicate'));
-  const introduced = blockers(libraryIssues(candidate, designs, scheme));
-  if (introduced.length === 0) return undefined;
-  const before = new Set(blockers(libraryIssues(baseline, designs, scheme)).map(issueKey));
-  const blocking = introduced.filter((issue) => !before.has(issueKey(issue)));
+  // only what makes the library ambiguous refuses (`save-policy.ts`): a pin a design
+  // solders to going away is a finding on that design, saved with the record
+  const blocks = (i: Issue): boolean => isIntegrityIssue(i) || (refuseDuplicateNumbers && i.code === 'pn-duplicate');
+  const after = libraryIssues(candidate, designs, scheme);
+  if (found === undefined && !after.some(blocks)) return undefined;
+  const before = new Set(libraryIssues(baseline, designs, scheme).map(issueKey));
+  const introduced = after.filter((issue) => !before.has(issueKey(issue)));
+  found?.push(...introduced.filter((i) => !blocks(i)));
+  const blocking = introduced.filter(blocks);
   if (blocking.length === 0) return undefined;
   return fail(
     422,
     blocking.length === 1
-      ? `Saving ${what} would break something.`
-      : `Saving ${what} would break ${blocking.length} things.`,
-    'Nothing was written — the catalog is untouched. The list below is what this change would have broken (a part number already on another part counts); fix it and save again.',
+      ? `Saving ${what} would make the library ambiguous.`
+      : `Saving ${what} would make the library ambiguous in ${blocking.length} places.`,
+    'Nothing was written — the catalog is untouched. The list below is what would make the library ambiguous (two records under one id, a part number already on another part); fix it and save again.',
     blocking,
   );
+}
+
+/** What a record save kept as findings, as a header (`X-WireHub-Findings`); the body stays the record. */
+function findingsHeader(found: Issue[]): Record<string, string> {
+  const line = savedWithFindings(found);
+  return line === undefined ? {} : { 'X-WireHub-Findings': line };
 }
 
 /* ------------------------------------------------------------------ *
@@ -828,8 +858,8 @@ async function validatedLibrary(
 export interface DefinitionUsage {
   kind: DefinitionKind;
   id: string;
-  /** the designs that name this definition, with their labels */
-  designs: { id: string; label: string }[];
+  /** the designs that name this definition, with their labels, PN and saved revision when they have them */
+  designs: { id: string; label: string; pn?: string; rev?: string }[];
   /** other definitions that name it, as `pcbas/PCA-00110-rev4` */
   definitions: string[];
   /** designs + definitions, the number the GUI's caution line shows */
@@ -857,14 +887,43 @@ export async function usageOf(deps: DefinitionDeps, kind: DefinitionKind, id: st
   const designs = await everyDesign(deps);
   const use = definitionUsage(db, designs, kind, id);
   const mounting = kind !== 'connectors' ? undefined : connectorMountingUsage(db, designs, id);
+  // each user's PN and revision, read here for just these designs — Where used no longer waits
+  // on the whole cable list (every design's release status) to fill its columns
+  const byId = new Map(designs.map((design) => [design.id, design]));
+  const facts = await Promise.all(use.designs.map((entry) => designFactsOf(deps, entry, byId.get(entry.id))));
   return {
     kind,
     id,
-    designs: use.designs,
+    designs: facts,
     definitions: use.definitions,
     count: use.designs.length + use.definitions.length,
     ...(mounting === undefined ? {} : { mounting: { straddle: mounting.straddle.length, direct: mounting.direct.length } }),
   };
+}
+
+/** A using design's PN (`designPartNumber`, as the cable list) and the revision its working copy is based on. */
+async function designFactsOf(
+  deps: DefinitionDeps,
+  entry: { id: string; label: string },
+  design: CableDesign | undefined,
+): Promise<{ id: string; label: string; pn?: string; rev?: string }> {
+  if (design === undefined) return entry;
+  // a store that cannot answer just leaves the column blank
+  const quietly = async <T>(read: () => Awaitable<T> | undefined): Promise<T | undefined> => {
+    try {
+      return await read();
+    } catch {
+      return undefined;
+    }
+  };
+  const [drawing, revs, working] = await Promise.all([
+    quietly(() => deps.drawings?.read(entry.id)).then((d) => d?.meta),
+    quietly(() => deps.versions?.revisions(entry.id)),
+    quietly(() => deps.versions?.working(entry.id)),
+  ]);
+  const pn = designPartNumber(design, drawing === undefined ? {} : { drawing }).pn;
+  const rev = working?.basedOnRev ?? revs?.[revs.length - 1];
+  return { ...entry, ...(pn === undefined ? {} : { pn }), ...(rev === undefined ? {} : { rev: String(rev) }) };
 }
 
 /** "12 designs and 1 board", or "3 designs" — the sentence a refusal opens with. */
@@ -919,8 +978,8 @@ function readOnlyRecord(kind: DefinitionKind, id: string, origin: { pack: string
     409,
     `'${id}' comes from the ${origin.pack} pack (${origin.version}) and is read-only here.`,
     deleting
-      ? `Nothing was deleted. A pack's records go with the pack (Library, Packs, Disable); to keep a changed copy, fork '${id}' first.`
-      : `Nothing was changed. Fork it to edit: POST /api/definitions/${kind}/${id}/fork copies it under a new id of your own, and designs move to the copy when you choose.`,
+      ? `Nothing was deleted. A pack's records go with the pack. An owner can release the ${origin.pack} pack to this hub (Extensions, Installed, Release to this hub) to make its records the hub's own; or fork '${id}' to keep a changed copy.`
+      : `Nothing was changed. An owner can release the ${origin.pack} pack to this hub (Extensions, Installed, Release to this hub) to edit its records in place; or fork '${id}' to edit a copy under an id of your own (POST /api/definitions/${kind}/${id}/fork), and designs move to the copy when you choose.`,
   );
 }
 
@@ -1030,6 +1089,7 @@ async function putDefinition(
   };
   const changed = refuseChangedNumber(scheme, `This ${KIND_NOUN[kind]}`, pnOf(parsed.record), pnOf(current));
   if (changed !== undefined) return changed;
+  const found: Issue[] = [];
   const rejection = await validatedLibrary(
     candidateDb(db, kind, next, stored),
     db,
@@ -1037,12 +1097,13 @@ async function putDefinition(
     `this ${KIND_NOUN[kind]}`,
     scheme,
     true,
+    found,
   );
   if (rejection !== undefined) return rejection;
 
   await store.write(kind, next);
   const pn = pnAssignedEvent({ kind, id, label: (parsed.record as { label?: string }).label ?? id }, numberField, pnOf(current), pnOf(parsed.record));
-  return { ...ok(parsed.record, 200, { ETag: contentETag(parsed.record) }), ...(pn === undefined ? {} : { events: [pn] }) };
+  return { ...ok(parsed.record, 200, { ETag: contentETag(parsed.record), ...findingsHeader(found) }), ...(pn === undefined ? {} : { events: [pn] }) };
 }
 
 /** The kinds a design instantiates by id — one id space between them (`validateDb` duplicate-id). */
@@ -1083,6 +1144,7 @@ async function postDefinition(
   const stored = await store.list(kind);
   // new records land at the end: the file's order is the order the library grew
   const next = [...stored, parsed.record];
+  const found: Issue[] = [];
   const rejection = await validatedLibrary(
     candidateDb(db, kind, next, stored),
     db,
@@ -1090,6 +1152,7 @@ async function postDefinition(
     `this ${KIND_NOUN[kind]}`,
     await partNumberSchemeOf(deps),
     true,
+    found,
   );
   if (rejection !== undefined) return rejection;
 
@@ -1097,7 +1160,7 @@ async function postDefinition(
   const numberField = kind === 'kits' ? 'sku' : 'partNumber';
   const given = (parsed.record as unknown as Record<string, unknown>)[numberField];
   const pn = pnAssignedEvent({ kind, id, label: (parsed.record as { label?: string }).label ?? id }, numberField, undefined, typeof given === 'string' ? given : undefined);
-  return { ...ok(parsed.record, 201, { ETag: contentETag(parsed.record) }), ...(pn === undefined ? {} : { events: [pn] }) };
+  return { ...ok(parsed.record, 201, { ETag: contentETag(parsed.record), ...findingsHeader(found) }), ...(pn === undefined ? {} : { events: [pn] }) };
 }
 
 /**
@@ -1163,15 +1226,17 @@ async function deleteDefinition(
 
   const usage = await usageOf(deps, kind, id);
   if (usage.count > 0) {
+    // people read names; the id is only for a record with none
     const named = [
-      ...usage.designs.map((design) => `${design.id} (${design.label})`),
+      ...usage.designs.map((design) => (design.label === '' ? design.id : design.label)),
       ...usage.definitions,
     ];
     const shown = named.slice(0, 10);
     const rest = named.length - shown.length;
+    const label = (stored.find((record) => record.id === id) as { label?: unknown } | undefined)?.label;
     return fail(
       409,
-      `'${id}' is still used by ${describeUsage(usage)}, so it was not deleted.`,
+      `${typeof label === 'string' && label !== '' ? label : `'${id}'`} is still used by ${describeUsage(usage)}, so it was not deleted.`,
       `Change ${usage.count === 1 ? 'it' : 'them'} to use something else first, then delete this ${KIND_NOUN[kind]}: ${shown.join('; ')}${rest > 0 ? `; and ${rest} more` : ''}.`,
     );
   }

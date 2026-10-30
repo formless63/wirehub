@@ -81,8 +81,8 @@ describe('an import as a job', () => {
     // progress, then the plan to review
     await waitFor(() => expect(within(dialog).getByTestId('job-status').getAttribute('data-status')).toBe('done'), { timeout: 5000 });
     expect(within(dialog).getByTestId('job-steps').textContent).toContain('proposed');
-    expect(dialog.textContent).toContain('1 new mechanicals: hd15-backshell-test');
-    expect(dialog.textContent).toContain('Already in the library, skipped: mechanicals/de9-backshell');
+    expect(dialog.textContent).toContain('1 new hardware: HD-15 backshell (imported)');
+    expect(dialog.textContent).toContain('Already in the library, skipped: 1 record');
     expect(within(dialog).getByTestId('job-files').textContent).toContain('mechanicals.json');
     // nothing is in the catalog before Publish
     expect((await handleWorkbenchRequest({ method: 'GET', path: '/api/definitions/mechanicals/hd15-backshell-test' }, deps)).status).toBe(404);
@@ -99,7 +99,8 @@ describe('an import as a job', () => {
     await pickFile('bad-part,,SHL-00092,shell');
     const dialog = await screen.findByRole('dialog', { name: 'Import job' });
     await waitFor(() => expect(within(dialog).getByTestId('job-status').getAttribute('data-status')).toBe('failed'), { timeout: 5000 });
-    expect(within(dialog).getByRole('alert').textContent).toMatch(/refused/);
+    // the refused record is named, with the library's reason (no HTTP method or path)
+    expect(within(dialog).getByRole('alert').textContent).toMatch(/bad-part was not saved: .*no name/);
     expect(within(dialog).queryByRole('button', { name: /Publish/ })).toBeNull();
   }, 20_000);
 
@@ -138,7 +139,7 @@ describe('the Jobs page', () => {
     const tr = row.closest('tr')!;
     expect(tr.textContent).toContain('Ada');
     expect(tr.textContent).toContain('ready to publish');
-    expect(screen.getByTestId('jobs-runner').textContent).toContain('Run by in this process');
+    expect(screen.getByTestId('jobs-runner').textContent).toContain('Runner: in this process');
     fireEvent.click(within(tr).getByRole('button', { name: 'Review…' }));
     const dialog = await screen.findByRole('dialog', { name: 'Import job' });
     fireEvent.click(await within(dialog).findByRole('button', { name: 'Publish 1 record' }));

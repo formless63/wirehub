@@ -23,7 +23,7 @@ import type { BoardBuilds, ConnectorRecord, DesignVersionFile, SignalTags, Vocab
 import { buildTags, type TagReview } from '@wirehub/catalog/src/tags/build.ts';
 import { isDesignId } from '@wirehub/catalog';
 
-import { assetDataUri, type AssetMime, type AssetStore, type AssetSummary } from '../assets.ts';
+import { ASSET_REPLACED_DOC, assetDataUri, replacementOf, type AssetMime, type AssetStore, type AssetSummary } from '../assets.ts';
 import type { BlobStore } from '../blobs.ts';
 import type { BuildsStore } from '../builds.ts';
 import { isDefinitionKind, type DefinitionKind, type DefinitionRecord, type DefinitionStore } from '../definition-store.ts';
@@ -103,16 +103,22 @@ export function pgDefinitionStore(context: PgReadContext): DefinitionStore {
 
 export function pgAssetStore(context: PgReadContext): AssetStore {
   const index = async (): Promise<AssetSummary[]> => parse<AssetSummary[]>(await context.snapshot(), 'assets/index.json') ?? [];
-  return {
+  const store: AssetStore = {
     list: index,
     async get(id) {
       const record = (await index()).find((r) => r.id === id);
-      if (record === undefined) return undefined;
+      if (record === undefined) {
+        // an asset a cleaned copy replaced answers that copy (assets.ts, ASSET_REPLACED_DOC)
+        const to = replacementOf(parse<Record<string, string>>(await context.snapshot(), ASSET_REPLACED_DOC), id);
+        return to === undefined || to === id ? undefined : store.get(to);
+      }
       const bytes = await blobBytes(context, id);
       return bytes === undefined ? undefined : { record, bytes };
     },
     put: readOnly('the asset'),
+    remove: readOnly('the asset removal'),
   };
+  return store;
 }
 
 const LEGACY_PHOTO: readonly [AssetMime, string][] = [
@@ -328,9 +334,20 @@ export function pgDocStore(context: PgReadContext): DocStore {
   };
 }
 
-/** Binary catalog files (a pack's `data/art/…`): written only through a change set. */
-export function pgFileStore(): CatalogFileStore {
-  return { write: readOnly('the catalog file'), remove: readOnly('the catalog file delete') };
+/** Binary catalog files (a pack's `data/art/…`, captured cover images): read from the blob store, written only through a change set. */
+export function pgFileStore(context?: PgReadContext): CatalogFileStore {
+  return {
+    ...(context === undefined ? {} : {
+      read: async (path: string) => {
+        const sha = (await context.snapshot()).blobOf.get(path);
+        const bytes = sha === undefined ? undefined : await blobBytes(context, sha);
+        return bytes === undefined ? undefined : new Uint8Array(bytes);
+      },
+      has: async (path: string) => (await context.snapshot()).blobOf.has(path),
+    }),
+    write: readOnly('the catalog file'),
+    remove: readOnly('the catalog file delete'),
+  };
 }
 
 /** Today's artwork of `defIds`, hashed per file, with the bytes — `snapshotDepictions` over the snapshot. */
@@ -343,7 +360,9 @@ export async function artworkSnapshot(context: PgReadContext, defIds: string[]):
     if (!/^[a-z0-9][a-z0-9.-]*$/.test(id)) continue;
     const prefix = `depictions/${id}/`;
     const entry: Record<string, string> = {};
-    for (const path of [...snapshot.files.keys()].filter((p) => p.startsWith(prefix)).sort()) {
+    // text files (the manifest) are rows; artwork bytes (SVG, PNG) are blob-backed depiction files: both count
+    const paths = new Set([...snapshot.files.keys(), ...snapshot.blobOf.keys()].filter((p) => p.startsWith(prefix) && !p.slice(prefix.length).includes('/')));
+    for (const path of [...paths].sort()) {
       const name = path.slice(prefix.length);
       const bytes = await store.readAsset(id, name);
       if (bytes === undefined) continue;

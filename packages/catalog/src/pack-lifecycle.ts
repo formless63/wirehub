@@ -29,7 +29,7 @@
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { benchRuleProblems, declarativeSchemeProblems, errors, ruleListProblems, validateDb, validateDesign, type Issue } from '@wirehub/model';
+import { benchRuleProblems, declarativeSchemeProblems, errors, processListProblems, ruleListProblems, validateDb, validateDesign, type Issue } from '@wirehub/model';
 
 import { createCatalog } from './catalog.ts';
 import {
@@ -65,6 +65,7 @@ import {
   type InstalledPacks,
   type Json,
   type PackManifest,
+  type ReleasedPack,
 } from './packs.ts';
 import { fsCatalogSource, type CatalogSource } from './source.ts';
 
@@ -74,7 +75,7 @@ import { fsCatalogSource, type CatalogSource } from './source.ts';
 
 /** The record files of a catalog; vocabulary lists and designs are found by listing. */
 /** The record files whose records are parts with a licence (a retired one keeps its licence and origin); the rule files hold the shop's own rules. */
-const PART_RECORD_FILES = RECORD_FILES.filter((f) => f !== 'validation-rules.json' && f !== 'bench-rules.json');
+const PART_RECORD_FILES = RECORD_FILES.filter((f) => f !== 'validation-rules.json' && f !== 'bench-rules.json' && f !== 'processes.json');
 
 /** The keyed files (the pad table, the drawing art) are kept as records too, one per key (`packs.ts`, `KEYED_FILES`), so a pack owns its boards' pads and its art. */
 const keyedFiles = Object.keys(KEYED_FILES);
@@ -669,6 +670,116 @@ export function applyPackDisable(dataDir: string, packsDir: string | undefined, 
 
 
 /* ------------------------------------------------------------------ *
+ * Release to this hub
+ * ------------------------------------------------------------------ */
+
+/** What releasing an installed pack to the hub hands over. */
+export interface PackReleasePlan {
+  pack: { id: string; name: string; version: string; license: string };
+  /** every record, vocabulary entry and design the pack owns: each stays, under its id, as the hub's own */
+  records: RecordRef[];
+  /** the same, counted per kind (`components`, `signals`, `design` …) */
+  counts: Record<string, number>;
+  /** the pack's other files (drawing facts, policies, images, model links …), by path: the hub's own afterwards */
+  files: string[];
+  /** what stops it (a pack that carries a code module), in sentences */
+  blockers: string[];
+  ok: boolean;
+}
+
+/** The non-record files a pack owns: what its install recorded, or, for a layer, what the layer holds. */
+function releasedFiles(entry: InstalledPack, layerDir: string | undefined): string[] {
+  const out = new Set<string>();
+  if (layerDir !== undefined && existsSync(layerDir)) {
+    for (const f of packFiles(layerDir)) if (isAuxiliaryFile(f) || f.startsWith('depictions/')) out.add(f);
+    for (const f of packAssetFiles(layerDir)) out.add(f);
+  }
+  for (const f of Object.keys(entry.assets ?? {})) out.add(f);
+  const aux = entry.auxiliary;
+  for (const f of Object.keys(aux?.files ?? {})) out.add(f);
+  for (const k of Object.keys(aux?.models ?? {})) out.add(`models.json#${k}`);
+  for (const [file, ids] of Object.entries(aux?.entries ?? {})) for (const id of Object.keys(ids)) out.add(`${file}#${id}`);
+  for (const [file, keys] of Object.entries(aux?.keys ?? {})) for (const key of Object.keys(keys)) out.add(`${file}#${key}`);
+  return [...out].sort();
+}
+
+/**
+ * Plan releasing pack `id` to the hub: nothing about the records changes, only who owns them.
+ * `layerDir` is the pack's layer when it is installed as one (the file backend).
+ */
+export function planPackRelease(view: CatalogSource, installed: readonly InstalledPack[], id: string, layerDir?: string): PackReleasePlan {
+  const entry = installed.find((p) => p.id === id);
+  if (entry === undefined) throw new Error(`Pack '${id}' is not installed.`);
+  const records = [...ownedRecords(view, entry).values()].map(refOf);
+  const counts: Record<string, number> = {};
+  for (const r of records) counts[r.kind] = (counts[r.kind] ?? 0) + 1;
+  const blockers = entry.module === undefined ? [] : [`it carries the code module '${entry.module.id}', which only runs as part of an installed pack`];
+  return {
+    pack: { id, name: entry.name ?? id, version: entry.version, license: entry.license },
+    records,
+    counts,
+    files: releasedFiles(entry, layerDir),
+    blockers,
+    ok: blockers.length === 0,
+  };
+}
+
+/**
+ * Move a pack's layer into the catalog's own files, as the hub reads it now: a file the catalog
+ * already has is merged with the layer's the way the layered read merges them (the catalog's own
+ * records first, so a local edit stays), a file it lacks is copied, and the images, PDFs and fonts
+ * go where a merged install puts them; the catalog's own files are never replaced.
+ */
+function materialiseLayer(dataDir: string, layerDir: string): void {
+  for (const relative of packFiles(layerDir)) {
+    if (relative.startsWith('depictions/')) continue;
+    const layer = readFileSync(join(layerDir, relative), 'utf8');
+    const localPath = join(dataDir, relative);
+    const local = existsSync(localPath) ? readFileSync(localPath, 'utf8') : undefined;
+    const text = local === undefined ? layer : mergeCatalogFile(relative, [local, layer]);
+    if (text !== local) writeFileReplacing(localPath, text);
+  }
+  applyPackAssets(dataDir, layerDir, undefined, packOwnedAssets(layerDir));
+}
+
+/**
+ * Release pack `id` to the hub (`plan.ok`): its records and files become the catalog's own, with
+ * their ids and content unchanged, and the install record moves to `released` in the catalog's
+ * own `packs.json` (who, when, and what it handed over). A layer is first merged into the
+ * catalog's files and then removed.
+ */
+export function applyPackRelease(dataDir: string, packsDir: string | undefined, id: string, plan: PackReleasePlan, where: 'layer' | 'merged', by: { at: string; by?: string }): void {
+  const home = where === 'layer' && packsDir !== undefined ? packsDir : dataDir;
+  const entry = readInstalledPacks(home).packs.find((p) => p.id === id);
+  if (entry === undefined) throw new Error(`Pack '${id}' is not installed.`);
+  if (where === 'layer' && packsDir !== undefined) {
+    const layerDir = installedPackDir(packsDir, id);
+    if (existsSync(layerDir)) materialiseLayer(dataDir, layerDir);
+    saveInstalled(packsDir, (packs) => packs.filter((p) => p.id !== id));
+    rmSync(layerDir, { recursive: true, force: true });
+    // with no pack left, the derived tables beside the packs would shadow the catalog's own (written there from now on)
+    if (readInstalledPacks(packsDir).packs.length === 0) rmSync(join(packsDir, 'derived'), { recursive: true, force: true });
+  } else {
+    saveInstalled(dataDir, (packs) => packs.filter((p) => p.id !== id));
+  }
+  const released: ReleasedPack = {
+    id,
+    ...(entry.name === undefined ? {} : { name: entry.name }),
+    version: entry.version,
+    license: entry.license,
+    releasedAt: by.at,
+    ...(by.by === undefined ? {} : { releasedBy: by.by }),
+    records: entry.added,
+    count: plan.records.length,
+    ...(plan.files.length === 0 ? {} : { files: plan.files }),
+    ...(entry.origin === undefined ? {} : { origin: entry.origin }),
+  };
+  const record: InstalledPacks = readInstalledPacks(dataDir);
+  record.released = [...(record.released ?? []).filter((r) => r.id !== id), released];
+  writeFileReplacing(join(dataDir, PACKS_FILE), canonical(record));
+}
+
+/* ------------------------------------------------------------------ *
  * A pack not installed yet (install from a file or a URL)
  * ------------------------------------------------------------------ */
 
@@ -693,6 +804,14 @@ export function packSourceProblems(packDir: string): string[] {
   if (existsSync(rulesPath)) {
     try {
       for (const p of ruleListProblems(JSON.parse(readFileSync(rulesPath, 'utf8')))) problems.push(`validation-rules.json: ${p}`);
+    } catch {
+      // not JSON: reported with the other files below
+    }
+  }
+  const processesPath = join(packDir, 'processes.json');
+  if (existsSync(processesPath)) {
+    try {
+      for (const p of processListProblems(JSON.parse(readFileSync(processesPath, 'utf8')))) problems.push(`processes.json: ${p}`);
     } catch {
       // not JSON: reported with the other files below
     }

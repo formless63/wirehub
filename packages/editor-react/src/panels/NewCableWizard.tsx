@@ -22,11 +22,12 @@
  *   the real catalog fixtures.
  */
 
-import { cavityPins, type Db } from '@wirehub/model';
+import { cavityPins, type Db, type PcbaDefinition } from '@wirehub/model';
 import { wireDisplayName } from '@wirehub/docs';
 import type { DepictionSource } from '@wirehub/render-svg';
-import { useMemo, useReducer, useState, type JSX } from 'react';
+import { Component, useMemo, useReducer, useState, type ErrorInfo, type JSX, type ReactNode } from 'react';
 
+import { useCoverSlot, type CoverSlotKind } from '../cover-slot.ts';
 import { classes } from '../context.ts';
 import { definitionDetail } from '../library.ts';
 import { createWiredDesign, type CatalogChange, type LifecycleProblem } from '../lifecycle.ts';
@@ -49,10 +50,11 @@ import {
   wizardReducer,
   type ConnectMode,
   type EndSide,
+  type PlanLanding,
   type WizardState,
   type WizardStep,
 } from '../wizard.ts';
-import { SegmentedControl } from '../ui/index.ts';
+import { Checkbox, Chip, RadioGroup, SegmentedControl, Select, Tooltip } from '../ui/index.ts';
 import { PreviewPane } from './Preview.tsx';
 
 export interface NewCableWizardProps {
@@ -97,10 +99,33 @@ function StepRail(props: {
   );
 }
 
+/** the "nothing chosen" option of a Select (Radix needs a non-empty value) */
+const NONE = '__none__';
+
 interface PickerRow {
   id: string;
   label: string;
   detail: string;
+  /** shown on hover; omitted where the id says nothing a person needs (a wire stock's) */
+  hint?: string;
+}
+
+/**
+ * The boards the picker offers: current revisions first, older ones (`legacy`,
+ * `retired`) apart, behind a toggle. Part numbers keep the Library's order; one part number's
+ * revisions run newest first.
+ */
+export function boardPickerOrder(pcbas: readonly PcbaDefinition[]): { current: PcbaDefinition[]; older: PcbaDefinition[] } {
+  // a pack's board may carry no part number (or revision) at all
+  const groupOf = (b: PcbaDefinition): string => ((b.partNumber ?? '').trim() === '' ? `#${b.id}` : (b.partNumber ?? '').trim().toLowerCase());
+  const firstSeen = new Map<string, number>();
+  pcbas.forEach((b, i) => { if (!firstSeen.has(groupOf(b))) firstSeen.set(groupOf(b), i); });
+  const sorted = [...pcbas].sort((a, b) =>
+    firstSeen.get(groupOf(a))! - firstSeen.get(groupOf(b))!
+    || (b.revision ?? '').localeCompare(a.revision ?? '', undefined, { numeric: true, sensitivity: 'base' })
+    || (a.build ?? '').localeCompare(b.build ?? '', undefined, { numeric: true }));
+  const old = (b: PcbaDefinition): boolean => b.status === 'legacy' || b.status === 'retired';
+  return { current: sorted.filter((b) => !old(b)), older: sorted.filter(old) };
 }
 
 /** A searchable list of parts. Every row says what the part is. */
@@ -108,15 +133,22 @@ function Picker(props: {
   legend: string;
   say: string;
   rows: PickerRow[];
+  /** rows kept behind a "show older" toggle (a board's legacy and retired revisions) */
+  older?: PickerRow[];
   value?: string | undefined;
+  /** which shared cover to show beside each row, when the host provides covers */
+  cover?: CoverSlotKind;
   onPick: (id: string) => void;
 }): JSX.Element {
+  const cover = useCoverSlot();
   const [query, setQuery] = useState('');
+  const older = props.older ?? [];
+  // an older revision already chosen stays visible
+  const [showOlder, setShowOlder] = useState(() => older.some((row) => row.id === props.value));
   const needle = query.trim().toLowerCase();
-  const shown = props.rows.filter(
-    (row) =>
-      needle === '' || `${row.id} ${row.label} ${row.detail}`.toLowerCase().includes(needle),
-  );
+  const matches = (row: PickerRow): boolean => needle === '' || `${row.id} ${row.label} ${row.detail}`.toLowerCase().includes(needle);
+  const shown = [...props.rows, ...(showOlder ? older : [])].filter(matches);
+  const olderHidden = showOlder ? 0 : older.filter(matches).length;
   return (
     <div className="cs-wizard-picker">
       <label className="cs-field" title={props.say}>
@@ -128,9 +160,14 @@ function Picker(props: {
           onChange={(event) => setQuery(event.target.value)}
         />
       </label>
+      {older.length === 0 ? null : (
+        <Checkbox className="cs-wizard-older" checked={showOlder} onCheckedChange={setShowOlder} label={`Show older revisions (${older.length})`} />
+      )}
       {shown.length === 0 ? (
         <p className="cs-empty">
-          Nothing here matches “{query}”. Clear the search, or add the part in the Library first.
+          {olderHidden > 0
+            ? `No current revision matches “${query}”; ${olderHidden} older one${olderHidden === 1 ? '' : 's'} do.`
+            : `Nothing matches “${query}”.`}
         </p>
       ) : (
         <ul className="cs-def-list cs-scroll">
@@ -138,11 +175,13 @@ function Picker(props: {
             <li key={row.id}>
               <button
                 type="button"
-                className={classes('cs-def-item', props.value === row.id && 'is-active')}
+                className={classes('cs-def-item', props.value === row.id && 'is-active', props.cover !== undefined && cover !== undefined && 'has-cover')}
                 aria-pressed={props.value === row.id}
+                data-id={row.id}
+                {...(row.hint === undefined ? {} : { title: row.hint })}
                 onClick={() => props.onPick(row.id)}
               >
-                <span className="cs-def-id">{row.id}</span>
+                {props.cover === undefined || cover === undefined ? null : <span className="cs-def-cover">{cover(props.cover, row.id, row.label)}</span>}
                 <span className="cs-part-label">{row.label}</span>
                 <span className="cs-part-detail">{row.detail}</span>
               </button>
@@ -181,21 +220,25 @@ function EndStep(props: {
   const [choice, setChoice] = useState<'connector' | 'pcba'>(chosen?.kind ?? 'connector');
   const kind: 'connector' | 'pcba' = choice;
 
+  const boards = useMemo(() => boardPickerOrder(db.pcbas), [db.pcbas]);
+  const boardRow = (record: PcbaDefinition): PickerRow => ({
+    id: record.id,
+    hint: record.id,
+    label: record.label,
+    detail: [definitionDetail('pcbas', record), record.status === 'legacy' || record.status === 'retired' ? record.status : ''].filter(Boolean).join(' · '),
+  });
   const rows: PickerRow[] =
     kind === 'connector'
       ? db.connectors.map((record) => {
           const pins = cavityPins(record, db).length;
           return {
             id: record.id,
+            hint: record.id,
             label: record.label,
             detail: [record.family, record.gender, `${pins} pin${pins === 1 ? '' : 's'}${record.pins.length > pins ? ' + shell/key contacts' : ''}`].filter(Boolean).join(' · '),
           };
         })
-      : db.pcbas.map((record) => ({
-          id: record.id,
-          label: record.label,
-          detail: definitionDetail('pcbas', record),
-        }));
+      : boards.current.map(boardRow);
 
   const board = chosen?.kind === 'pcba' ? db.pcbas.find((p) => p.id === chosen.def) : undefined;
   const prefixes =
@@ -219,30 +262,20 @@ function EndStep(props: {
 
   return (
     <>
-      <fieldset className="cs-wizard-kind">
-        <legend>What is at this end?</legend>
-        {(
-          [
-            ['connector', 'A connector', 'The design is soldered or crimped directly to a connector.'],
-            ['pcba', 'A board', 'The design is soldered to a board (PCBA) from the library.'],
-          ] as const
-        ).map(([value, title, say]) => (
-          <label key={value} className="cs-wizard-radio" title={say}>
-            <input
-              type="radio"
-              name={`end-${props.side}`}
-              checked={choice === value}
-              onChange={() => {
-                setChoice(value);
-                props.dispatch({ type: 'clear-end', end: props.side });
-              }}
-            />
-            <span>
-              <strong>{title}</strong>
-            </span>
-          </label>
-        ))}
-      </fieldset>
+      <RadioGroup
+        className="cs-wizard-kind"
+        aria-label="What is at this end?"
+        orientation="horizontal"
+        value={choice}
+        onValueChange={(value) => {
+          setChoice(value as 'connector' | 'pcba');
+          props.dispatch({ type: 'clear-end', end: props.side });
+        }}
+        options={[
+          { value: 'connector', label: 'A connector' },
+          { value: 'pcba', label: 'A board' },
+        ]}
+      />
 
       <Picker
         legend={kind === 'connector' ? 'Which plug?' : 'Which board?'}
@@ -252,6 +285,7 @@ function EndStep(props: {
             : 'The board part number, revision and build. The build decides what is fitted on it.'
         }
         rows={rows}
+        {...(kind === 'pcba' ? { cover: 'pcbas' as const, older: boards.older.map(boardRow) } : {})}
         {...(chosen?.kind === kind ? { value: chosen.def } : {})}
         onPick={(def) => props.dispatch({ type: 'set-end', end: props.side, kind, def })}
       />
@@ -264,24 +298,19 @@ function EndStep(props: {
           {prefixes.map((prefix) => (
             <label key={prefix} className="cs-field" title={`The plug whose pins land on the ${prefix} pads.`}>
               <span>The “{prefix}” pads</span>
-              <select
-                value={chosen.plugs[prefix] ?? ''}
-                onChange={(event) =>
+              <Select
+                aria-label={`The ${prefix} pads`}
+                value={chosen.plugs[prefix] ?? NONE}
+                onValueChange={(value) =>
                   props.dispatch({
                     type: 'set-plug',
                     end: props.side,
                     prefix,
-                    def: event.target.value,
+                    def: value === NONE ? '' : value,
                   })
                 }
-              >
-                <option value="">— nothing yet —</option>
-                {db.connectors.map((connector) => (
-                  <option key={connector.id} value={connector.id}>
-                    {connector.label}
-                  </option>
-                ))}
-              </select>
+                options={[{ value: NONE, label: '— nothing yet —' }, ...db.connectors.map((connector) => ({ value: connector.id, label: connector.label }))]}
+              />
             </label>
           ))}
         </div>
@@ -290,7 +319,56 @@ function EndStep(props: {
   );
 }
 
+function LandingCell({ landing }: { landing: PlanLanding | undefined }): JSX.Element {
+  return landing === undefined ? <td className="cs-dim">open</td> : <td title={landing.hint}>{landing.name}</td>;
+}
+
+/** The left-open ends with one reason each: every reason once, with what it applies to. */
+function groupByWhy(entries: readonly { what: string; why: string }[]): { why: string; what: string[] }[] {
+  const out: { why: string; what: string[] }[] = [];
+  for (const entry of entries) {
+    const why = entry.why.charAt(0).toUpperCase() + entry.why.slice(1).replace(/\.$/, ':');
+    const group = out.find((g) => g.why === why);
+    if (group === undefined) out.push({ why, what: [entry.what] });
+    else group.what.push(entry.what);
+  }
+  return out;
+}
+
+/** A bug in the wizard closes nothing but the wizard: the shell behind it stays usable. */
+class WizardBoundary extends Component<{ onCancel: () => void; children: ReactNode }, { error?: string }> {
+  override state: { error?: string } = {};
+  static getDerivedStateFromError(error: unknown): { error: string } {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+  override componentDidCatch(error: unknown, info: ErrorInfo): void {
+    console.error('[wizard] failed:', error, info.componentStack);
+  }
+  override render(): ReactNode {
+    if (this.state.error === undefined) return this.props.children;
+    return (
+      <div className="cs-wizard-card" role="alert">
+        <div className="cs-problem">
+          <strong>The wizard hit a problem: {this.state.error}</strong>
+        </div>
+        <div className="cs-modal-actions">
+          <span className="cs-spacer" />
+          <button type="button" className="cs-primary" onClick={this.props.onCancel}>Close</button>
+        </div>
+      </div>
+    );
+  }
+}
+
 export function NewCableWizard(props: NewCableWizardProps): JSX.Element {
+  return (
+    <WizardBoundary onCancel={props.onCancel}>
+      <WizardFlow {...props} />
+    </WizardBoundary>
+  );
+}
+
+function WizardFlow(props: NewCableWizardProps): JSX.Element {
   const taken = useMemo(
     () => (props.designs ?? []).map((summary) => summary.id),
     [props.designs],
@@ -330,9 +408,7 @@ export function NewCableWizard(props: NewCableWizardProps): JSX.Element {
   return (
     <div className="cs-wizard-card" role="document">
       <header className="cs-wizard-head">
-        <h2 title="Six questions. At the end you get a design that is already wired, already checked, and already drawn — not an empty canvas.">
-          New design
-        </h2>
+        <h2>New design</h2>
       </header>
 
       <div className="cs-wizard-body">
@@ -353,31 +429,18 @@ export function NewCableWizard(props: NewCableWizardProps): JSX.Element {
                   onChange={(event) => dispatch({ type: 'set-label', value: event.target.value })}
                 />
               </label>
-              <label
-                className="cs-field"
-                title="Short name used for the file and in links. Lowercase words joined by hyphens; suggested from the name until you change it."
-              >
-                <span>Id</span>
-                <input
-                  className="cs-input"
-                  value={state.id}
-                  placeholder="xlr-mic-cable-5-m"
-                  onChange={(event) => dispatch({ type: 'set-id', value: event.target.value })}
-                />
-              </label>
-              <label
-                className="cs-field"
-                title="Where the data comes from: a datasheet, a board, a measurement, or 'own design'. Every record in the catalog carries a reference; the wizard adds a line saying which joints it worked out for you."
-              >
-                <span>Reference</span>
-                <input
-                  className="cs-input"
-                  required
-                  value={state.src}
-                  placeholder="datasheet §4, measured on the bench, own design, …"
-                  onChange={(event) => dispatch({ type: 'set-src', value: event.target.value })}
-                />
-              </label>
+              <details className="cs-wizard-more">
+                <summary>Source reference</summary>
+
+                <label className="cs-field" title="Where the information comes from: a datasheet, a measurement, own design.">
+                  <span>Reference</span>
+                  <input
+                    className="cs-input"
+                    value={state.src}
+                    onChange={(event) => dispatch({ type: 'set-src', value: event.target.value })}
+                  />
+                </label>
+              </details>
             </>
           ) : null}
 
@@ -400,6 +463,7 @@ export function NewCableWizard(props: NewCableWizardProps): JSX.Element {
                   label: wireDisplayName(state.db, record.id),
                   detail: definitionDetail('wires', record),
                 }))}
+                cover="wires"
                 {...(state.wireDef === undefined ? {} : { value: state.wireDef })}
                 onPick={(def) => dispatch({ type: 'set-wire', def })}
               />
@@ -440,32 +504,33 @@ export function NewCableWizard(props: NewCableWizardProps): JSX.Element {
 
           {state.step === 'choices' && plan !== undefined ? (
             plan.choices.length === 0 ? (
-              <p className="cs-empty">
-                Nothing to decide — every conductor found exactly one landing at both ends. Go on to
-                the review.
-              </p>
+              <p className="cs-empty">Nothing to decide.</p>
             ) : (
-              <>
-                {plan.choices.map((choice) => (
-                  <label key={choice.id} className={classes('cs-field', choice.weak && 'is-weak')}>
-                    <span>{choice.question}</span>
-                    <select
-                      value={state.picks[choice.id] ?? ''}
-                      onChange={(event) =>
-                        dispatch({ type: 'pick', id: choice.id, value: event.target.value })
-                      }
-                    >
-                      <option value="">— leave it unconnected —</option>
-                      {choice.options.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
+              <div className="cs-wizard-choices">
+                {(['source', 'destination'] as const).map((side) => {
+                  const mine = plan.choices.filter((choice) => choice.end === side);
+                  if (mine.length === 0) return null;
+                  return (
+                    <section key={side}>
+                      <h4>{side === 'source' ? 'Source end' : 'Destination end'}</h4>
+                      {mine.map((choice) => (
+                        <div key={choice.id} className="cs-wizard-choice">
+                          <span className="cs-wizard-choice-what" title={choice.question}>{choice.subject}</span>
+                          <Select
+                            aria-label={choice.question}
+                            value={(state.picks[choice.id] ?? choice.suggested ?? '') === '' ? NONE : (state.picks[choice.id] ?? choice.suggested)!}
+                            onValueChange={(value) => dispatch({ type: 'pick', id: choice.id, value: value === NONE ? '' : value })}
+                            options={[{ value: NONE, label: 'Leave unconnected' }, ...choice.options]}
+                          />
+                          <Tooltip content={choice.say}>
+                            <Chip tone={choice.weak ? 'warn' : 'neutral'} tabIndex={0}>{choice.chip}</Chip>
+                          </Tooltip>
+                        </div>
                       ))}
-                    </select>
-                    <small>{choice.say}</small>
-                  </label>
-                ))}
-              </>
+                    </section>
+                  );
+                })}
+              </div>
             )
           ) : null}
 
@@ -482,71 +547,59 @@ export function NewCableWizard(props: NewCableWizardProps): JSX.Element {
               </section>
 
               <section>
-                <h4>What it will solder ({plan.lines.length})</h4>
-                {plan.lines.length === 0 ? (
-                  <p className="cs-empty">
-                    Nothing yet — go back and choose the ends and the wire.
-                  </p>
-                ) : (
-                  <ul className="cs-list">
-                    {plan.lines.map((line, index) => (
-                      <li key={index}>{line}</li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-
-              <section>
-                <h4>What it left alone ({plan.unconnected.length})</h4>
-                {plan.unconnected.length === 0 ? (
-                  <p className="cs-empty">
-                    Every conductor found a home. Nothing was left hanging.
-                  </p>
-                ) : (
-                  <ul className="cs-list">
-                    {plan.unconnected.map((entry, index) => (
-                      <li key={index}>
-                        <strong>{entry.what}</strong> — {entry.why}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {plan.unconnected.length === 0 ? null : (
-                  <p className="cs-form-say">
-                    These are deliberate: the wizard never guesses a joint. Add them on the canvas
-                    once the design is open, or go back and answer the questions on the previous
-                    step.
-                  </p>
-                )}
-              </section>
-
-              <section>
                 <h4>Checks</h4>
-                {plan.errors.length === 0 ? (
+                {plan.errors.length + plan.warnings.length === 0 ? (
                   <p className="cs-form-say" data-testid="wizard-verdict">
-                    {plan.warnings.length > 0
-                      ? `${plan.warnings.length === 1 ? '1 thing' : `${plan.warnings.length} things`} to look at:`
-                      : plan.design.joints.length === 0
-                        ? 'No connections yet.'
-                        : 'Nothing is wrong with this design.'}
+                    {plan.design.joints.length === 0 ? 'No connections yet.' : 'No problems found.'}
                   </p>
                 ) : (
-                  <ul className="cs-list">
+                  <ul className="cs-list" data-testid="wizard-verdict">
                     {plan.errors.map((issue, index) => (
-                      <li key={index} className="cs-field-bad">
-                        {describeIssue(issue)}
-                      </li>
+                      <li key={`e${index}`} className="cs-field-bad">{describeIssue(issue)}</li>
                     ))}
-                  </ul>
-                )}
-                {plan.warnings.length === 0 ? null : (
-                  <ul className="cs-list">
                     {plan.warnings.map((issue, index) => (
-                      <li key={index}>{describeIssue(issue)}</li>
+                      <li key={`w${index}`}>{describeIssue(issue)}</li>
                     ))}
                   </ul>
                 )}
               </section>
+
+              <section>
+                <h4>Wiring ({plan.rows.length})</h4>
+                {plan.rows.length === 0 ? (
+                  <p className="cs-empty">Nothing yet.</p>
+                ) : (
+                  <table className="cs-wizard-pins">
+                    <thead>
+                      <tr><th>Conductor</th><th>Signal</th><th>Source</th><th /><th>Destination</th></tr>
+                    </thead>
+                    <tbody>
+                      {plan.rows.map((row) => (
+                        <tr key={row.key}>
+                          <td {...(row.whatHint === undefined ? {} : { title: row.whatHint })}>{row.what}</td>
+                          <td className="cs-dim">{row.signal ?? ''}</td>
+                          <LandingCell landing={row.from} />
+                          <td className="cs-dim">→</td>
+                          <LandingCell landing={row.to} />
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </section>
+
+              {plan.unconnected.length === 0 ? null : (
+                <section>
+                  <h4>Left open ({plan.unconnected.length})</h4>
+                  <ul className="cs-list cs-wizard-left">
+                    {groupByWhy(plan.unconnected).map(({ why, what }) => (
+                      <li key={why}>
+                        <span className="cs-dim">{why}</span> <span>{what.join(', ')}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
 
               <section className="cs-wizard-preview">
                 <h4>How it will draw</h4>
@@ -581,7 +634,7 @@ export function NewCableWizard(props: NewCableWizardProps): JSX.Element {
         </button>
         {props.onBlank === undefined ? null : (
           <button type="button" className="cs-link" onClick={props.onBlank} disabled={busy}>
-            Start from a blank design instead
+            Blank design instead
           </button>
         )}
         <span className="cs-spacer" />
@@ -597,10 +650,10 @@ export function NewCableWizard(props: NewCableWizardProps): JSX.Element {
             type="button"
             className="cs-primary"
             disabled={busy || blockers.length > 0}
-            title={blockers.length > 0 ? blockers.join(' ') : 'Write this design to the catalog'}
+            {...(blockers.length > 0 ? { title: blockers.join(' ') } : {})}
             onClick={() => void create()}
           >
-            {busy ? 'Creating…' : 'Create assembly'}
+            {busy ? 'Creating…' : 'Create design'}
           </button>
         ) : (
           <button

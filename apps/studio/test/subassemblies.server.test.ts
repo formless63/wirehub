@@ -65,9 +65,10 @@ describe('validation', () => {
   it('checks a save against the designs it places', async () => {
     const y = loadDesign(Y);
     y.joints.push({ a: { instance: 'j1', terminal: '3' }, b: { instance: 'lead-1', terminal: 'w1@a:red' } });
-    const refused = await put(y);
-    expect(refused.status).toBe(422);
-    expect(refused.body.issues.map((i: { code: string }) => i.code)).toContain('subassembly-unknown-port');
+    // a port that is not there is a finding, saved with the draft
+    const kept = await put(y);
+    expect(kept.status).toBe(200);
+    expect(kept.headers?.['X-WireHub-Findings']).toContain('problem');
 
     const ok = loadDesign(Y);
     ok.label = 'Y, renamed';
@@ -83,7 +84,8 @@ describe('validation', () => {
 
     const y = loadDesign(Y);
     y.instances.subassemblies![1]!.def = 'no-such-cable';
-    expect((await put(y)).body.issues.map((i: { code: string }) => i.code)).toContain('subassembly-unknown-design');
+    // a missing design is a finding too: the draft saves
+    expect((await put(y)).status).toBe(200);
   });
 
   it('stores a design that gains its first sub-assembly at schema v5', async () => {
@@ -129,14 +131,16 @@ describe('the library and where used', () => {
 });
 
 describe('versions', () => {
-  it('refuses to save a version standing on a sub-assembly with nothing released', async () => {
-    const refused = await call('POST', `/api/designs/${Y}/versions`, { note: 'first' });
-    expect(refused.status).toBe(422);
-    expect(refused.body.issues.map((i: { code: string }) => i.code)).toEqual(['subassembly-not-released', 'subassembly-not-released']);
+  it('captures a sub-assembly with nothing saved by saving a version of it, not by refusing', async () => {
+    const saved = await call('POST', `/api/designs/${Y}/versions`, { note: 'first' });
+    expect(saved.status).toBe(201);
+    expect(saved.body.captured).toEqual([{ design: LEAD, rev: 0, auto: true }]);
+    const file = (await deps.versions!.read(Y, saved.body.version.rev)) as DesignVersionFile;
+    expect(file.design.instances.subassemblies!.map((s) => s.rev)).toEqual([0, 0]);
+    expect(file.inputs?.inputs.filter((i) => i.kind === 'designs')).toEqual([expect.objectContaining({ id: LEAD, designRev: 0 })]);
   });
 
   it('freezes each sub-assembly to its released revision, and the working copy stays released', async () => {
-    expect((await call('POST', `/api/designs/${LEAD}/versions`, { note: 'lead released' })).status).toBe(201);
     const saved = await call('POST', `/api/designs/${Y}/versions`, { note: 'Y released' });
     expect(saved.status).toBe(201);
     const file = (await deps.versions!.read(Y, saved.body.version.rev)) as DesignVersionFile;

@@ -5,6 +5,8 @@
  * `Issue`. `resolveTerminal` is the foundation every derived view uses.
  */
 
+import { MAX_DESIGN_TAGS, isDesignTag } from './design-tags.ts';
+import { deviceLayoutProblems } from './device.ts';
 import { humanizeIssue, terminalName, endName } from './names.ts';
 import { designElectricalProblems, electricalIssues } from './electrical.ts';
 import {
@@ -13,6 +15,7 @@ import {
   findMechanical,
   findPcba,
   findWire,
+  DESIGN_KINDS,
   DESIGN_STATUSES,
   LAY_ARRANGEMENT_RING_COUNT,
   pigtailIdOf,
@@ -30,10 +33,12 @@ import {
 } from './model.ts';
 import { stockMarksUnused } from './signals.ts';
 import { compatibilityIssues } from './compat.ts';
+import { railIssues } from './rail-check.ts';
 import { cavityIssues, terminationDbIssues } from './crimp.ts';
 import { pnDuplicateIssues } from './part-number-health.ts';
 import { benchRuleProblems } from './bench-types.ts';
 import { ruleIssuesForDesign, ruleIssuesForLibrary } from './rules.ts';
+import { declaredProcessIssues, processLibraryIssues } from './processes.ts';
 import type { PartNumberScheme } from './part-numbers.ts';
 import { breakoutFates, breakoutIssues, inScope, segmentElectricalPaths } from './breakouts.ts';
 import { viaText } from './link-elements.ts';
@@ -676,6 +681,8 @@ export function validateDb(db: Db, options: { scheme?: PartNumberScheme } = {}):
 
   for (const connector of db.connectors) {
     if (!connector.src) issues.push(missingSrc(`connectors/${connector.id}`));
+    // a draft record may not know its family yet: unknown, said once, never guessed
+    if (!connector.family) issues.push(issue('missing-family', `connector '${connector.id}' does not say what family it belongs to`, `connectors/${connector.id}`, 'warning'));
     issues.push(...recordMetaIssues(connector, `connectors/${connector.id}`));
     for (const id of duplicateIds(connector.pins.map((p) => p.id))) {
       issues.push(
@@ -842,6 +849,8 @@ export function validateDb(db: Db, options: { scheme?: PartNumberScheme } = {}):
   for (const [group, list] of sourced) for (const r of list) issues.push(...routeIssues(r, `${group}/${r.id}`));
   // product families: their own structure (the designs they name are checked with the designs, `productIssues`)
   issues.push(...productIssues(db.products ?? []));
+  // the required-process vocabulary: an entry that cannot be used is a warning and is skipped (`processes.ts`)
+  issues.push(...processLibraryIssues(db));
   return issues;
 }
 
@@ -906,6 +915,11 @@ export function validateDesign(design: CableDesign, db: Db): Issue[] {
 function rawDesignIssues(design: CableDesign, db: Db): Issue[] {
   const issues: Issue[] = [];
 
+  // provenance is advisory on a working copy; publication is where it is insisted on
+  if (typeof design.src !== 'string' || design.src.trim() === '') {
+    issues.push(issue('missing-src', `design '${design.id}' does not say where its information comes from`, 'src', 'warning'));
+  }
+
   // production status: absent means active; anything else must be a known status
   const status: unknown = (design as { status?: unknown }).status;
   if (
@@ -922,14 +936,36 @@ function rawDesignIssues(design: CableDesign, db: Db): Issue[] {
   }
 
   const tags: unknown = (design as { tags?: unknown }).tags;
-  if (tags !== undefined && !(Array.isArray(tags) && tags.length <= 50 && tags.every((t) => typeof t === 'string' && /^[A-Za-z0-9][A-Za-z0-9 _.\-/]{0,39}$/.test(t)))) {
+  if (tags !== undefined && !(Array.isArray(tags) && tags.length <= MAX_DESIGN_TAGS && tags.every(isDesignTag))) {
     issues.push(issue('invalid-tags', 'tags must be a list of short words (letters, digits, spaces, dash, dot, slash)', 'tags'));
+  }
+
+  // a wire run left without a length where the design gives its other runs one: the BOM cannot count its
+  // stock and the build sheet has no cut. A design with no lengths at all (a derived cable not
+  // yet cut to length) is not flagged run by run; its BOM says the lengths are missing.
+  const segments = design.instances?.segments ?? [];
+  const someLength = segments.some((segment) => segment.lengthMm !== undefined);
+  for (const segment of someLength ? segments : []) {
+    if (segment.lengthMm === undefined) {
+      issues.push(issue('segment-no-length', `${segment.id} has no length: the BOM cannot count its wire and the build sheet has no cut length`, segment.id, 'warning'));
+    }
+  }
+
+  const kind: unknown = (design as { kind?: unknown }).kind;
+  if (kind !== undefined && !(DESIGN_KINDS as readonly unknown[]).includes(kind)) {
+    issues.push(issue('invalid-kind', `kind must be one of ${DESIGN_KINDS.join(', ')}`, 'kind'));
   }
 
   const labour: unknown = (design as { labourMinutes?: unknown }).labourMinutes;
   if (labour !== undefined && !(typeof labour === 'number' && Number.isFinite(labour) && labour >= 0)) {
     issues.push(issue('invalid-labour', 'labourMinutes must be a number of minutes, zero or more', 'labourMinutes'));
   }
+
+  // required manufacturing processes declared by hand: malformed refuses a save, an unknown id is a warning (`processes.ts`)
+  issues.push(...declaredProcessIssues(design, db));
+
+  const device: unknown = (design as { device?: unknown }).device;
+  if (device !== undefined) for (const message of deviceLayoutProblems(device)) issues.push(issue('invalid-device', message, 'device'));
 
   for (const p of designElectricalProblems(design, db)) issues.push(issue('invalid-electrical', p.message, p.path));
 
@@ -1219,6 +1255,7 @@ function rawDesignIssues(design: CableDesign, db: Db): Issue[] {
   }
 
   issues.push(...compatibilityIssues(design, db));
+  issues.push(...railIssues(design, db));
   // contacts, seals and plugs per cavity (`crimp.ts`)
   issues.push(...cavityIssues(design, db));
   // electrical rules: silent unless currents are declared (electrical.ts)

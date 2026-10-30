@@ -56,11 +56,22 @@ export function workbenchModels(base = '/api'): ModelsAdapter {
 
   return {
     async get(kind, id) {
-      const result = await request<{ link: ModelLinkView | null; built?: boolean }>(url(kind, id), { method: 'GET' }, remember(key(kind, id)));
+      type Fallback = { id: string; originalName: string; src: string; bytes: number };
+      const result = await request<{ link: ModelLinkView | null; built?: boolean; missing?: string[]; missingHint?: string; fallback?: Fallback }>(url(kind, id), { method: 'GET' }, remember(key(kind, id)));
       if (!result.ok) return result;
-      const { link, built } = result.value;
+      const { link, built, missing, missingHint, fallback } = result.value;
       noteSpec(link);
-      return { ok: true, value: link === null ? null : { ...link, ...(built === undefined ? {} : { built }) } };
+      if (link === null) return { ok: true, value: null };
+      return {
+        ok: true,
+        value: {
+          ...link,
+          ...(built === undefined ? {} : { built }),
+          ...(missing === undefined ? {} : { missing }),
+          ...(missingHint === undefined ? {} : { missingHint }),
+          ...(fallback === undefined ? {} : { fallback: { ...fallback, mime: 'model/gltf-binary' } }),
+        },
+      };
     },
     async list() {
       const result = await request<{ links: ModelLinkView[]; models: StoredModel[] }>(`${base}/models`);
@@ -70,6 +81,16 @@ export function workbenchModels(base = '/api'): ModelsAdapter {
     async attach(kind, id, asset) {
       const k = key(kind, id);
       const result = await write(() => request<{ link: ModelLinkView }>(url(kind, id), { method: 'PUT', body: { asset }, headers: ifMatch(k) }, remember(k)));
+      return result.ok ? { ok: true, value: result.value.link } : result;
+    },
+    async outputs(kind, id) {
+      const result = await request<{ outputs?: { id: string; originalName: string; src: string; bytes: number }[] }>(url(kind, id), { method: 'GET' }, remember(key(kind, id)));
+      if (!result.ok) return result;
+      return { ok: true, value: (result.value.outputs ?? []).map((o) => ({ ...o, mime: 'model/gltf-binary' })) };
+    },
+    async attachOutput(kind, id, output) {
+      const k = key(kind, id);
+      const result = await write(() => request<{ link: ModelLinkView }>(url(kind, id), { method: 'PUT', body: { output }, headers: ifMatch(k) }, remember(k)));
       return result.ok ? { ok: true, value: result.value.link } : result;
     },
     async upload(kind, id, file, sourceKind, sourceCitation) {
@@ -86,6 +107,22 @@ export function workbenchModels(base = '/api'): ModelsAdapter {
     async detach(kind, id) {
       const k = key(kind, id);
       const result = await write(() => request<unknown>(url(kind, id), { method: 'DELETE', headers: ifMatch(k) }, remember(k)));
+      return result.ok ? { ok: true, value: null } : result;
+    },
+    async fetchNative(kind, id): Promise<Outcome<{ bytes: ArrayBuffer; mime: string }>> {
+      try {
+        const response = await fetch(url(kind, id, 'native'), { credentials: 'same-origin' });
+        if (!response.ok) {
+          const body = (await response.json().catch(() => ({}))) as { error?: string; hint?: string };
+          return { ok: false, message: body.error ?? `The native model could not be loaded (HTTP ${response.status}).`, ...(body.hint === undefined ? {} : { hint: body.hint }), status: response.status };
+        }
+        return { ok: true, value: { bytes: await response.arrayBuffer(), mime: 'model/gltf-binary' } };
+      } catch (error) {
+        return { ok: false, message: `The native model could not be loaded (${(error as Error).message}).` };
+      }
+    },
+    async build() {
+      const result = await request<unknown>(`${base}/jobs`, { method: 'POST', body: { kind: 'model-cache' } });
       return result.ok ? { ok: true, value: null } : result;
     },
     async fetchModel(asset): Promise<Outcome<{ bytes: ArrayBuffer; mime: string }>> {

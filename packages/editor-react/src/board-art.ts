@@ -3,8 +3,8 @@
  * and where each pad's handle sits on them.
  *
  * Pure geometry — no React, no DOM. `derive.ts` calls `boardArt` for every
- * `pcba` instance whose definition has a **gerber** depiction (`sourceKind:
- * 'gerber'`); the node renders exactly what this returns and
+ * `pcba` instance whose definition has a native KiCad or Gerber depiction;
+ * the node renders exactly what this returns and
  * `layout-size.ts` reserves exactly its size, so the drawn board, its handles
  * and the box auto-arrange keeps clear are one set of numbers.
  *
@@ -132,6 +132,19 @@ export interface BoardViewArt {
   transform: string;
   /** the build's mounted parts on this side, in the box's own pixel frame */
   parts: BoardPartArt[];
+  /** the axis the bottom face is mirrored about (the top face ignores it) */
+  mirrorAxis?: 'x' | 'y';
+}
+
+/**
+ * A point of the anchor frame (mm, `board-top`) on one face, in the art
+ * area's pixel frame — where a handle or an overlay draws it.
+ */
+export function viewPoint(view: BoardViewArt, point: XY): XY {
+  const axis = view.mirrorAxis ?? 'x';
+  const own = view.side === 'top' ? point : { x: axis === 'x' ? view.frame.width - point.x : point.x, y: axis === 'y' ? view.frame.height - point.y : point.y };
+  const turned = rotatePoint(own, view.frame, view.rotation);
+  return { x: view.box.x + turned.x * view.scale, y: view.box.y + turned.y * view.scale };
 }
 
 /**
@@ -472,15 +485,16 @@ export function isConnectorTerminal(terminal: string): boolean {
   return terminal.includes('.');
 }
 
-/** A gerber-tier board depiction with both faces — the only kind drawn as art. */
-export function isGerberBoard(meta: Meta | undefined): meta is Meta {
+/** A native-source board with both faces and a single, mirrored anchor frame. */
+export function isSourceBoard(meta: Meta | undefined): meta is Meta {
   if (meta === undefined) return false;
   const top = meta.views['board-top'];
   const bottom = meta.views['board-bottom'];
   return (
     top !== undefined &&
     bottom !== undefined &&
-    top.sourceKind === 'gerber' &&
+    (top.sourceKind === 'gerber' || top.sourceKind === 'kicad') &&
+    bottom.sourceKind === top.sourceKind &&
     top.kind === 'vector' &&
     bottom.kind === 'vector' &&
     meta.anchorFrame === 'board-top' &&
@@ -488,6 +502,11 @@ export function isGerberBoard(meta: Meta | undefined): meta is Meta {
     top.widthUnits !== undefined &&
     top.heightUnits !== undefined
   );
+}
+
+/** Fabrication-only actions still require Gerbers; native KiCad art is useful before plotting. */
+export function isGerberBoard(meta: Meta | undefined): meta is Meta {
+  return isSourceBoard(meta) && meta.views['board-top']?.sourceKind === 'gerber';
 }
 
 /**
@@ -735,12 +754,12 @@ export function boardScale(frame: { width: number; height: number }): number {
 /**
  * Both faces of a board, stacked top over bottom, with a handle on every pad
  * a declared terminal lands on — or `undefined` when the definition has no
- * gerber depiction, or its artwork is missing, in which case the node keeps
+ * native-source depiction, or its artwork is missing, in which case the node keeps
  * its pin-list form.
  */
 export function boardArt(input: BoardArtInput): BoardArt | undefined {
   const meta = input.depictions.meta(input.defId);
-  if (!isGerberBoard(meta)) return undefined;
+  if (!isSourceBoard(meta)) return undefined;
   const top = meta.views['board-top'];
   if (top?.widthUnits === undefined || top.heightUnits === undefined) return undefined;
   const frame = { width: top.widthUnits, height: top.heightUnits };
@@ -755,6 +774,8 @@ export function boardArt(input: BoardArtInput): BoardArt | undefined {
   }
 
   const terminals = new Set(input.terminals);
+  // (a board docking connectors beside its pads keeps them facing the docks)
+  const connectorOnly = (input.docks ?? []).length === 0 && [...terminals].every((terminal) => isConnectorTerminal(terminal));
   const direction = cableDirection(meta, terminals);
   const axis = meta.views['board-bottom']?.mirrorAxis ?? 'x';
   const mirrored =
@@ -822,6 +843,7 @@ export function boardArt(input: BoardArtInput): BoardArt | undefined {
         .filter((part) => part !== '')
         .join(' '),
       parts: partsOnSide(meta, side, frame, rotation, scale),
+      mirrorAxis: axis,
     });
 
     // the human-set entry guides' slots on this face, by pad ref
@@ -854,7 +876,9 @@ export function boardArt(input: BoardArtInput): BoardArt | undefined {
         const suffix =
           pad.ref === undefined ? `${side}.${index}` : `${side}:${pad.ref}.${pad.pad ?? index}`;
         const cableSide = !isConnectorTerminal(terminal);
-        const facing = cableSide ? input.cableFacing : (input.facings?.get(terminal) ?? opposite);
+        // a board with no cable pads (every pad one of its own connectors', as a board read from its
+        // KiCad file is) takes its wires on those pads: they face the wire, not away from it
+        const facing = cableSide ? input.cableFacing : (input.facings?.get(terminal) ?? (connectorOnly ? input.cableFacing : opposite));
         const turnedApproach = pad.approach === undefined ? undefined : rotateApproach(pad.approach, rotation);
         const guided = cableSide && pad.ref !== undefined ? slots.get(pad.ref) : undefined;
         // an unguided cable pad that cannot run straight in leaves the board
@@ -862,7 +886,7 @@ export function boardArt(input: BoardArtInput): BoardArt | undefined {
         // a connector-side pad the design faces toward a neighbour (a carrier's
         // plug pins) leaves the same way when its straight run in
         // would cross another pad
-        const turnedToward = cableSide || input.facings?.has(terminal) === true;
+        const turnedToward = cableSide || connectorOnly || input.facings?.has(terminal) === true;
         const exit =
           guided !== undefined || !turnedToward
             ? undefined

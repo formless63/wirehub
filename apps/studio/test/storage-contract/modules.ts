@@ -39,10 +39,11 @@ export async function moduleScenario(base: WorkbenchDeps, send?: (request: ApiRe
   await call('echo route', { method: 'POST', path: '/api/modules/example/echo', body: { a: 1 } }, 200);
   await call('reserved sub-path', { method: 'GET', path: '/api/modules/example/_nothing/x' }, 404);
 
-  // the validation rule refuses a save whose label says TODO
+  // the validation rule's finding on a label that says TODO is saved with the draft, then the draft goes back
   const design = await call('read design', { method: 'GET', path: '/api/designs/de9-crossover' }, 200);
-  const refused = await call('rule refuses', { method: 'PUT', path: '/api/designs/de9-crossover', body: { ...(design.body as object), label: 'TODO name this' }, headers: { 'if-match': design.headers?.ETag ?? '' } }, 422);
-  expect(JSON.stringify(refused.body)).toContain('example/todo-label');
+  const kept = await call('rule finding saves', { method: 'PUT', path: '/api/designs/de9-crossover', body: { ...(design.body as object), label: 'TODO name this' }, headers: { 'if-match': design.headers?.ETag ?? '' } }, 200);
+  expect(JSON.stringify((await call('rule finding listed', { method: 'GET', path: '/api/designs/de9-crossover/issues' }, 200)).body)).toContain('example/todo-label');
+  await call('draft restored', { method: 'PUT', path: '/api/designs/de9-crossover', body: design.body, headers: { 'if-match': kept.headers?.ETag ?? '' } }, 200);
 
   // importer: a proposal first (nothing written), then accepted as one change set
   const csv = 'id,label,value\nex-r-1k,Example resistor 1 kΩ,1 kΩ\nex-r-2k,Example resistor 2 kΩ,2 kΩ\nnot a line\n';

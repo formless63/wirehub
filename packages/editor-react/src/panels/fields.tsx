@@ -26,6 +26,7 @@ export interface FieldProps {
   placeholder?: string;
   /** shown instead of `say` when it is set — what is wrong, right now */
   problem?: string;
+  /** focus on mount, but only while empty (a new record): opening an existing one must not scroll the page to its form */
   autoFocus?: boolean;
   /** a `<datalist>` of suggestions; typing something else is still allowed */
   options?: readonly string[];
@@ -51,7 +52,7 @@ export function Field(props: FieldProps): JSX.Element {
         value={props.value}
         onChange={(event) => props.onChange(event.target.value)}
         {...(props.placeholder === undefined ? {} : { placeholder: props.placeholder })}
-        {...(props.autoFocus === true ? { autoFocus: true } : {})}
+        {...(props.autoFocus === true && props.value === '' ? { autoFocus: true } : {})}
         {...(props.readOnly === true ? { readOnly: true } : {})}
         {...(listId === undefined ? {} : { list: listId })}
       />

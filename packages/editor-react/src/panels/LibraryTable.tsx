@@ -7,7 +7,7 @@
  * `compact` (a record is open beside it) keeps PN and Name only.
  */
 
-import { useEffect, useMemo, useState, type JSX, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from 'react';
 
 import { classes } from '../context.ts';
 import type { LibraryKind } from '../definitions.ts';
@@ -71,7 +71,7 @@ function Cell({ row, column, marker }: { row: LibraryRow; column: LibraryColumn;
       <span className="cs-lt-text" data-testid={column.id === 'pn' ? 'part-number' : undefined}>
         {value === '' ? '—' : value}
       </span>
-      {column.id === 'pn' && row.pn.sharedBody !== undefined ? <span className="cs-lt-number-context">Body PN</span> : null}
+      {column.id === 'pn' && row.pn.sharedBody !== undefined ? <span className="cs-lt-number-context" title={row.pn.note}>Body PN · {row.pn.sharedBy ?? 2} pinouts</span> : null}
       {column.id === 'name' && row.pn.sharedBody !== undefined ? <span className="cs-lt-number-context">{row.pn.pinout}</span> : null}
       {cell?.warning === undefined ? null : <span className="cs-lt-warn" aria-label="part number pending" title={cell.warning} />}
     </span>
@@ -96,6 +96,15 @@ export function LibraryTable(props: LibraryTableProps): JSX.Element {
   const onCount = props.onCount;
   useEffect(() => onCount?.(shownRows.length, rows.length), [onCount, shownRows.length, rows.length]);
   const anyFacet = Object.values(facets).some((v) => v.length > 0);
+  // the open record's row stays in view (a deep link, a palette jump, the list narrowing beside a record)
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selectedId = props.selectedId;
+  const hasSelected = selectedId !== undefined && shownRows.some((r) => r.id === selectedId);
+  useEffect(() => {
+    if (!hasSelected || selectedId === undefined) return;
+    const row = rootRef.current?.querySelector<HTMLElement>(`tr[data-id="${CSS.escape(selectedId)}"]`);
+    row?.scrollIntoView?.({ block: 'nearest' });
+  }, [selectedId, hasSelected, props.compact]);
 
   const pick = props.pick;
   const marker = props.rowMarker;
@@ -138,11 +147,13 @@ export function LibraryTable(props: LibraryTableProps): JSX.Element {
   });
 
   return (
-    <div className={classes('cs-lt', props.compact === true && 'is-compact')}>
-      {props.compact === true && packOptions.length === 0 ? null : (
-        <Toolbar label="filters">
+    <div ref={rootRef} className={classes('cs-lt', props.compact === true && 'is-compact')}>
+      {/* beside a record the list keeps one control row: the source filter only while one is set */}
+      {props.compact === true && (packOptions.length === 0 || pack === undefined) ? null : (
+        <Toolbar label="filters" className="cs-lt-bar">
           {props.compact === true ? null : props.lead}
           {packOptions.length === 0 ? null : <Select
+            className="cs-lt-sources"
             aria-label="Catalog pack"
             value={pack ?? '__all__'}
             onValueChange={(value) => {

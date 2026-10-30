@@ -8,7 +8,7 @@
 #
 # The store is S3_ENDPOINT / S3_REGION / S3_BUCKET; the key is the read-only
 # backup key (S3_BACKUP_ACCESS_KEY_ID / _SECRET_ACCESS_KEY, or their _FILE
-# forms — garage-init writes the bundled Garage's there), else the app's key.
+# forms — the app's startup writes the bundled Garage's there), else the app's key.
 set -eu
 
 # value of $1, else the contents of the file named by ${1}_FILE

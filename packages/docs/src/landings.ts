@@ -12,11 +12,12 @@ import {
   findInstance,
   findPcba,
   findWire,
-  isFoilPath,
-  isFullyBonded,
+  massWords,
   pigtailKey,
-  pigtailMembers,
+  pigtailLandedScreens,
+  stockScreens,
   terminalKey,
+  terminalName,
   type CableDesign,
   type Db,
   type TerminalRef,
@@ -33,9 +34,9 @@ export interface GroundLanding {
   mass: boolean;
   /** screen paths twisted into it */
   members: string[];
-  /** "red, green, blue shields" / "shields (all 7 copper screens + drain, bonded)" */
+  /** "red, green, blue shields" / "shield mass (7 copper screens + drain)" / "drain" */
   membersText: string;
-  /** where it lands: "u2 GND", "j4 13"; empty when it has no landing */
+  /** where it lands: "U2 · GND", "J4 pin 13 · GND"; empty when it has no landing */
   landing: string;
   pad?: string;
   padSide?: string;
@@ -67,10 +68,7 @@ export function screensText(members: readonly string[]): string {
  * screens + drain, bonded)`.
  */
 export function massText(wire: WireDefinition, members: readonly string[]): string {
-  const copper = members.filter((path) => path !== 'drain' && !/\.drain$/.test(path) && !isFoilPath(wire, path));
-  const drain = members.some((path) => path === 'drain' || /\.drain$/.test(path));
-  if (copper.length === 0) return drain ? 'shields (drain only, bonded; no copper screens)' : 'shields (no copper screens, bonded)';
-  return `shields (all ${copper.length} copper screen${copper.length === 1 ? '' : 's'}${drain ? ' + drain' : ''}, bonded)`;
+  return massWords(wire, members);
 }
 
 function landingOf(design: CableDesign, key: string): TerminalRef | undefined {
@@ -86,13 +84,15 @@ export function deriveGroundLandings(design: CableDesign, db: Db): GroundLanding
   for (const segment of design.instances.segments) {
     const wire = findWire(db, segment.def);
     if (wire === undefined) continue;
-    const mass = isFullyBonded(wire);
+    const mass = stockScreens(wire).mass;
     const pigtails = [...(segment.pigtails ?? [])].sort((x, y) =>
       x.end === y.end ? 0 : x.end === 'a' ? -1 : 1,
     );
     for (const pigtail of pigtails) {
       const key = pigtailKey(segment.id, pigtail);
-      const members = pigtailMembers(wire, pigtail);
+      // the foil is trimmed and a drain the policy cuts here stays off the pad: nothing to check when nothing lands
+      const members = pigtailLandedScreens(design, wire, segment.id, pigtail);
+      if (members.length === 0) continue;
       const massPigtail = mass && pigtail.members === undefined;
       const membersText = massPigtail ? massText(wire, members) : screensText(members);
       const land = landingOf(design, key);
@@ -100,7 +100,7 @@ export function deriveGroundLandings(design: CableDesign, db: Db): GroundLanding
       let padSide: string | undefined;
       if (land !== undefined) {
         const instance = findInstance(design, land.instance);
-        landing = `${land.instance} ${land.terminal}${land.end === undefined ? '' : ` @${land.end}`}`;
+        landing = terminalName(design, db, land);
         if (land.pad !== undefined && instance?.kind === 'pcba') {
           padSide = findPcba(db, instance.def)
             ?.terminals.find((t) => t.id === land.terminal)

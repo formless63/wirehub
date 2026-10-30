@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 /**
- * The board-import module's page (`/m/board-import/boards`) in the SPA: the
- * KiCad board is read as a job, its plan (with the art previewed) published;
- * a BOM's columns are found and can be remapped before its import starts.
+ * The board-import module's page (`/m/board-import/boards`) in the SPA: one
+ * drop of the board's files is read as one job, published, and the new record
+ * opened; a BOM's columns are found and can be remapped before it is sent.
  * The transport is the real API router over the in-memory commit tree.
  */
 
@@ -41,60 +41,56 @@ afterEach(() => {
   cleanup();
   globalThis.fetch = realFetch;
   bodies.length = 0;
+  opened.length = 0;
   vi.restoreAllMocks();
 });
 
+const opened: string[] = [];
 const page = async (): Promise<void> => {
   const db = await deps.loadDb();
-  render(createElement(BoardImportPage, { module: 'board-import', path: 'boards', db, api: async () => ({ status: 200, body: {} }) }));
+  render(createElement(BoardImportPage, { module: 'board-import', path: 'boards', db, api: async () => ({ status: 200, body: {} }), open: (href: string) => opened.push(href) }));
 };
 
 describe('the board import page', () => {
-  it('reads a KiCad board as a job, previews its art and publishes it', async () => {
+  it('reads a KiCad board in one drop, publishes it as one job and opens the new record', async () => {
     serve();
     await page();
-    const input = screen.getByTestId('board-import-kicad-file');
     await act(async () => {
-      fireEvent.change(input, { target: { files: [new File([kicadPcb()], 'synthetic-adapter.kicad_pcb')] } });
+      fireEvent.change(screen.getByTestId('board-import-input'), { target: { files: [new File([kicadPcb()], 'synthetic-adapter.kicad_pcb')] } });
     });
-    fireEvent.change(screen.getByTestId('board-import-kicad-partNumber'), { target: { value: 'PCA-SYN-2' } });
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('board-import-kicad-start'));
-    });
-    await waitFor(() => expect(screen.getByTestId('board-import-publish')).toBeTruthy(), { timeout: 5000 });
-    const job = screen.getByTestId('board-import-job');
-    expect(job.textContent).toContain('pcbas/synthetic-adapter-rev-2 — Synthetic adapter');
-    expect(job.textContent).toContain('Board art for synthetic-adapter-rev-2');
-    expect(job.querySelectorAll('img').length).toBe(2);
-    expect((bodies[0] as { options: unknown }).options).toEqual({ partNumber: 'PCA-SYN-2' });
+    await waitFor(() => expect(screen.getByTestId('board-import-counts').textContent).toContain('8 terminals'));
+    // the title block names it; a title with spaces is no part number
+    expect((screen.getByTestId('board-import-label') as HTMLInputElement).value).toBe('Synthetic adapter');
+    expect((screen.getByTestId('board-import-partNumber') as HTMLInputElement).value).toBe('');
+    fireEvent.change(screen.getByTestId('board-import-partNumber'), { target: { value: 'PCA-SYN-2' } });
     await act(async () => {
       fireEvent.click(screen.getByTestId('board-import-publish'));
     });
-    await waitFor(() => expect(job.textContent).toContain('Published.'));
+    await waitFor(() => expect(opened).toEqual(['/library/boards/synthetic-adapter-rev-2']), { timeout: 8000 });
     expect((await deps.loadDb()).pcbas.find((p) => p.id === 'synthetic-adapter-rev-2')?.partNumber).toBe('PCA-SYN-2');
-    expect(screen.getByTestId('board-import-attach-model')).toBeTruthy();
   }, 20_000);
 
-  it('finds a BOM’s columns, lets them be remapped, and sends the mapping with the files', async () => {
+  it('finds a BOM’s columns, lets them be remapped, and sends the mapping with the board', async () => {
     serve();
     await page();
     await act(async () => {
-      fireEvent.change(screen.getByTestId('board-import-bom-file'), { target: { files: [new File([BOM_CSV], 'bom.csv')] } });
+      fireEvent.change(screen.getByTestId('board-import-input'), { target: { files: [new File([kicadPcb()], 'synthetic-adapter.kicad_pcb'), new File([BOM_CSV], 'bom.csv')] } });
     });
     const mapping = await screen.findByTestId('board-import-bom-mapping');
     expect((mapping.querySelector('select[data-field="refs"]') as HTMLSelectElement).value).toBe('Designator');
     expect((mapping.querySelector('select[data-field="supplierPart"]') as HTMLSelectElement).value).toBe('LCSC');
     // a BOM nobody's tool wrote: nothing found, the person maps it
     await act(async () => {
-      fireEvent.change(screen.getByTestId('board-import-bom-file'), { target: { files: [new File([ODD_BOM_CSV], 'odd.csv')] } });
+      fireEvent.change(screen.getByTestId('board-import-input'), { target: { files: [new File([ODD_BOM_CSV], 'odd.csv')] } });
     });
     await waitFor(() => expect((screen.getByTestId('board-import-bom-mapping').querySelector('select[data-field="refs"]') as HTMLSelectElement).value).toBe(''));
     fireEvent.change(screen.getByTestId('board-import-bom-mapping').querySelector('select[data-field="refs"]')!, { target: { value: 'Where' } });
+    fireEvent.change(screen.getByTestId('board-import-partNumber'), { target: { value: 'PCA-SYN-3' } });
     await act(async () => {
-      fireEvent.click(screen.getByTestId('board-import-bom-start'));
+      fireEvent.click(screen.getByTestId('board-import-publish'));
     });
-    const sent = bodies.at(-1) as { fileName: string; options: { mapping: string } };
-    expect(sent.fileName).toBe('odd.board-bom.json');
+    const sent = bodies.find((b) => (b as { fileName?: string }).fileName?.endsWith('.board-set.json')) as { fileName: string; options: { mapping: string } };
+    expect(sent.fileName).toBe('synthetic-adapter.board-set.json');
     expect(JSON.parse(sent.options.mapping)).toEqual({ bom: { refs: 'Where' } });
   });
 });

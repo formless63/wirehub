@@ -23,14 +23,16 @@
  */
 
 import { isDesignId, type DesignId, type InstalledPacks } from '@wirehub/catalog';
-import { designChangeLines, errors, isReadableSchemaVersion, MAX_SCHEMA_VERSION, subassemblyParents, upgradeDesignSchema, validateDesign, type CableDesign, type Db, type Issue } from '@wirehub/model';
+import { designChangeLines, integrityIssues, isReadableSchemaVersion, savedWithFindings, MAX_SCHEMA_VERSION, subassemblyParents, upgradeDesignSchema, validateDesign, type CableDesign, type Db, type Issue } from '@wirehub/model';
 import type { ModuleRegistry } from '@wirehub/modules';
 
 import { cableListEntry, usedInFeature, type CableListContext, type CableListEntry, type CableListPnContext } from '../src/cable-list.ts';
 import { assetSummaryWithDataUri, isFontAsset, isImageAsset, isModelAsset, type AssetStore } from './assets.ts';
+import type { AssetReferenceFinder } from './asset-remove.ts';
 import type { ConvertedModel } from './models/convert.ts';
 import type { ModelLinkStore } from './models/links.ts';
 import type { ModelCache } from './models/cache.ts';
+import type { ThumbnailCache } from './thumbnails.ts';
 import { cachedModelFile, handleModelRequest, isModelPath, modelDepsOf, MODEL_ROUTES } from './models/api.ts';
 import { BUILDS_ROUTES, handleBuildsRequest, type BuildsStore } from './builds.ts';
 import type { DefinitionStore } from './definition-store.ts';
@@ -45,10 +47,21 @@ import { clip, packEventOf, pnAssignedEvent } from './webhooks/derive.ts';
 import type { DomainEvent } from './webhooks/events.ts';
 import type { WebhookEmitter } from './webhooks/emitter.ts';
 import { RULES_ROUTES, handleRulesRequest, isRulesPath } from './rules-settings.ts';
+import { PROCESSES_ROUTES, handleProcessesRequest, isProcessesPath } from './processes-settings.ts';
 import { RESOLVER_ROUTES, handleResolverRequest, isResolverPath } from './resolver.ts';
 import { PRODUCT_ROUTES, handleProductsRequest, isProductsPath } from './products.ts';
 import { REVISION_ROUTES, handleRevisionsRequest, isRevisionsPath } from './revisions.ts';
+import { ADOPT_ROUTES, handleAdoptRequest, isAdoptPath } from './adopt.ts';
+import { DESIGN_TAG_ROUTES, handleDesignTagsRequest, isDesignTagsPath } from './design-tags.ts';
 import { PROPOSAL_ROUTES, handleProposalsRequest, isProposalsPath } from './proposals.ts';
+import { EXPLORE_ROUTES, handleExploreRequest, isExplorePath } from './explore.ts';
+import { REPRESENTATION_ROUTES, handleRepresentationRequest } from './representations.ts';
+import { isCommissionDocPath } from './firmware/paths.ts';
+import { FIRMWARE_ROUTES, handleFirmwareCompile, handleFirmwareRequest, isFirmwareCompilePath } from './firmware/api.ts';
+import { KNOWLEDGE_ROUTES, handleKnowledgeRequest } from './knowledge.ts';
+import { ENCLOSURE_ROUTES, handleEnclosureRequest, isEnclosurePath } from './enclosures/api.ts';
+import { DEVICE_ROUTES, isDevicePath } from './devices/routes.ts';
+import { handlePrintRequest, isPrintPath, PRINT_ROUTES } from './print/api.ts';
 import { PN_SETTINGS_ROUTES, handlePartNumberSettings, isPnSettingsPath } from './pn-settings.ts';
 import { handleStoreSourcesQuery, isStoreSourcesQueryPath } from './store-settings.ts';
 import { SETTINGS_ROUTES, effectiveTestDefaults, handleSettingsRequest } from './settings.ts';
@@ -60,6 +73,11 @@ import { VOCAB_ROUTES, handleVocabRequest } from './vocab.ts';
 import { VERSION_ROUTES, handleVersionRequest, workingStatus, type VersionStore } from './versions.ts';
 import { LOCAL_FALLBACK, ME_ROUTES, type StudioUser } from './me.ts';
 import { PREFS_ROUTES, parsePrefsPatch, prefsUserKey, type UserPrefsStore } from './user-prefs.ts';
+import { INVENTORY_ROUTES, handleInventoryRequest, isInventoryPath } from './inventory/api.ts';
+import type { InventoryStore } from './inventory/store.ts';
+import { UNIT_ROUTES, handleUnitsRequest, isUnitsPath } from './units/api.ts';
+import type { UnitTestStore } from './units/store.ts';
+import type { OfferStore } from './sourcing/offers.ts';
 import { BACKUP_DISABLED, type BackupControl } from './backup/status.ts';
 import type { TagStore, VocabStore } from './vocab-store.ts';
 import { LOCK_ROUTES } from './locks/lock-api.ts';
@@ -67,6 +85,10 @@ import type { LockStore } from './locks/lock-store.ts';
 import type { DerivedStore } from './derived.ts';
 import { CommitRefusedError, ReadOnlyBackendError, StaleRecordError, type Awaitable, type ChangeSet, type CommitResult, type DerivedKind } from './storage/change-set.ts';
 import { UnitOfWork } from './storage/unit-of-work.ts';
+import { commitUnit, publishCatalog } from './catalog-commit.ts';
+
+// moved out of this file so feature modules need no runtime import of the router; kept importable from here
+export { commitUnit, publishCatalog } from './catalog-commit.ts';
 import { withWriteLock } from './storage/write-lock.ts';
 import { handleSetupRequest, isSetupPath, type SetupDeps } from './setup.ts';
 import { packOwnerOf, packRecordRefusal } from './pack-guard.ts';
@@ -82,14 +104,20 @@ import { isDocPath, type CatalogFileStore, type DocStore } from './storage/doc-s
 import { moduleJobsFor } from './jobs/module-queues.ts';
 import { deriveContinuityExport, type TestParameters } from '@wirehub/docs';
 import { handleDocumentRequest, DOCUMENT_ROUTES } from './documents.ts';
+import type { DocumentCache } from './document-cache.ts';
+import { handleDocumentManifest } from './document-manifest.ts';
 import type { PdfEngine } from './render/browser-pdf.ts';
 import { ImportExtrasRefused, parseModuleIoPath, proposalOf, runExporter, runImporter, stageImportExtras, type ModuleIoPath } from './module-io.ts';
 import { batchItemRequest, dryRunAnswer, isDryRun, readBatch } from './batch.ts';
 import type { JobService } from './jobs/types.ts';
 import { handleJobRequest, isJobPath, JOB_ROUTES, startImportJob } from './jobs/api.ts';
+import { BOARD_OUTPUT_ROUTES, handleToolOutputsRequest, isToolOutputsPath } from './jobs/board-outputs.ts';
+import { REPRO_ROUTES, handleReproRequest, isReproPath } from './repro/api.ts';
+import type { ToolOutputStore } from './tools/outputs.ts';
 import type { EventHub } from './events.ts';
 import { handleHistoryRequest, HISTORY_ROUTES } from './history/api.ts';
 import { ASSEMBLY_ROUTES, designUse, handleAssemblyRequest, usedAsSubassemblyRefusal, withDesignLibrary } from './assemblies.ts';
+import { DRAFT_SCOPE, isDraftWrite } from './auth/draft-grant.ts';
 import type { HistorySource } from './history/source.ts';
 
 /* ------------------------------------------------------------------ *
@@ -103,8 +131,9 @@ export interface ApiRequest {
   /** the parsed JSON body, when the request carried one */
   body?: unknown;
   /**
-   * Request headers this router reads, lower-cased keys. Currently just
-   * `if-match` (the stale-write guard,) — everything else
+   * Request headers this router reads, lower-cased keys: `if-match` (the
+   * stale-write guard), `if-none-match` (a released render) and `x-edit-lock`
+   * (the lease tokens a route writing several designs checks itself) — everything else
    * an adapter receives from the socket stops at the adapter.
    */
   headers?: Record<string, string>;
@@ -208,18 +237,26 @@ export interface WorkbenchDeps {
    * design-only host can leave it out; `GET /api/assets` then says so.
    */
   assets?: AssetStore;
+  /** where records, versions and history name assets (`asset-remove.ts`); absent: no asset is ever removed */
+  assetReferences?: AssetReferenceFinder;
   /**
    * Which stored 3D model each Library record shows (
    * `data/models.json`); the bytes are in `assets`. Optional like the rest —
    * absent, `/api/models` says so.
    */
   modelLinks?: ModelLinkStore;
+  /** native tool-pack runs and their outputs (`tools/outputs.ts`; the database backend). Absent: board outputs are not offered */
+  toolOutputs?: ToolOutputStore;
   /**
    * The generated cache of imported models (`models/cache.ts`,
    * `data/.model-cache/`, gitignored): `GET /api/assets/:id` serves from it
    * what the asset store does not hold.
    */
   modelCache?: ModelCache;
+  /** photo thumbnails (`thumbnails.ts`): derived, rebuilt from the photo on a miss; absent → drawn per request */
+  thumbnails?: ThumbnailCache;
+  /** released revision renders by render key (`document-cache.ts`, `docs/document-manifest.md`); absent → rendered per request */
+  documentCache?: DocumentCache;
   /** STL/STEP/GLB → the stored GLB; injectable for tests (the real one forks the STEP child) */
   convertModel?: (bytes: Uint8Array, name: string) => Promise<ConvertedModel>;
   /** the controlled lists (`data/vocab/*.json`); optional so a read-only host can leave it out */
@@ -268,6 +305,12 @@ export interface WorkbenchDeps {
   locks?: LockStore;
   /** per-person UI preferences (`GET`/`PUT /api/me/prefs`, `user-prefs.ts`); absent → the routes answer 404 and the browser keeps its own */
   userPrefs?: UserPrefsStore;
+  /** workshop inventory (`/api/inventory/…`, `inventory/`); absent → the routes answer 501 */
+  inventory?: InventoryStore;
+  /** test results on built units (`/api/units/…`, `units/`); absent → results cannot be recorded */
+  unitTests?: UnitTestStore;
+  /** dated supplier offers (`/api/inventory/offers`, `sourcing/offers.ts`); absent → those routes answer 501 */
+  offers?: OfferStore;
   /** now, epoch ms, for lease times (injected by tests) */
   lockClock?: () => number;
   /** what changed, for `GET /api/events` (`events.ts`); absent → no stream */
@@ -434,10 +477,11 @@ export function readDesignBody(value: unknown): { ok: true; design: CableDesign 
       'Give it a label — the sentence a builder would read at the top of the build sheet.',
     );
   }
-  if (typeof candidate.src !== 'string' || candidate.src.trim() === '') {
+  // provenance is advisory on a working copy (a `missing-src` finding); only its shape is checked
+  if (candidate.src !== undefined && typeof candidate.src !== 'string') {
     return say(
-      'This design does not say where its information comes from.',
-      'Fill in "Where does this information come from?" — a document, a measurement, or a note that the values were inferred.',
+      'This design\'s source note is not text.',
+      'src is a sentence saying where the information comes from — or leave it empty for now.',
     );
   }
   const instances = candidate.instances;
@@ -465,32 +509,58 @@ export function readDesignBody(value: unknown): { ok: true; design: CableDesign 
   }
   // an older document (a tab opened before the migration, an imported file)
   // is stored at the one current version (migrate-schema.ts)
-  return { ok: true, design: upgradeDesignSchema(value as CableDesign).design };
+  const design = candidate.src === undefined ? { ...(value as CableDesign), src: '' } : (value as CableDesign);
+  return { ok: true, design: upgradeDesignSchema(design).design };
 }
 
 /**
- * Rule 1, in one place: a candidate that the validator finds errors in is
- * refused with those errors, and the caller never gets as far as the store.
- * Warnings do not block a save — a design can be legitimately incomplete
- * while it is being built up, and refusing to store work in progress would
- * push the user back to a text editor, which is exactly what this API exists
- * to make unnecessary.
+ * Rule 1, in one place: saving preserves work, it does not certify it
+ * (`save-policy.ts`). Only a finding that makes the document unrepresentable
+ * (two parts with one id, a sub-assembly placing itself, a malformed field)
+ * refuses the save; every other error and warning is saved with the design
+ * and handed back as `findings`. A deliberate release still refuses on errors.
  */
-async function validated(deps: WorkbenchDeps, design: CableDesign): Promise<ApiResponse | undefined> {
+async function validated(deps: WorkbenchDeps, design: CableDesign): Promise<{ refusal: ApiResponse } | { findings: Issue[] }> {
   // a design placing sub-assemblies is checked against the designs it places
   const db = await withDesignLibrary(deps, design, await deps.loadDb());
   const modules = deps.modules;
   const issues = [...validateDesign(design, db), ...(modules?.validate(design, db) ?? [])];
-  const failures = errors(issues);
-  if (failures.length === 0) return undefined;
-  return fail(
-    422,
-    failures.length === 1
-      ? `'${design.id}' has a problem that has to be fixed before it can be saved.`
-      : `'${design.id}' has ${failures.length} problems that have to be fixed before it can be saved.`,
-    'Nothing was written — the stored design is untouched. Fix the problems listed below and save again.',
-    issues,
-  );
+  const blocking = integrityIssues(issues);
+  if (blocking.length === 0) return { findings: issues };
+  return {
+    refusal: fail(
+      422,
+      blocking.length === 1
+        ? `'${design.id}' cannot be stored as it stands.`
+        : `'${design.id}' has ${blocking.length} things that stop it being stored.`,
+      'Nothing was written — the stored design is untouched. These make the document ambiguous (not a design judgement); fix them and save again.',
+      blocking,
+    ),
+  };
+}
+
+/**
+ * What a save kept as findings, as a response header (`X-WireHub-Findings:
+ * 2 problems, 1 warning to look at`) — the body stays the stored design. The
+ * full list is `GET /api/designs/:id/issues`; the editor computes its own.
+ */
+function findingsHeader(findings: Issue[]): Record<string, string> {
+  const line = savedWithFindings(findings);
+  return line === undefined ? {} : { 'X-WireHub-Findings': line };
+}
+
+/**
+ * `GET /api/designs/:id/issues`: what the stored working copy's checks find —
+ * errors, warnings and notes, the save's own validation (`validated`) without
+ * a save. For scripts and agents; the editor checks as it edits.
+ */
+async function designIssues(deps: WorkbenchDeps, id: DesignId): Promise<ApiResponse> {
+  const design = await deps.designs.read(id);
+  if (design === undefined) return notFound(id);
+  const db = await withDesignLibrary(deps, design, await deps.loadDb());
+  const issues = [...validateDesign(design, db), ...(deps.modules?.validate(design, db) ?? [])];
+  const count = (severity: string): number => issues.filter((i) => i.severity === severity).length;
+  return ok({ id, errors: count('error'), warnings: count('warning'), issues }, 200, { ETag: contentETag(design) });
 }
 
 /** `{ newId, newLabel }`, the body duplicate and rename share. */
@@ -604,7 +674,7 @@ async function getDesigns(deps: WorkbenchDeps): Promise<ApiResponse> {
     });
     if (deps.versions === undefined) return entry;
     // the release chip: current saved rev + unreleased changes
-    const release = await workingStatus(deps, summary.id, design);
+    const release = await workingStatus(deps, summary.id, design, { db });
     return {
       ...entry,
       ...(release.basedOnRev === undefined ? {} : { rev: release.basedOnRev }),
@@ -645,8 +715,8 @@ async function putDesign(deps: WorkbenchDeps, id: DesignId, body: unknown, ifMat
   const guard = checkIfMatch(ifMatch, contentETag(current), 'design', id);
   if (guard !== undefined) return guard;
 
-  const rejection = await validated(deps, parsed.design);
-  if (rejection !== undefined) return rejection;
+  const checked = await validated(deps, parsed.design);
+  if ('refusal' in checked) return checked.refusal;
   const taken = await refuseTakenDesignNumber(deps, id, 'productRef', parsed.design.productRef, current.productRef);
   if (taken !== undefined) return taken;
 
@@ -657,7 +727,7 @@ async function putDesign(deps: WorkbenchDeps, id: DesignId, body: unknown, ifMat
   const subject = { kind: 'design', id, label: saved.label };
   const pn = pnAssignedEvent(subject, 'productRef', current.productRef, saved.productRef);
   return {
-    ...ok(stored, 200, stored === undefined ? undefined : { ETag: contentETag(stored) }),
+    ...ok(stored, 200, stored === undefined ? undefined : { ETag: contentETag(stored), ...findingsHeader(checked.findings) }),
     ...(changes.length === 0 ? {} : { changes }),
     events: [{ type: 'design.saved', subject, summary: { action: 'updated', changes: clip(changes), instances: instanceCounts(saved), joints: saved.joints.length } }, ...(pn === undefined ? [] : [pn])],
   };
@@ -675,15 +745,15 @@ async function postDesign(deps: WorkbenchDeps, body: unknown): Promise<ApiRespon
   const id = parsed.design.id;
   if (await deps.designs.has(id)) return alreadyExists(id);
 
-  const rejection = await validated(deps, parsed.design);
-  if (rejection !== undefined) return rejection;
+  const checked = await validated(deps, parsed.design);
+  if ('refusal' in checked) return checked.refusal;
 
   await deps.designs.write(id, parsed.design);
   const created = await deps.designs.read(id);
   const made = created ?? parsed.design;
   const subject = { kind: 'design', id, label: made.label };
   const pn = pnAssignedEvent(subject, 'productRef', undefined, made.productRef);
-  return { ...ok(created, 201, created === undefined ? undefined : { ETag: contentETag(created) }), events: [{ type: 'design.saved', subject, summary: { action: 'created', instances: instanceCounts(made), joints: made.joints.length } }, ...(pn === undefined ? [] : [pn])] };
+  return { ...ok(created, 201, created === undefined ? undefined : { ETag: contentETag(created), ...findingsHeader(checked.findings) }), events: [{ type: 'design.saved', subject, summary: { action: 'created', instances: instanceCounts(made), joints: made.joints.length } }, ...(pn === undefined ? [] : [pn])] };
 }
 
 async function duplicateDesign(deps: WorkbenchDeps, id: DesignId, body: unknown): Promise<ApiResponse> {
@@ -703,8 +773,8 @@ async function duplicateDesign(deps: WorkbenchDeps, id: DesignId, body: unknown)
     // reader is never left guessing where the numbers came from
     src: `${source.src} — duplicated from design '${id}' in WireHub.`,
   };
-  const rejection = await validated(deps, copy);
-  if (rejection !== undefined) return rejection;
+  const checked = await validated(deps, copy);
+  if ('refusal' in checked) return checked.refusal;
 
   await deps.designs.write(move.newId, copy);
   const created = await deps.designs.read(move.newId);
@@ -736,8 +806,8 @@ async function renameDesign(deps: WorkbenchDeps, id: DesignId, body: unknown, if
     id: move.newId,
     ...(move.newLabel === undefined ? {} : { label: move.newLabel }),
   };
-  const rejection = await validated(deps, renamed);
-  if (rejection !== undefined) return rejection;
+  const checked = await validated(deps, renamed);
+  if ('refusal' in checked) return checked.refusal;
 
   if (move.newId !== id && ((await deps.versions?.revisions(move.newId))?.length ?? 0) > 0) {
     return fail(409, `'${move.newId}' still has saved versions from an earlier design.`, 'Choose a different id.');
@@ -948,11 +1018,13 @@ async function getAssetFile(deps: WorkbenchDeps, id: string): Promise<ApiRespons
 const ROUTES = [
   'GET    /api/designs',
   'GET    /api/designs/:id',
+  'GET    /api/designs/:id/issues',
   'PUT    /api/designs/:id',
   'POST   /api/designs',
   'POST   /api/designs/:id/duplicate',
   'POST   /api/designs/:id/rename',
   'DELETE /api/designs/:id',
+  ...DESIGN_TAG_ROUTES,
   ...ASSEMBLY_ROUTES,
   'GET    /api/db',
   'GET    /api/export',
@@ -975,10 +1047,19 @@ const ROUTES = [
   ...SETTINGS_ROUTES,
   ...PN_SETTINGS_ROUTES,
   ...RULES_ROUTES,
+  ...PROCESSES_ROUTES,
   ...RESOLVER_ROUTES,
   ...PRODUCT_ROUTES,
   ...REVISION_ROUTES,
+  ...ADOPT_ROUTES,
   ...PROPOSAL_ROUTES,
+  ...EXPLORE_ROUTES,
+  ...REPRESENTATION_ROUTES,
+  ...FIRMWARE_ROUTES,
+  ...KNOWLEDGE_ROUTES,
+  ...ENCLOSURE_ROUTES,
+  ...DEVICE_ROUTES,
+  ...PRINT_ROUTES,
   ...WEBHOOK_ROUTES,
   ...RUNTIME_SETTINGS_ROUTES,
   ...MODULE_SETTINGS_ROUTES,
@@ -987,10 +1068,14 @@ const ROUTES = [
   ...BUILDS_ROUTES,
   ...ME_ROUTES,
   ...PREFS_ROUTES,
+  ...INVENTORY_ROUTES,
+  ...UNIT_ROUTES,
   'GET    /api/backup',
   'POST   /api/backup/retry',
   ...HISTORY_ROUTES,
   ...JOB_ROUTES,
+  ...BOARD_OUTPUT_ROUTES,
+  ...REPRO_ROUTES,
   'ANY    /api/modules/:module/…',
   'POST   /api/modules/:module/_import/:importer',
   'GET    /api/modules/:module/_export/:exporter',
@@ -1162,8 +1247,15 @@ async function dispatchWorkbenchRequest(request: ApiRequest, deps: WorkbenchDeps
   }
   // a person's own UI preferences: not catalog data, so no unit of work, no history, and every role may write them
   if ((request.path.split('?')[0] ?? '').replace(/\/+$/, '') === '/api/me/prefs') return handlePrefsRequest(request, deps);
+  // workshop inventory: its own transactions, not catalog data (no unit of work, no change set)
+  if (isInventoryPath(request.path)) return handleInventoryRequest(request, deps, request.user ?? deps.localUser ?? LOCAL_FALLBACK);
+  if (isUnitsPath(request.path)) return handleUnitsRequest(request, deps, request.user ?? deps.localUser ?? LOCAL_FALLBACK);
   // jobs: a job's state, an import's plan published (§7.5)
   if (isJobPath(request.path)) return handleJobRequest(request, deps);
+  // native tool outputs of a board: the run pins the source and enqueues a job (docs/jobs-and-tool-packs.md)
+  if (isToolOutputsPath(request.path)) return handleToolOutputsRequest(request, deps);
+  // re-run and compare a tool run; portable packages with an offline verifier (repro/api.ts)
+  if (isReproPath(request.path)) return handleReproRequest(request, deps);
   const io = parseModuleIoPath(request.path);
   if (io !== undefined) return handleModuleIo(request, io, deps);
   const moduleRoute = findModuleRoute(request, deps.modules, deps.jobs, () => deps.runtimeSettings);
@@ -1193,6 +1285,27 @@ async function dispatchWorkbenchRequest(request: ApiRequest, deps: WorkbenchDeps
     const user = request.user ?? deps.localUser;
     const run = (): Promise<ApiResponse> => handleCodeModulesRequest({ ...request, ...(user === undefined ? {} : { user }) }, deps);
     return isWriteMethod(request.method) && !request.path.startsWith('/api/system/') ? withWriteLock(run) : run();
+  }
+  // print preparation of generated parts: a slicer job; profiles and variants commit as change sets
+  if (isPrintPath(request.path)) {
+    return handlePrintRequest(request, deps, {
+      transact: (write) =>
+        withWriteLock(async () => {
+          const uow = new UnitOfWork(deps);
+          const answered = await write(uow.deps);
+          const response = await commitUnit(uow, request, answered);
+          if (response.status < 400 && uow.changes.length > 0) await publishCatalog(deps);
+          return response;
+        }),
+    });
+  }
+  // generated enclosures: a job runs the pack; its outputs commit as one change set (enclosures/job.ts)
+  if (isEnclosurePath(request.path)) {
+    return handleEnclosureRequest(request, deps);
+  }
+  // device exports: the whole device through the enclosure pack (devices/api.ts)
+  if (isDevicePath(request.path)) {
+    return (await import('./devices/api.ts')).handleDeviceRequest(request, deps);
   }
   if (isModelPath(request.path)) {
     const ifMatch = request.headers?.['if-match'];
@@ -1249,6 +1362,13 @@ async function dispatchWorkbenchRequest(request: ApiRequest, deps: WorkbenchDeps
     if (request.method.toUpperCase() !== 'POST') return methodNotAllowed(request.method.toUpperCase(), ['POST']);
     return withWriteLock(() => runBatch(request, deps));
   }
+  // the photo-metadata rewrite commits its repoint, then drops the pre-strip copies nothing names any more
+  if ((request.path.split('?')[0] ?? '') === '/api/knowledge/strip-photo-metadata' && request.method.toUpperCase() === 'POST' && !isDryRun(request.path)) {
+    const { handlePhotoRewriteCommitted } = await import('./photo-metadata-rewrite.ts');
+    return handlePhotoRewriteCommitted(request, deps);
+  }
+  // a firmware compile writes its build record in units of work of its own (it finishes later)
+  if (isFirmwareCompilePath(request.path, request.method)) return handleFirmwareCompile(request, deps);
   const run = async (): Promise<ApiResponse> => {
     const uow = new UnitOfWork(deps);
     const answered = await routeWorkbenchRequest(request, uow.deps);
@@ -1320,6 +1440,10 @@ async function runBatch(request: ApiRequest, deps: WorkbenchDeps): Promise<ApiRe
   if (scopes !== undefined && !scopes.includes('imports') && batch.requests.some((r) => r.path.startsWith('/api/docs/'))) {
     return fail(403, 'The token lacks scope imports.', 'Nothing was written.');
   }
+  // a draft-work grant: every request in the batch must be a draft write too
+  const draftOnly = scopes !== undefined && !scopes.includes('catalog:write') && scopes.includes(DRAFT_SCOPE);
+  const outside = draftOnly ? batch.requests.findIndex((r) => !isDraftWrite(r.method, r.path) || r.path.startsWith('/api/batch')) : -1;
+  if (outside >= 0) return fail(403, `Request ${outside} is not draft work, and the token is a draft-work grant (drafts:write).`, 'Nothing was written. It creates and edits designs and library items only.');
   const uow = new UnitOfWork(deps);
   const results: { status: number; body: unknown; etag?: string }[] = [];
   const events: DomainEvent[] = [];
@@ -1337,12 +1461,6 @@ async function runBatch(request: ApiRequest, deps: WorkbenchDeps): Promise<ApiRe
   if (committed.status >= 400) return { status: committed.status, body: { ...(committed.body as object), committed: false, results } };
   if (uow.changes.length > 0) await publishCatalog(deps);
   return events.length === 0 ? committed : { ...committed, events };
-}
-
-/** Tell the event stream the catalog moved (a backend that hears its own NOTIFY drops this). */
-export async function publishCatalog(deps: WorkbenchDeps): Promise<void> {
-  if (deps.events === undefined) return;
-  deps.events.publish({ type: 'catalog', version: String((await deps.catalogVersion?.()) ?? '') });
 }
 
 /**
@@ -1373,30 +1491,6 @@ async function docRequest(method: string, path: string, body: unknown, deps: Wor
   if (body === undefined) return fail(400, 'Send the document as the body.');
   await deps.docs.write(path, body);
   return ok({ path, module: owner.module }, 200, { ETag: contentETag(body) });
-}
-
-/**
- * Commit what a unit of work staged when the handler answered < 400, mapping
- * a stale precondition to the 409 and a read-only backend to 503 — nothing
- * is written in either case.
- */
-export async function commitUnit(uow: UnitOfWork, request: Pick<ApiRequest, 'method' | 'path' | 'user' | 'body'>, response: ApiResponse): Promise<ApiResponse> {
-  if (response.status >= 400) return response;
-  try {
-    await uow.commit({
-      method: request.method.toUpperCase(),
-      path: request.path,
-      ...(request.user === undefined ? {} : { user: request.user }),
-      ...(request.body === undefined ? {} : { body: request.body }),
-      ...(request.user?.apiTokenId === undefined ? {} : { apiTokenId: request.user.apiTokenId }),
-    });
-  } catch (error) {
-    if (error instanceof StaleRecordError) return staleWriteResponse(error.kind, error.key);
-    if (error instanceof CommitRefusedError) return fail(error.status, error.message, error.hint);
-    if (error instanceof ReadOnlyBackendError) return fail(503, error.message, 'Nothing was written. This hub serves its catalog read-only for now.');
-    throw error;
-  }
-  return response;
 }
 
 /**
@@ -1440,6 +1534,9 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
   }
 
   const user = request.user ?? deps.localUser ?? LOCAL_FALLBACK;
+  if (head === 'representations') return handleRepresentationRequest(request, parts, deps);
+  if (head === 'firmware') return handleFirmwareRequest(request, parts, deps);
+  if (head === 'knowledge') return handleKnowledgeRequest(request, parts, deps);
   if (head === 'me' && id === undefined) {
     return method === 'GET' ? ok({ user, ...(deps.instance === undefined ? {} : { instance: deps.instance }) }) : methodNotAllowed(method, ['GET']);
   }
@@ -1459,7 +1556,8 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
     if (method !== 'GET') return methodNotAllowed(method, ['GET']);
     if (!/^[0-9a-f]{64}$/.test(id)) return fail(400, `${JSON.stringify(id)} is not a content address.`, 'A blob is named by the sha256 of its bytes: 64 lowercase hex digits.');
     if (deps.blob === undefined) return fail(501, 'This hub does not serve blobs by content address.', 'Use /api/assets/:id for uploaded files.');
-    const found = await deps.blob(id);
+    // a tool run's output is served by its content address too (it is not a catalog blob)
+    const found = (await deps.blob(id)) ?? (await deps.toolOutputs?.file(id));
     if (found === undefined) return fail(404, `There is no blob ${id}.`, 'It may never have been uploaded, or it was removed after nothing used it.');
     return {
       status: 200,
@@ -1478,6 +1576,8 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
     // an owner-only settings group's document is shown to owners only, like its page
     const docPath = parts.slice(2).join('/');
     if (isOwnerOnlySettingsPath(docPath) && !(user.role === undefined || user.role === 'owner')) return fail(403, `${docPath} is shown to owners.`);
+    // commissioning is authorised separately from other writes (firmware/commission.ts)
+    if (method !== 'GET' && isCommissionDocPath(docPath)) return fail(403, 'Commissioning records are added through POST /api/firmware/:id/commissions.');
     return await docRequest(method, docPath, request.body, deps, request.headers?.['if-match']);
   }
 
@@ -1497,7 +1597,7 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
   }
 
   if ((head === 'exports' && id === undefined) || (head === 'designs' && (action === 'documents' || action === 'exports')) || (head === 'definitions' && id === 'wires' && parts[4] === 'wire-spec')) {
-    const documents = await handleDocumentRequest(method, parts, new URLSearchParams(request.path.split('?')[1] ?? ''), deps);
+    const documents = await handleDocumentRequest(method, parts, new URLSearchParams(request.path.split('?')[1] ?? ''), deps, request.headers);
     if (documents !== undefined) return documents;
   }
 
@@ -1537,10 +1637,14 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
 
   if (isWebhooksPath(parts)) return await handleWebhooksRequest(method, parts, request.path, request.body, deps, ifMatch, request.user ?? deps.localUser);
   if (isRulesPath(parts)) return await handleRulesRequest(method, parts, request.body, deps, ifMatch);
+  if (isProcessesPath(parts)) return await handleProcessesRequest(method, parts, request.body, deps, ifMatch);
   if (isResolverPath(parts)) return await handleResolverRequest(method, parts, request.path, request.body, deps, ifMatch);
   if (isProductsPath(parts)) return await handleProductsRequest(method, parts, request.path, request.body, deps, ifMatch);
   if (isRevisionsPath(parts)) return await handleRevisionsRequest(method, parts, request.body, deps, ifMatch, request.user);
+  if (isAdoptPath(parts)) return await handleAdoptRequest(request, parts, deps, routeWorkbenchRequest);
+  if (isDesignTagsPath(parts)) return await handleDesignTagsRequest(request, deps, routeWorkbenchRequest);
   if (isProposalsPath(parts)) return await handleProposalsRequest(method, parts, request.path, request.body, deps, request.user);
+  if (isExplorePath(parts)) return await handleExploreRequest(method, parts, request.path, request.body, deps, ifMatch, request.user ?? deps.localUser, routeWorkbenchRequest, request);
   if (isPnSettingsPath(parts)) return await handlePartNumberSettings(method, parts, request.body, deps, ifMatch, request.user ?? deps.localUser);
 
   const settings = await handleSettingsRequest(method, parts, request.body, { ...deps, store: storeDepsOf(deps) }, ifMatch, request.user ?? deps.localUser);
@@ -1555,6 +1659,8 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
   const builds = await handleBuildsRequest(method, parts, request.body, deps, ifMatch);
   if (builds !== undefined) return builds;
 
+  // the released document manifest of a saved revision (document-manifest.ts)
+  if (head === 'designs' && action === 'versions' && rest.length === 2 && rest[1] === 'documents') return await handleDocumentManifest(method, id as string, rest[0] as string, deps);
   const versions = await handleVersionRequest(method, parts, request.body, deps, user);
   if (versions !== undefined) return versions;
 
@@ -1583,6 +1689,7 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
       if (method === 'DELETE') return await deleteDesign(deps, id, request.body);
       return methodNotAllowed(method, ['GET', 'PUT', 'DELETE']);
     }
+    if (rest.length === 0 && action === 'issues') return method === 'GET' ? await designIssues(deps, id) : methodNotAllowed(method, ['GET']);
     if (rest.length === 0 && (action === 'duplicate' || action === 'rename')) {
       if (method !== 'POST') return methodNotAllowed(method, ['POST']);
       return action === 'duplicate'

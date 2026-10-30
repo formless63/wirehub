@@ -5,6 +5,7 @@
  * run inside the validators, so their findings are in each design's issues panel.
  */
 
+import { newRecordId } from '../display.ts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState, type JSX } from 'react';
 import { toast } from 'sonner';
@@ -83,7 +84,7 @@ const pretty = (v: unknown): string => JSON.stringify(v, null, 2);
 export function RulesSettings(): JSX.Element {
   const editor = useRef<HTMLElement>(null);
   const client = useQueryClient();
-  const { me } = useStudio();
+  const { me, designs } = useStudio();
   const readOnly = me?.role === 'viewer';
   const query = useQuery(rulesQuery);
   const view = query.data;
@@ -119,7 +120,9 @@ export function RulesSettings(): JSX.Element {
       return undefined;
     }
     try {
-      return JSON.parse(editing.text) as Record<string, unknown>;
+      const rule = JSON.parse(editing.text) as Record<string, unknown>;
+      if (editing.replaces === undefined && (!rule['id'] || view?.rules.some((r) => r.id === rule['id']))) rule['id'] = newRecordId(String(rule['label'] || rule['message'] || 'rule'), view?.rules.map((r) => r.id) ?? [], 'rule');
+      return rule;
     } catch (error) {
       toast.error('That is not valid JSON.', { description: error instanceof Error ? error.message : undefined });
       return undefined;
@@ -143,7 +146,7 @@ export function RulesSettings(): JSX.Element {
     const rule = parse();
     if (rule === undefined || view === undefined) return;
     const others = view.local.filter((r) => r.id !== (editing?.replaces ?? rule['id']) && r.id !== rule['id']);
-    if (await persist([...others, rule], `Saved rule ${String(rule['id'])}. It runs on every design from now on.`)) {
+    if (await persist([...others, rule], `Saved ${String(rule['label'] || 'rule')}. It runs on every design from now on.`)) {
       setEditing(undefined);
       setResult(undefined);
     }
@@ -153,20 +156,16 @@ export function RulesSettings(): JSX.Element {
     if (view === undefined) return;
     const rule = { ...strip(r), enabled: r.enabled === false };
     const others = view.local.filter((x) => x.id !== r.id);
-    await persist([...others, rule], r.enabled === false ? `Rule ${r.id} is on.` : `Rule ${r.id} is off.`);
+    await persist([...others, rule], r.enabled === false ? `Rule ${r.label || 'rule'} is on.` : `Rule ${r.label || 'rule'} is off.`);
   };
 
   const remove = async (r: RuleView): Promise<void> => {
     if (view === undefined) return;
-    await persist(view.local.filter((x) => x.id !== r.id), `Removed rule ${r.id}.`);
+    await persist(view.local.filter((x) => x.id !== r.id), `Removed rule ${r.label || 'rule'}.`);
   };
 
   return (
-    <section ref={editor} className="mt-6 max-w-2xl border-t border-line pt-3" data-testid="rules-settings">
-      <h2 className="mb-1 text-sm font-semibold">Validation rules</h2>
-      <p className="mb-2 max-w-xl text-faint">
-        Checks written as data: what each rule is about, which of those it applies to, what must hold, a severity and a message. They run with the built-in checks, so they show in each design’s issues panel, and an error blocks a save. No code runs; complex cases stay code rules in a module.
-      </p>
+    <section ref={editor} className="max-w-2xl" data-testid="rules-settings">
       {view === undefined ? (
         <div className="text-faint">{query.isError ? 'The rules could not be read.' : 'Loading…'}</div>
       ) : (
@@ -175,7 +174,7 @@ export function RulesSettings(): JSX.Element {
           <ul>
             {view.rules.map((r) => (
               <li key={r.id} className="my-1 border border-line p-2" data-rule={r.id}>
-                <b>{r.id}</b> · {r.severity} · on {r.each}
+                <b>{r.label || r.message}</b> · {r.severity} · on {r.each}
                 {r.enabled === false ? ' · off' : ''}
                 {r.origin === 'pack' ? ` · from pack ${r.pack ?? ''}` : ''}
                 <div className="text-faint">{r.message}</div>
@@ -208,7 +207,7 @@ export function RulesSettings(): JSX.Element {
                 options={RULE_EXAMPLES.map((x, i) => ({ value: String(i), label: x.label }))}
                 onValueChange={(value) => {
                   const example = RULE_EXAMPLES[Number(value)];
-                  if (example !== undefined) setEditing({ text: pretty(example.rule) });
+                  if (example !== undefined) setEditing({ text: pretty({ ...example.rule, label: example.label }) });
                 }}
               />
             </div>
@@ -236,7 +235,7 @@ export function RulesSettings(): JSX.Element {
                   {(result.designs ?? []).length === 0 && (result.library?.issues ?? 0) === 0 ? ': nothing today.' : ':'}
                   {(result.designs ?? []).map((d) => (
                     <div key={d.id}>
-                      <b>{d.id}</b>: {d.examples.map((x) => x.message).join('; ')}
+                      <b>{designs.find((design) => design.id === d.id)?.label ?? 'Unavailable design'}</b>: {d.examples.map((x) => x.message).join('; ')}
                       {d.issues > d.examples.length ? ` (and ${d.issues - d.examples.length} more)` : ''}
                     </div>
                   ))}

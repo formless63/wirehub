@@ -92,7 +92,7 @@ function serve(): void {
 
 /** module panels sit in a collapsed ModuleSlot: open the one inside `container` */
 const openSlot = (container: HTMLElement): void => {
-  const toggle = container.querySelector('.cs-module-slot-toggle');
+  const toggle = container.querySelector('[data-module-slot] .cs-ui-section-toggle');
   if (toggle?.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
 };
 
@@ -160,10 +160,11 @@ describe('cable panels and exports', () => {
     await waitFor(() => expect((window as unknown as { exported?: { fileName: string } }).exported?.fileName).toBe('de9-crossover-joints.csv'));
   });
 
-  it('adds nothing to the editor when no module contributes', async () => {
+  it('adds no module panels to the editor when no module contributes', async () => {
     mount('/cables/de9-crossover', EMPTY_REGISTRY);
     await waitFor(() => expect(screen.getByTestId('open-id').textContent).toBe('de9-crossover'));
-    expect(seen.editor?.['extensions']).toBeUndefined();
+    // the hub's own firmware links and notes always join the inspector; nothing else does
+    expect(Object.keys((seen.editor?.['extensions'] ?? {}) as object)).toEqual(['inspector']);
     expect(screen.queryByTestId('example-inspector')).toBeNull();
   });
 });
@@ -191,7 +192,7 @@ describe('the Library', () => {
       fireEvent.change(input, { target: { files: [file] } });
     });
     const review = await screen.findByRole('dialog', { name: 'Review import' });
-    expect(review.textContent).toContain('1 new components: ex-r-1k');
+    expect(review.textContent).toContain('1 new components: Example resistor 1 kΩ');
     expect(review.textContent).toContain('Check: line 3');
     // nothing is written before Accept
     expect((await handleWorkbenchRequest({ method: 'GET', path: '/api/definitions/components/ex-r-1k' }, deps)).status).toBe(404);

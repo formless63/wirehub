@@ -64,7 +64,7 @@ export function categoryOfRef(ref: string, lib = ''): ComponentCategory {
   if (prefix === 'Q') return 'transistor';
   if (prefix === 'U' || prefix === 'IC') return 'ic';
   if (prefix === 'VR') return 'regulator';
-  if (prefix === 'J' || prefix === 'P' || prefix === 'CN' || prefix === 'X' || prefix === 'CON' || /^Connector/i.test(lib)) return 'connector';
+  if (prefix === 'J' || prefix === 'P' || prefix === 'CN' || prefix === 'X' || prefix === 'CON' || prefix === 'USB' || /^Connector/i.test(lib)) return 'connector';
   return 'other';
 }
 

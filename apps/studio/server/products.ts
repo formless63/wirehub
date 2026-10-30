@@ -21,6 +21,7 @@ import {
   lineupCsv,
   lineupRows,
   mergeProducts,
+  integrityIssues,
   productIssues,
   splitProduct,
   suggestVariantNumber,
@@ -70,7 +71,7 @@ async function packOwners(deps: WorkbenchDeps): Promise<Map<string, string>> {
 export async function releasedOf(deps: WorkbenchDeps, designs: readonly CableDesign[]): Promise<Map<string, number | undefined>> {
   const out = new Map<string, number | undefined>();
   for (const d of designs) {
-    const status = await workingStatus(deps, d.id, d);
+    const status = await workingStatus(deps, d.id, d, { inputs: false });
     out.set(d.id, status.approvals === true ? status.releasedRev : status.latestRev);
   }
   return out;
@@ -133,7 +134,8 @@ function changeEvents(before: readonly ProductFamily[], after: readonly ProductF
 /** Write `next` as this hub's own families, refusing a list with errors; the answer carries the events. */
 async function store(deps: WorkbenchDeps, next: ProductFamily[], before: ProductFamily[], action?: string): Promise<ApiResponse> {
   const designs = await readAllDesigns(deps.designs);
-  const errors = productIssues(next, { designs }).filter((i) => i.severity === 'error');
+  // a variant naming a design not made yet is a finding (the view lists it); only ambiguous ids refuse
+  const errors = integrityIssues(productIssues(next, { designs }));
   if (errors.length > 0) return fail(422, `Those products cannot be used: ${errors[0]!.message}${errors.length > 1 ? ` (and ${errors.length - 1} more)` : ''}.`, 'Nothing was saved.', { issues: errors });
   // where a pack was merged into the catalog its families sit in this document; the ones not mentioned stay
   const owners = await packOwners(deps);

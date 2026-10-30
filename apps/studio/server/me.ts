@@ -22,8 +22,20 @@ export interface StudioUser {
   source: 'session' | 'local';
   /** the personal API token this request came with (its id, for the change set's audit only) */
   apiTokenId?: string;
+  /** that token's label, shown in authorship (`actorName`) */
+  apiTokenName?: string;
   /** that token's scopes (a batch checks `imports` for doc writes) */
   apiTokenScopes?: readonly string[];
+  /** a budgeted token's writes: its budget and how many it has made, this request's included */
+  apiTokenWrites?: { budget: number; used: number };
+}
+
+/** Who a change is credited to: the person, and when the request came with an API token, that token ("Owner via token mcp-probe (agent draft grant)"). */
+export function actorName(user: Pick<StudioUser, 'name' | 'apiTokenId' | 'apiTokenName' | 'apiTokenScopes'> | undefined): string | undefined {
+  if (user === undefined) return undefined;
+  if (user.apiTokenId === undefined) return user.name;
+  const grant = user.apiTokenScopes?.includes('drafts:write') === true && !user.apiTokenScopes.includes('catalog:write') ? ' (agent draft grant)' : '';
+  return `${user.name} via token ${user.apiTokenName ?? user.apiTokenId.slice(0, 8)}${grant}`;
 }
 
 export const ME_ROUTES = ['GET    /api/me'] as const;

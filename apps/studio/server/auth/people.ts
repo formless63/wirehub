@@ -180,7 +180,11 @@ export function pgPeople(db: Db, orgRef: OrgRef, options: { now?: () => Date } =
             Number(
               (
                 await sql<{ n: string }>`
-                  SELECT count(*)::text AS n FROM studio.person p JOIN auth.account a ON a."userId" = p.auth_user_id
+                  SELECT count(*)::text AS n FROM studio.person p
+                    -- a person is linked to their sign-in user on the first signed-in request, so
+                    -- the setup admin (or an account made over the API) may still be unlinked: match by email
+                    JOIN auth."user" u ON u.id = p.auth_user_id OR (p.auth_user_id IS NULL AND lower(u.email) = p.email)
+                    JOIN auth.account a ON a."userId" = u.id
                    WHERE p.disabled_at IS NULL AND p.role <> 'service' AND a.password IS NOT NULL`.execute(tx)
               ).rows[0]?.n ?? 0,
             ) > 0,

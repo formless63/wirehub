@@ -102,6 +102,20 @@ export function deriveContinuityExport(
     ...(check.netB === undefined ? {} : { netB: check.netB }),
   }));
   const opens: ContinuityOpen[] = spec.openChecks.map((check) => ({ id: check.id, kind: check.openKind, point: check.text, why: check.rationale }));
+  const boardTrace: ContinuityExport['boardTrace'] | undefined =
+    spec.boardTrace === undefined
+      ? undefined
+      : {
+          paths: spec.boardTrace.paths.map((row, index) => ({
+            id: `board-path/${index + 1}`,
+            from: row.from,
+            to: row.to,
+            kind: row.kind,
+            boards: row.boards,
+            hops: row.hops,
+          })),
+          findings: spec.boardTrace.findings.map((f) => ({ kind: f.kind, code: f.code, where: f.where, message: f.message })),
+        };
   return {
     format: CONTINUITY_FORMAT,
     version: CONTINUITY_VERSION,
@@ -112,6 +126,7 @@ export function deriveContinuityExport(
     connections,
     isolation,
     opens,
+    ...(boardTrace === undefined ? {} : { boardTrace }),
   };
 }
 
@@ -140,7 +155,10 @@ export const CONTINUITY_CSV_HEADERS = [
  * - `isolation`: `from` and `to` must read at or above `limit` megohms at `test_volts` held for `duration_s`;
  * - `hipot`: only when a hipot voltage is set: the withstand test at `test_volts` held for `duration_s`, leakage above
  *   `limit` microamps fails (`from` is `*`: every pair of isolated nets);
- * - `open`: a deliberate open at `from`.
+ * - `open`: a deliberate open at `from`;
+ * - `board-path`: `from` reaches `to` across a board's native nets; `expect` is `copper`, `passive` or `active`
+ *   (a declared passage through silicon, not continuity); `note` lists the non-copper hops;
+ * - `board-finding`: something the board trace could not claim at `from`; `expect` is its kind, `note` the message.
  */
 export function continuityTable(data: ContinuityExport): Table {
   const p = data.parameters;
@@ -164,6 +182,10 @@ export function continuityTable(data: ContinuityExport): Table {
       p.hipotVolts, p.hipotSeconds ?? '', 'applied between every pair of isolated nets',
     ]);
   }
+  for (const b of data.boardTrace?.paths ?? []) {
+    rows.push(['board-path', b.id, '', '', b.from, b.to, b.kind, '', '', '', '', b.hops.filter((h) => h.kind !== 'copper').map((h) => `${h.kind}: ${h.description}`).join(' → ')]);
+  }
+  for (const f of data.boardTrace?.findings ?? []) rows.push(['board-finding', f.code, '', '', f.where, '', f.kind, '', '', '', '', f.message]);
   for (const o of data.opens) rows.push(['open', o.id, '', '', o.point, '', 'open', '', '', '', '', `${o.kind}: ${o.why}`]);
   return { name: 'Continuity', headers: CONTINUITY_CSV_HEADERS, rows };
 }

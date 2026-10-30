@@ -138,7 +138,14 @@ export function VersionsPanel(props: { id: string; open: boolean; onOpenChange: 
     // (drawing-form bug) — hand the open drawing form's
     // adapter the fresh tag so its next save does not find out as a 409
     if (out.value.drawingTag !== undefined) studio.drawings.noteTag(id, out.value.drawingTag);
-    toast.success(`Saved Rev ${out.value.version.rev}`, { description: 'Locked. Documents now use it.' });
+    // what the save captured on its own: placed designs saved for it, findings kept with it
+    const auto = (out.value.captured ?? []).filter((c) => c.auto).map((c) => `${c.design} Rev ${c.rev}`);
+    const kept = out.value.version.findings;
+    const extra = [
+      auto.length === 0 ? '' : ` Also saved ${auto.join(', ')} to capture ${auto.length === 1 ? 'it' : 'them'}.`,
+      kept === undefined ? '' : ` Kept ${kept.errors} unresolved error${kept.errors === 1 ? '' : 's'} and ${kept.warnings} warning${kept.warnings === 1 ? '' : 's'} with it.`,
+    ].join('');
+    toast.success(`Saved Rev ${out.value.version.rev}`, { description: `Locked, with its inputs captured. Documents now use it.${extra}` });
     await refresh();
   }
 
@@ -165,8 +172,8 @@ export function VersionsPanel(props: { id: string; open: boolean; onOpenChange: 
     ? 'Save your edits first (Ctrl S) — a version is made from the saved working copy'
     : working !== undefined && latest !== undefined && !working.unreleased
       ? `Nothing changed since Rev ${String(working.basedOnRev)}`
-      : note.trim() === ''
-        ? 'Write a note first — what is this revision?'
+      : working?.inputsChanged !== undefined
+        ? `Save Rev ${String(working.nextRev)} with the changed ${working.inputsChanged.join(', ')}`
         : `Save the working copy as Rev ${String(working?.nextRev)}, locked`;
 
   return (
@@ -180,9 +187,7 @@ export function VersionsPanel(props: { id: string; open: boolean; onOpenChange: 
           <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
             <IconHistory size={16} className="text-dim" />
             <Dialog.Title className="m-0 text-sm font-semibold">Versions</Dialog.Title>
-            <span className="min-w-0 truncate text-xs text-faint" title={id}>
-              {id}
-            </span>
+            <span className="min-w-0 truncate text-xs text-faint">{studio.cableId === id ? studio.design?.label ?? '' : ''}</span>
             <span className="grow" />
             <Dialog.Close asChild>
               <button type="button" aria-label="Close" className="flex h-7 w-7 items-center justify-center rounded-md border-0 bg-transparent text-dim hover:text-ink">
@@ -205,7 +210,15 @@ export function VersionsPanel(props: { id: string; open: boolean; onOpenChange: 
                     </span>
                   )}
                   <span className="grow" />
-                  {working.unreleased ? (
+                  {working.inputsChanged !== undefined ? (
+                    <span
+                      className="rounded-sm border border-warn px-1 font-mono text-2xs leading-[14px] tracking-wide text-warn uppercase"
+                      title={`Changed since Rev ${String(working.basedOnRev)}: ${working.inputsChanged.join(', ')}`}
+                      data-testid="inputs-changed"
+                    >
+                      inputs changed
+                    </span>
+                  ) : working.unreleased ? (
                     <span
                       className="rounded-sm border border-warn px-1 font-mono text-2xs leading-[14px] tracking-wide text-warn uppercase"
                       title="The working copy differs from its saved revision — printing it marks it UNRELEASED"
@@ -229,14 +242,14 @@ export function VersionsPanel(props: { id: string; open: boolean; onOpenChange: 
                     aria-label="Version note"
                     value={note}
                     onChange={(event) => setNote(event.target.value)}
-                    placeholder={`Rev ${working.nextRev} — what changed?`}
+                    placeholder="Note (optional)"
                     className={TEXT_INPUT}
                   />
                   <button
                     type="submit"
                     className={PRIMARY_BUTTON}
                     title={saveTitle}
-                    disabled={busy || dirty || note.trim() === '' || (latest !== undefined && !working.unreleased)}
+                    disabled={busy || dirty || (latest !== undefined && !working.unreleased)}
                   >
                     <IconLock size={13} /> Save Rev {working.nextRev}
                   </button>

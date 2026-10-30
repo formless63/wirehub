@@ -1,12 +1,17 @@
 /**
  * `/cables` — the design list: a `DataTable` (sticky header, sortable columns, a column menu,
  * focusable rows, virtualised) over `CableListEntry[]` (`../cable-list.ts`), a text filter,
- * multi-select filter chips (Source / Destination / Wire / Board / Status), the unsaved dot, and
- * `New design`. Selecting a row (click, or Enter on it) opens the 360 px `SidePanel` with the
+ * multi-select filter chips (Source / Destination / Wire / Board / Status / Tags / Project / Route),
+ * the unsaved dot, and `New design`. Selecting a row (click, or Enter on it) opens the 360 px `SidePanel` with the
  * design's facts and actions; Enter again, a double click or the design's name opens it.
  *
  * Filtering and sorting live in the URL (`CablesSearch`, `router.tsx`), so a shared link or a
  * reload reopens the same view — see `specs/ui-redesign.md` "Information architecture".
+ *
+ * **Tags and bulk tagging** (`docs/design-tags.md`). A design's free tags show as chips (a Tags
+ * column, the phone card and the side panel); the Tags chip filters by them (any of the chosen),
+ * the Project chip by the designs a project lists, the Route chip by make / CM / buy. An editor
+ * ticks rows (or "Select all N matching") and adds or removes a tag on all of them in one request.
  *
  * **New design.** The wizard is hosted once at the shell (`shell/NewCableWizardHost.tsx`, driven
  * by `studio.newCableOpen`) so the palette's "New design" command can open it from any route; this
@@ -15,14 +20,16 @@
 
 import { useMemo, useState, type JSX } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { IconFilter, IconStack2 } from '@tabler/icons-react';
-import { Button, Chip, DataTable, FilterChip, FilterMenu, Input, KeyValues, Page, PageBody, Popover, SidePanel, Toolbar, type DataColumn, type FilterGroup } from '@wirehub/editor-react';
-import { DESIGN_STATUSES } from '@wirehub/model';
+import { Button, Checkbox, Chip, DataTable, FilterChip, FilterMenu, Input, KeyValues, Page, PageBody, Popover, SidePanel, Toolbar, type DataColumn, type FilterGroup } from '@wirehub/editor-react';
+import { DESIGN_KIND_LABELS, DESIGN_KINDS, DESIGN_STATUSES, designKind, type DesignKind, type PartRoute } from '@wirehub/model';
 
 import type { CableListEntry } from '../cable-list.ts';
 import { offlineCopyFrom } from '../catalog.browser.ts';
 import { useIsNarrow } from '../hooks/useIsNarrow.ts';
+import { describeRef } from '../knowledge.ts';
+import { fetchKnowledgeIndex, knowledgeIndexKey } from '../knowledge.browser.ts';
 import { entryMatches } from '../pn-search.ts';
 import { cableListKey, loadCableList } from '../queries.ts';
 import { cablesRoute, type CableListSort, type CablesSearch } from '../router.tsx';
@@ -30,15 +37,22 @@ import { EMPTY_PRIMARY, EmptyState } from '../shell/EmptyState.tsx';
 import { NewHubStrip } from '../shell/NewHubStrip.tsx';
 import { StatusChip } from '../shell/StatusChip.tsx';
 import { RouteChip } from '../shell/RouteChip.tsx';
+import { BulkTagBar, TagChips } from '../shell/DesignTags.tsx';
 import { RouteHeader } from '../shell/RouteHeader.tsx';
 import { RevChip } from '../versions/RevChip.tsx';
 import { useStudio } from '../studio-context.tsx';
 import { LockMarker } from '../locks/LockMarker.tsx';
 import { designRecord } from '../locks/records.ts';
+import { RecordCover } from '../RecordCover.tsx';
 
 /** portrait phone widths: the row becomes a stacked card — title line, destination line, a small facts line */
 const MOBILE_ROW_HEIGHT = 92;
 const DESKTOP_ROW_HEIGHT = 30;
+
+/** The Route chip's options: the three routes, and `none` for a design that does not say. */
+const ROUTE_OPTIONS = ['make', 'contract', 'buy', 'none'] as const;
+const ROUTE_OPTION_LABELS: Readonly<Record<(typeof ROUTE_OPTIONS)[number], string>> = { make: 'Make', contract: 'CM', buy: 'Buy', none: 'Not set' };
+const routeKey = (route: PartRoute | undefined): string => route ?? 'none';
 
 /** The chip/filter value of one trunk stock; a construction tag disambiguates, never the manufacturer. */
 export function wireText(wire: CableListEntry['wires'][number]): string {
@@ -66,6 +80,11 @@ function NotesCell({ entry }: { entry: CableListEntry }): JSX.Element {
   return (
     <span className="flex min-w-0 items-center gap-1 overflow-hidden">
       <StatusChip status={entry.status} />
+      {entry.kind === 'subassembly' ? (
+        <span title="Sub-assembly: finished into a cable, never sold on its own" data-kind="subassembly" className="shrink-0 rounded-sm border border-line2 px-1 font-mono text-2xs leading-[14px] tracking-wide text-dim uppercase">
+          sub
+        </span>
+      ) : null}
       <RouteChip route={entry.route} maker={entry.maker} />
       <RevChip rev={entry.rev} unreleased={entry.unreleased} />
       {(entry.features ?? []).map((f) => (
@@ -92,7 +111,7 @@ function MobileRow({ entry, dirty }: { entry: CableListEntry; dirty: boolean }):
         {dirty ? (
           <span title="Unsaved changes" aria-label="Unsaved changes" className="h-[6px] w-[6px] shrink-0 rounded-full bg-accent" />
         ) : null}
-        <span className="line-clamp-2 min-w-0 text-sm font-medium text-ink" title={`${entry.label}\n${entry.id}`}>
+        <span className="line-clamp-2 min-w-0 text-sm font-medium text-ink" title={entry.label}>
           {entry.label}
         </span>
         <span className="ml-auto shrink-0">
@@ -126,7 +145,8 @@ function MobileRow({ entry, dirty }: { entry: CableListEntry; dirty: boolean }):
             {f.text}
           </span>
         ))}
-        <span className="ml-auto min-w-0 truncate font-mono text-2xs">{entry.boardLabels.join(' · ') || entry.id}</span>
+        <TagChips tags={entry.tags} max={2} />
+        <span className="ml-auto min-w-0 truncate font-mono text-2xs">{entry.boardLabels.join(' · ')}</span>
       </span>
     </div>
   );
@@ -147,7 +167,7 @@ function PlaceInMenu({ entry, targets }: { entry: CableListEntry; targets: reado
       aria-label="Designs to place it in"
       onOpenChange={(open) => (open ? undefined : setNeedle(''))}
       trigger={
-        <Button title={`Place ${entry.id} in another design as a sub-assembly`} aria-label={`Place ${entry.id} in…`} icon={<IconStack2 size={14} aria-hidden />}>
+        <Button title={`Place ${entry.label} in another design as a sub-assembly`} aria-label={`Place ${entry.label} in…`} icon={<IconStack2 size={14} aria-hidden />}>
           Place in…
         </Button>
       }
@@ -164,7 +184,7 @@ function PlaceInMenu({ entry, targets }: { entry: CableListEntry; targets: reado
               className="flex w-full flex-col items-start rounded-sm border-0 bg-transparent px-2 py-1 text-left text-ink hover:bg-hover"
             >
               <span className="max-w-full truncate">{target.label}</span>
-              <span className="font-mono text-2xs text-faint">{target.id}</span>
+
             </button>
           ))}
         </div>
@@ -195,8 +215,37 @@ function partNumberDisplay(resolved: CableListEntry['partNumber']): { text: stri
 
 const productText = (row: CableListEntry): string => (row.products ?? []).map((p) => `${p.productLabel} · ${p.variantLabel}`).join('; ');
 
-function columnsFor(dirtyIds: readonly string[]): DataColumn<CableListEntry>[] {
-  return [
+/** The row's tick box: picked for bulk tagging. Its clicks and keys stay out of the row's select / open. */
+function PickCell({ entry, picked, onPick }: { entry: CableListEntry; picked: boolean; onPick: (id: string, on: boolean) => void }): JSX.Element {
+  return (
+    <span className="flex items-center justify-center" onClick={(event) => event.stopPropagation()} onDoubleClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
+      <Checkbox aria-label={`Select ${entry.label}`} checked={picked} onCheckedChange={(on) => onPick(entry.id, on)} />
+    </span>
+  );
+}
+
+interface ColumnOptions {
+  withProducts: boolean;
+  withTags: boolean;
+  /** the tick-box column: absent for a viewer or the offline copy */
+  pick?: { picked: ReadonlySet<string>; onPick: (id: string, on: boolean) => void };
+}
+
+function columnsFor(dirtyIds: readonly string[], options: ColumnOptions): DataColumn<CableListEntry>[] {
+  const { withProducts, withTags, pick } = options;
+  const all: DataColumn<CableListEntry>[] = [
+    ...(pick === undefined
+      ? []
+      : [
+          {
+            id: 'pick',
+            header: 'Select',
+            hideHeader: true,
+            fixed: true,
+            width: 32,
+            cell: (e: CableListEntry) => <PickCell entry={e} picked={pick.picked.has(e.id)} onPick={pick.onPick} />,
+          } satisfies DataColumn<CableListEntry>,
+        ]),
     {
       id: 'mark',
       header: 'Lock and unsaved state',
@@ -209,6 +258,14 @@ function columnsFor(dirtyIds: readonly string[]): DataColumn<CableListEntry>[] {
           {dirtyIds.includes(e.id) ? <span title="Unsaved changes" aria-label="Unsaved changes" className="h-[7px] w-[7px] rounded-full bg-accent" /> : null}
         </span>
       ),
+    },
+    {
+      id: 'cover',
+      header: 'Cover',
+      hideHeader: true,
+      width: 52,
+      // the shared cover: a cached static image per row, lazily loaded — never a live view
+      cell: (e) => <RecordCover kind="designs" id={e.id} label={e.label} compact thumbClass="h-6 w-11" />,
     },
     {
       id: 'partNumber',
@@ -232,7 +289,7 @@ function columnsFor(dirtyIds: readonly string[]): DataColumn<CableListEntry>[] {
       fixed: true,
       sortValue: (r) => r.label,
       cell: (r) => (
-        <Link to="/cables/$id" params={{ id: r.id }} className="line-clamp-2 min-w-0 whitespace-normal text-sm leading-[13px] font-medium text-ink no-underline hover:underline" title={`${r.label}\n${r.id}`}>
+        <Link to="/cables/$id" params={{ id: r.id }} className="line-clamp-2 min-w-0 whitespace-normal text-sm leading-[13px] font-medium text-ink no-underline hover:underline" title={r.label}>
           {r.label}
         </Link>
       ),
@@ -246,6 +303,7 @@ function columnsFor(dirtyIds: readonly string[]): DataColumn<CableListEntry>[] {
       sortValue: (r) => [r.status === 'active' ? '' : r.status, ...(r.features ?? []).map((f) => f.text)].join(' '),
       cell: (r) => <NotesCell entry={r} />,
     },
+    { id: 'tags', header: 'Tags', width: 130, sortValue: (r) => (r.tags ?? []).join(' '), cell: (r) => <TagChips tags={r.tags} /> },
     {
       id: 'boards',
       header: 'Boards',
@@ -254,6 +312,8 @@ function columnsFor(dirtyIds: readonly string[]): DataColumn<CableListEntry>[] {
       cell: (r) => truncated('font-mono text-2xs text-dim', r.boardLabels.join(' · '), `${r.boardLabels.join(' · ') || 'No boards'}\n${r.partCount} parts · ${r.jointCount} joints`),
     },
   ];
+  // a column nothing fills is noise: Product shows once a design is in a product, Tags once one has a tag
+  return all.filter((c) => (withProducts || c.id !== 'product') && (withTags || c.id !== 'tags'));
 }
 
 function uniqSorted(values: Iterable<string>): string[] {
@@ -271,6 +331,10 @@ function cleanSearch(next: CablesSearch): CablesSearch {
   if (next.board !== undefined && next.board.length > 0) out.board = next.board;
   if (next.source !== undefined && next.source.length > 0) out.source = next.source;
   if (next.status !== undefined && next.status.length > 0) out.status = next.status;
+  if (next.tag !== undefined && next.tag.length > 0) out.tag = next.tag;
+  if (next.project !== undefined && next.project.length > 0) out.project = next.project;
+  if (next.route !== undefined && next.route.length > 0) out.route = next.route;
+  if (next.kind !== undefined && next.kind.length > 0) out.kind = next.kind;
   return out;
 }
 
@@ -278,7 +342,10 @@ export function CablesRoute(): JSX.Element {
   const studio = useStudio();
   const navigate = useNavigate();
   const search = cablesRoute.useSearch();
+  const queryClient = useQueryClient();
   const [selected, setSelected] = useState<string>();
+  // the rows ticked for bulk tagging
+  const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set());
 
   // live from the workbench; the build-time copy only when it cannot be
   // reached, and then flagged (`offline`) under a read-only banner
@@ -288,6 +355,13 @@ export function CablesRoute(): JSX.Element {
   });
   const listOffline = listQuery.data?.offline === true;
   const entries = useMemo(() => listQuery.data?.entries ?? [], [listQuery.data]);
+  // projects, for the Project chip: the designs each one lists as items
+  const knowledgeQuery = useQuery({ queryKey: knowledgeIndexKey, queryFn: fetchKnowledgeIndex, retry: false });
+  const projects = useMemo(() => knowledgeQuery.data?.projects ?? [], [knowledgeQuery.data]);
+  const projectDesigns = useMemo(
+    () => new Map(projects.map((p) => [p.id, new Set(p.items.map(describeRef).filter((r) => r.type === 'design').map((r) => r.id))] as const)),
+    [projects],
+  );
 
   const setSearch = (patch: Partial<CablesSearch>): void => {
     void navigate({
@@ -300,12 +374,19 @@ export function CablesRoute(): JSX.Element {
   const wireOptions = useMemo(() => uniqSorted(entries.flatMap((e) => (e.wires ?? []).map(wireText))), [entries]);
   const boardOptions = useMemo(() => uniqSorted(entries.flatMap((e) => e.boardLabels)), [entries]);
   const sourceOptions = useMemo(() => uniqSorted(entries.map((e) => e.source)), [entries]);
+  const tagOptions = useMemo(() => uniqSorted(entries.flatMap((e) => e.tags ?? [])), [entries]);
+  const projectOptions = useMemo(() => [...projects].sort((a, b) => a.title.localeCompare(b.title)).map((p) => p.id), [projects]);
+  const projectTitles = useMemo(() => new Map(projects.map((p) => [p.id, p.title] as const)), [projects]);
 
   const dest = search.dest ?? [];
   const wire = search.wire ?? [];
   const board = search.board ?? [];
   const source = search.source ?? [];
   const status = search.status ?? [];
+  const tag = search.tag ?? [];
+  const project = search.project ?? [];
+  const route = search.route ?? [];
+  const kind = search.kind ?? [];
   const q = search.q ?? '';
 
   const filtered = useMemo(() => {
@@ -315,14 +396,19 @@ export function CablesRoute(): JSX.Element {
       if (wire.length > 0 && !(entry.wires ?? []).some((w) => wire.includes(wireText(w)))) return false;
       if (board.length > 0 && !entry.boardLabels.some((b) => board.includes(b))) return false;
       if (source.length > 0 && !source.includes(entry.source)) return false;
+      // any of the chosen tags; any of the chosen projects; any of the chosen routes
+      if (tag.length > 0 && !(entry.tags ?? []).some((t) => tag.includes(t))) return false;
+      if (project.length > 0 && !project.some((p: string) => projectDesigns.get(p)?.has(entry.id) === true)) return false;
+      if (route.length > 0 && !route.includes(routeKey(entry.route))) return false;
+      if (kind.length > 0 && !kind.includes(designKind(entry))) return false;
       // retired designs stay out of the list unless the Status filter asks for them
       if (status.length > 0 ? !status.includes(entry.status) : entry.status === 'retired') return false;
       if (needle === '') return true;
-      // label, id, wire, board — and every PN the cable answers to (drawing, lengths, parts)
+      // label, id, wire, board, tags — and every PN the cable answers to (drawing, lengths, parts)
       return entryMatches(entry, q);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entries, q, dest.join('\u0000'), wire.join('\u0000'), board.join('\u0000'), source.join('\u0000'), status.join('\u0000')]);
+  }, [entries, projectDesigns, q, dest.join('\u0000'), wire.join('\u0000'), board.join('\u0000'), source.join('\u0000'), status.join('\u0000'), tag.join('\u0000'), project.join('\u0000'), route.join('\u0000'), kind.join('\u0000')]);
 
   // retired designs are hidden by default — split the count instead of folding them into the denominator.
   const retiredCount = useMemo(() => entries.filter((e) => e.status === 'retired').length, [entries]);
@@ -331,7 +417,28 @@ export function CablesRoute(): JSX.Element {
   const countLabel = filtered.length === countTotal ? `${countTotal} designs` : `${filtered.length} of ${countTotal} designs`;
   const showRetiredHint = status.length === 0 && retiredCount > 0;
 
-  const columns = useMemo(() => columnsFor(studio.dirtyIds), [studio.dirtyIds]);
+  const withProducts = useMemo(() => entries.some((e) => (e.products ?? []).length > 0), [entries]);
+  const withTags = tagOptions.length > 0;
+  // bulk tagging is an edit: not for a viewer, never on the offline copy
+  const canTag = !listOffline && studio.me?.role !== 'viewer';
+  const pickedIds = useMemo(() => entries.filter((e) => picked.has(e.id)).map((e) => e.id), [entries, picked]);
+  const shownIds = useMemo(() => new Set(filtered.map((e) => e.id)), [filtered]);
+  const pickedTags = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const e of entries) if (picked.has(e.id)) for (const t of e.tags ?? []) counts.set(t, (counts.get(t) ?? 0) + 1);
+    return [...counts].map(([t, count]) => ({ tag: t, count })).sort((a, b) => a.tag.localeCompare(b.tag));
+  }, [entries, picked]);
+  const columns = useMemo(
+    () =>
+      columnsFor(studio.dirtyIds, {
+        withProducts,
+        withTags,
+        ...(canTag ? { pick: { picked, onPick: (id: string, on: boolean) => setPicked((prev) => { const next = new Set(prev); if (on) next.add(id); else next.delete(id); return next; }) } } : {}),
+      }),
+    [studio.dirtyIds, withProducts, withTags, canTag, picked],
+  );
+  // the first-steps strip is for a hub with nothing of its own yet: gone once a version is saved or the list is long
+  const ownWork = entries.some((e) => e.rev !== undefined) || entries.length > 30;
   const narrow = useIsNarrow();
   // below ~1100px the filter chips no longer fit the toolbar's one row: one Filters popover instead
   const toolbarCollapsed = useIsNarrow('(max-width: 1099px)');
@@ -343,6 +450,10 @@ export function CablesRoute(): JSX.Element {
     { label: 'Wire', options: wireOptions, selected: wire, onChange: (next) => setSearch({ wire: next }) },
     { label: 'Board', options: boardOptions, selected: board, onChange: (next) => setSearch({ board: next }) },
     { label: 'Status', options: [...DESIGN_STATUSES], selected: status, onChange: (next) => setSearch({ status: next }) },
+    { label: 'Tags', options: tagOptions, selected: tag, onChange: (next) => setSearch({ tag: next }) },
+    { label: 'Project', options: projectOptions, selected: project, onChange: (next) => setSearch({ project: next }), optionLabel: (id) => projectTitles.get(id) ?? id },
+    { label: 'Route', options: [...ROUTE_OPTIONS], selected: route, onChange: (next) => setSearch({ route: next }), optionLabel: (r) => ROUTE_OPTION_LABELS[r as (typeof ROUTE_OPTIONS)[number]] ?? r },
+    { label: 'Kind', options: [...DESIGN_KINDS], selected: kind, onChange: (next) => setSearch({ kind: next }), optionLabel: (k) => DESIGN_KIND_LABELS[k as DesignKind] ?? k },
   ];
 
   const chosen = entries.find((e) => e.id === selected);
@@ -368,6 +479,16 @@ export function CablesRoute(): JSX.Element {
               <span role="status" data-testid="offline-banner" className="text-warn">
                 offline copy from {offlineCopyFrom()} — read only
               </span>
+            ) : null}
+            {canTag && picked.size === 0 && filtered.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => setPicked(new Set(filtered.map((e) => e.id)))}
+                title="Tick every design the filter shows, to add or remove a tag on all of them"
+                className="border-0 bg-transparent p-0 font-mono text-2xs text-faint underline decoration-dotted hover:text-ink"
+              >
+                select {filtered.length}
+              </button>
             ) : null}
             {showRetiredHint ? (
               <button
@@ -396,14 +517,31 @@ export function CablesRoute(): JSX.Element {
         {toolbarCollapsed ? <FilterMenu groups={filterGroups} /> : filterGroups.map((group) => <FilterChip key={group.label} group={group} />)}
       </Toolbar>
 
-      <NewHubStrip firstDesign={entries[0]?.id} onNewDesign={studio.openNewCableWizard} />
+      {canTag && pickedIds.length > 0 ? (
+        <BulkTagBar
+          picked={pickedIds}
+          hidden={pickedIds.filter((id) => !shownIds.has(id)).length}
+          matching={filtered.length}
+          onSelectAll={() => setPicked(new Set(filtered.map((e) => e.id)))}
+          onClear={() => setPicked(new Set())}
+          knownTags={tagOptions}
+          pickedTags={pickedTags}
+          onDone={() => {
+            void queryClient.invalidateQueries({ queryKey: cableListKey });
+            // an open editor's copy of a tagged design is stale now
+            void queryClient.invalidateQueries({ queryKey: ['studio', 'design'] });
+          }}
+        />
+      ) : null}
+
+      {ownWork ? null : <NewHubStrip firstDesign={entries[0]?.id} onNewDesign={studio.openNewCableWizard} />}
 
       <PageBody
         panel={
           chosen === undefined ? undefined : (
             <SidePanel
               title={chosen.label}
-              subtitle={chosen.id}
+
               label="Design details"
               onClose={() => setSelected(undefined)}
               chips={
@@ -422,6 +560,7 @@ export function CablesRoute(): JSX.Element {
                 </>
               }
             >
+              <RecordCover key={chosen.id} kind="designs" id={chosen.id} label={chosen.label} editable={!listOffline && studio.me?.role !== 'viewer'} caption="Shared cover · design list and editor" />
               <KeyValues
                 items={[
                   ['Part number', partNumberDisplay(chosen.partNumber).text],
@@ -429,6 +568,7 @@ export function CablesRoute(): JSX.Element {
                   ['Source end', chosen.source || '—'],
                   ['Destination', destinationText(chosen) || '—'],
                   ['Wire', (chosen.wires ?? []).map(wireText).join(' + ') || '—'],
+                  ['Tags', (chosen.tags ?? []).length === 0 ? '—' : <TagChips tags={chosen.tags} max={50} />],
                   ['Boards', chosen.boardLabels.join(' · ') || '—'],
                   ['Size', `${chosen.partCount} parts · ${chosen.jointCount} joints`],
                 ]}
@@ -453,7 +593,7 @@ export function CablesRoute(): JSX.Element {
           virtualize
           rowHeight={narrow ? MOBILE_ROW_HEIGHT : DESKTOP_ROW_HEIGHT}
           rowClassName={(e) => (e.status === 'retired' ? 'is-muted' : undefined)}
-          rowTitle={(e) => e.id}
+          rowTitle={(e) => e.label}
           card={(entry) => (
             <Link to="/cables/$id" params={{ id: entry.id }} className="block text-ink no-underline">
               <MobileRow entry={entry} dirty={studio.dirtyIds.includes(entry.id)} />

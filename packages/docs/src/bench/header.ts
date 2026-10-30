@@ -204,7 +204,6 @@ export function headerHtml(header: SheetHeader): string {
   const spec = headerFrame(header);
   const status = header.status === 'active' ? undefined : header.status.toUpperCase();
   const line = [
-    fact('Design', header.designId, true),
     fact('Stock', header.stock),
     ...(header.sync === undefined ? [] : [fact('Sync', header.sync)]),
     ...(header.destination === undefined ? [] : [fact('Destination', header.destination)]),

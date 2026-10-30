@@ -7,6 +7,7 @@
  */
 
 import {
+  isIntegrityIssue,
   LAY_ARRANGEMENT_RING_COUNT,
   compileWire,
   suggestBondedSets,
@@ -319,18 +320,27 @@ export function bondingSuggestions(recipe: WireRecipe, compiled: CompiledWire): 
   return suggestBondedSets(compiled.wire).filter((set) => !recorded.includes([...set].sort().join('|')));
 }
 
-/** The recipe with problems a save would refuse, as sentences — the save button's gate. */
+/** The recipe with problems a save would refuse (shape and integrity), as sentences — the save button's gate. */
 export function recipeProblems(recipe: WireRecipe, compiled: CompiledWire, create: boolean, takenIds: readonly string[]): string[] {
   const problems: string[] = [];
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(recipe.id)) problems.push('The id has to be lowercase words joined by hyphens.');
   if (create && takenIds.includes(recipe.id)) problems.push(`Something in the library is already called '${recipe.id}'.`);
   if (recipe.label.trim() === '') problems.push('Give the stock a name.');
-  if (recipe.src.trim() === '') problems.push('Say where the stock comes from (the vendor sheet, or “inferred”).');
+  // an uncited stock, lay or web, and a core naming a part not in the library yet, are findings
+  // the saved stock carries (saving is not approval); only what makes it ambiguous stops Save
   if (recipe.cores.length === 0) problems.push('Add at least one core.');
-  if (recipe.lay !== undefined && recipe.lay.src.trim() === '') problems.push('Cite where the lay order comes from.');
-  if (recipe.lay?.arrangement === 'figure-8' && (recipe.web === undefined || recipe.web.src.trim() === '')) {
-    problems.push('Cite where the figure-8 web comes from (the sheet, a measurement, or “inferred”).');
-  }
-  for (const issue of compiled.issues) if (issue.severity === 'error') problems.push(issue.message);
+  for (const issue of compiled.issues) if (isIntegrityIssue(issue)) problems.push(issue.message);
   return problems;
+}
+
+/** What the saved stock will carry as findings: no citation yet, compile errors that do not stop a save. */
+export function recipeFindings(recipe: WireRecipe, compiled: CompiledWire): string[] {
+  const out: string[] = [];
+  if ((recipe.src ?? '').trim() === '') out.push('No source cited yet.');
+  if (recipe.lay !== undefined && (recipe.lay.src ?? '').trim() === '') out.push('The lay order is not cited yet.');
+  if (recipe.lay?.arrangement === 'figure-8' && (recipe.web === undefined || (recipe.web.src ?? '').trim() === '')) {
+    out.push('The figure-8 web is not cited yet (the sheet, a measurement, or “inferred”).');
+  }
+  for (const issue of compiled.issues) if (!isIntegrityIssue(issue)) out.push(issue.message);
+  return out;
 }

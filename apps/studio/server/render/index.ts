@@ -54,6 +54,7 @@ import {
   testSpecToMarkdown,
   deriveTestSpec,
   resolveTestParameters,
+  printedState,
   registerDrawingArt,
   type DrawingArt,
   type DrawingMeta,
@@ -84,6 +85,8 @@ const FORMATS: Readonly<Record<DocumentKind, readonly DocumentFormat[]>> = {
   labels: ['svg', 'pdf', 'csv', 'png', 'lbx'],
   formboard: ['html', 'svg', 'pdf'],
 };
+/** The formats each document comes in, in the order the manifest lists them (`document-manifest.ts`). */
+export const DOCUMENT_KIND_FORMATS: Readonly<Record<DocumentKind, readonly DocumentFormat[]>> = FORMATS;
 
 /** The format a document is rendered in when none is asked for. */
 export const DEFAULT_FORMAT: Readonly<Record<DocumentKind, DocumentFormat>> = {
@@ -405,8 +408,8 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
 
 /**
  * The sidecar as the printed sheets read it for a target: a saved revision's
- * number is the document's revision and it prints RELEASED unless the sheet
- * says otherwise; the working copy prints with a dash and UNRELEASED
+ * number is the document's revision and it prints SAVED VERSION (RELEASED once
+ * approved, when approvals are on) unless the sheet says otherwise; the working copy prints with a dash and UNRELEASED
  * (`undefined` target: the studio keeps no revisions, nothing is changed).
  */
 /** What the approval of the rendered revision says, when the hub requires approvals. */
@@ -417,12 +420,8 @@ export interface ApprovalFacts {
 export function releaseMeta(meta: DrawingMeta, target: 'working' | number | undefined, approval?: ApprovalFacts): DrawingMeta {
   if (target === undefined) return meta;
   const { revision: _revision, ...rest } = meta.sheet ?? {};
-  let status = target === 'working' ? 'UNRELEASED' : (rest.status ?? 'RELEASED');
-  if (approval !== undefined && target !== 'working') {
-    // approvals on: only an approved version is RELEASED, and it names its approver
-    const a = approval.approval;
-    status = a?.state === 'approved' ? `RELEASED · approved by ${a.by} ${a.at.slice(0, 10)}` : `UNAPPROVED · ${a?.state === 'submitted' ? 'awaiting approval' : a?.state === 'rejected' ? 'rejected' : 'not approved'}`;
-  }
+  // one rule with the in-app preview (`printedState`, @wirehub/docs)
+  const status = printedState(target, rest.status, approval);
   const sheet = { ...rest, status };
   return { ...meta, revision: target === 'working' ? '—' : String(target), sheet };
 }

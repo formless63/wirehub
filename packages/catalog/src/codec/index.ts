@@ -233,7 +233,7 @@ export const SLUG = /^[A-Za-z0-9][A-Za-z0-9._+-]{0,199}$/;
 const DESIGN_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const ARTWORK_NAME = /^([0-9a-f]{64})\.([a-z0-9]{1,8})$/;
 const DEPICTION_FILE = /^[a-z0-9][a-z0-9._-]*\.(svg|png|jpg|jpeg|webp)$/;
-const ASSET_FILE = /^([0-9a-f]{64})\.(png|jpg|pdf|glb|stl|ttf|otf|woff2)$/;
+const ASSET_FILE = /^([0-9a-f]{64})\.(png|jpg|pdf|glb|stl|step|3mf|ttf|otf|woff2|zip|bin)$/;
 const MODEL_RECORD_KEY = /^(connectors|components|wires|pcbas|bodies|interfaces|mechanicals|kits)\/[a-z0-9][a-z0-9._-]*$/;
 /**
  * A revision's own model: `revisions/<part>/<revision>`, for a revision no Library record shows (a WIP or superseded one).
@@ -254,9 +254,13 @@ export const ASSET_MIME_EXT: Readonly<Record<string, string>> = {
   'application/pdf': 'pdf',
   'model/gltf-binary': 'glb',
   'model/stl': 'stl',
+  'model/step': 'step',
+  'model/3mf': '3mf',
   'font/ttf': 'ttf',
   'font/otf': 'otf',
   'font/woff2': 'woff2',
+  'application/zip': 'zip',
+  'application/octet-stream': 'bin',
 };
 
 const MEDIA_BY_EXT: Readonly<Record<string, string>> = {
@@ -269,6 +273,8 @@ const MEDIA_BY_EXT: Readonly<Record<string, string>> = {
   zip: 'application/zip',
   glb: 'model/gltf-binary',
   stl: 'model/stl',
+  step: 'model/step',
+  '3mf': 'model/3mf',
   ttf: 'font/ttf',
   otf: 'font/otf',
   woff2: 'font/woff2',
@@ -556,7 +562,7 @@ export function explode(files: CatalogFiles): ExplodeResult {
         const match = ASSET_FILE.exec(name);
         const { sha, size, bytes } = binary(content);
         if (match === null || match[1] !== sha) {
-          errors.push(`${path}: an asset is named <sha256 of its bytes>.<png|jpg|pdf|glb|stl|ttf|otf|woff2>`);
+          errors.push(`${path}: an asset is named <sha256 of its bytes>.<png|jpg|pdf|glb|stl|step|3mf|ttf|otf|woff2>`);
           break;
         }
         assetFiles.set(sha, { name, bytes, size });

@@ -4,7 +4,8 @@ A shop's design rules are mostly "when this, then that must hold". WireHub lets 
 **data**, not code: a small, safe JSON language over a design and its library records, with a
 severity and a message. Rules are edited in Settings, ship in data packs, run inside the same
 validators as the built-in checks (`validateDesign`, `validateDb`), and appear in each cable's
-issues panel. An `error` blocks a save and a release like any other error; a `warning` does not.
+issues panel. An `error` is kept with a saved draft as a finding and blocks a release like any other
+error; a `warning` does neither (`docs/saving-and-findings.md`).
 
 Complex checks stay code (a module's `validationRules`, `docs/modules.md`). A rule here cannot run
 code, read the network or the clock: evaluation is bounded (conditions at most 8 deep and 100 nodes,
@@ -63,11 +64,11 @@ optional value with `exists` in `where`.
 
 ### Subjects (`each`) and the fields they offer
 
-Every scope also has `design` (`id`, `label`, `status`, `tags`, `productRef`, `labourMinutes`, `route`,
+Every scope also has `design` (`id`, `label`, `status`, `kind`, `tags`, `productRef`, `labourMinutes`, `route`,
 `maker`). A library definition's `route` (`make`, `contract`, `buy`) is one of its plain fields
 (`docs/products.md`).
-A design's **tags** are free words set in the editor (the Notes panel, "Design tags") that rules can
-select designs by (`mil-spec`, `export`).
+A design's **tags** are free words set in the editor (the Notes panel, "Design tags") or in bulk
+from the Designs list ([design tags](design-tags.md)) that rules can select designs by (`mil-spec`, `export`).
 
 | `each` | One per | Fields |
 | --- | --- | --- |

@@ -40,15 +40,23 @@ afterEach(() => {
 const mount = (path: string) =>
   render(<App router={createStudioRouter(createMemoryHistory({ initialEntries: [path] }))} queryClient={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })} modules={createRegistry([])} />);
 
+/** Revisions is a collapsed section by default: open it (its toggle is the section header button). */
+const openSection = (section: HTMLElement): void => {
+  const toggle = within(section).getByRole('button', { name: /^Revisions/ });
+  if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle);
+};
+
 describe('record revisions', () => {
   it('saves a revision, and compares it with the record after a change', async () => {
     mount('/library/connectors/de9-female');
     const section = await screen.findByTestId('revisions', undefined, { timeout: 8000 });
-    await vi.waitFor(() => expect(within(section).getByTestId('revisions-now').textContent).toContain('No revision saved yet'));
+    // nothing saved yet: the summary says nothing (no "No revision saved yet" line any more), Save is offered
+    await vi.waitFor(() => expect(within(section).getByTestId('revisions-now').textContent).toBe(''));
     fireEvent.click(within(section).getByRole('button', { name: 'Save a revision…' }));
     fireEvent.change(within(section).getByLabelText('Revision note'), { target: { value: 'first drawn' } });
     fireEvent.click(within(section).getByRole('button', { name: 'Save revision' }));
     await vi.waitFor(() => expect(within(section).getByTestId('revisions-now').textContent).toContain('revision 1'));
+    openSection(section);
     expect(section.textContent).toContain('first drawn');
 
   }, 30_000);
@@ -61,6 +69,7 @@ describe('record revisions', () => {
     mount('/library/connectors/de9-female');
     const section = await screen.findByTestId('revisions', undefined, { timeout: 8000 });
     await vi.waitFor(() => expect(within(section).getByTestId('revisions-now').textContent).toContain('Changed since revision 1'));
+    openSection(section);
     fireEvent.click(within(section).getByRole('button', { name: 'Compare with now' }));
     const dialog = await screen.findByRole('dialog', { name: 'Compare records' });
     const table = await within(dialog).findByRole('table', { name: 'Field differences' });

@@ -31,6 +31,8 @@ export interface PackPlan {
   pack: { id: string; name?: string; version?: string; from?: string; to?: string; license: string };
   diff?: PackDiff;
   major?: boolean;
+  /** an update: newer, older or the version already installed */
+  direction?: 'upgrade' | 'downgrade' | 'same';
   licenseChanged?: boolean;
   conflicts?: string[];
   references?: PackReference[];
@@ -43,6 +45,7 @@ export interface PackPlan {
 }
 export interface InstalledPackView {
   id: string;
+  name?: string;
   version: string;
   license: string;
   records: number;
@@ -50,6 +53,17 @@ export interface InstalledPackView {
   available?: string;
   /** installed from a store index: which, and the publisher keys whose signature verified */
   origin?: { index: string; publisher?: string; signedBy?: string[] };
+  /** released to this hub: its records are the hub's own now (no update, no disable) */
+  released?: { at: string; by?: string };
+}
+/** What releasing a pack to the hub hands over (`POST /api/packs/:id/release`). */
+export interface PackReleasePlan {
+  pack: { id: string; name: string; version: string; license: string };
+  records: RecordRef[];
+  counts: Record<string, number>;
+  files: string[];
+  blockers: string[];
+  ok: boolean;
 }
 export interface PackAnswer {
   ok: boolean;
@@ -83,6 +97,8 @@ export const previewUpdate = (id: string, base = '/api'): Promise<PackAnswer> =>
 export const applyUpdate = (id: string, acceptMajor: boolean, base = '/api'): Promise<PackAnswer> => call('POST', `${base}/packs/${enc(id)}/update`, { acceptMajor });
 export const previewDisable = (id: string, base = '/api'): Promise<PackAnswer> => call('GET', `${base}/packs/${enc(id)}/references`);
 export const disablePack = (id: string, base = '/api'): Promise<PackAnswer> => call('DELETE', `${base}/packs/${enc(id)}`);
+export const previewRelease = (id: string, base = '/api'): Promise<PackAnswer> => call('POST', `${base}/packs/${enc(id)}/release`, {});
+export const applyRelease = (id: string, base = '/api'): Promise<PackAnswer> => call('POST', `${base}/packs/${enc(id)}/release`, { apply: true });
 
 /** What the person gave Install pack…: an uploaded file (zip or JSON bundle) or a URL. */
 export type PackSource = { url: string } | { zip: string } | { bundle: unknown };

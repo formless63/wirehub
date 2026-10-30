@@ -42,12 +42,13 @@ function withBoard(db: Db, pcba: PcbaDefinition): Db {
 }
 
 describe('the module', () => {
-  it('registers cleanly: three importers and a page', () => {
+  it('registers cleanly: four importers and a page', () => {
     expect(manifestProblems([boardImport])).toEqual([]);
     const registry = createRegistry([boardImport]);
-    expect(registry.importers().map((i) => i.id)).toEqual(['kicad-board', 'gerbers', 'fab-bom']);
+    expect(registry.importers().map((i) => i.id)).toEqual(['kicad-board', 'gerbers', 'fab-bom', 'board-set']);
     expect(registry.importersFor('x.kicad_pcb').map((i) => i.id)).toEqual(['kicad-board']);
     expect(registry.importersFor('x.board-bom.json').map((i) => i.id)).toEqual(['fab-bom']);
+    expect(registry.importersFor('x.board-set.json').map((i) => i.id)).toEqual(['board-set']);
     expect(registry.routes().map((r) => r.path)).toEqual(['boards']);
   });
 });
@@ -98,6 +99,24 @@ describe('KiCad board → PCBA', () => {
     expect(pcba.internalLinks[3]!.elements).toEqual([{ text: 'R1 120 Ω', kind: 'resistor', designator: 'R1', value: '120 Ω', ohms: 120 }]);
     expect(notes.join('\n')).toContain('U1 has more than two nets');
     expect(errors(validateDb(withBoard(starter(), pcba)))).toEqual([]);
+  });
+
+  it('still gives a board drawn without nets its connector pins as terminals', () => {
+    const bare = parseKicadPcb(kicadPcb().replace(/\(net (?:\d+ )?"[^"]*"\)/g, ''), 'synthetic-adapter.kicad_pcb');
+    const { pcba, notes } = deriveBoard(bare, { sha256: SHA });
+    expect(pcba.terminals.map((t) => t.id)).toEqual(['j1.1', 'j1.2', 'j1.3']);
+    expect(pcba.netlist?.terminals['j1.2']).toBe('unconnected-(J1-Pad2)');
+    expect(notes.join('\n')).toMatch(/has no nets/);
+  });
+
+  it('reads a one-pad footprint as a landing even when its reference looks like a part', () => {
+    // synthetic: a single-pad finger named R9 (value R) on its own net; the real two-pad R1 stays a part
+    const finger = { ...source.footprints.find((f) => f.ref === 'TP5')!, ref: 'R9', value: 'R', lib: 'Synthetic_Pads:Pad_Finger' };
+    finger.pads = finger.pads.map((p) => ({ ...p, net: '/RED' }));
+    const { pcba } = deriveBoard({ ...source, footprints: [...source.footprints, finger] }, { sha256: SHA });
+    expect(pcba.terminals.find((t) => t.id === 'R')).toMatchObject({ note: 'R9 (Synthetic_Pads:Pad_Finger)' });
+    expect(pcba.terminals.some((t) => t.note?.startsWith('R1'))).toBe(false);
+    expect(pcba.netlist?.parts.map((p) => p.ref)).toContain('R1');
   });
 
   it('reads the same board from its netlist, without positions', () => {

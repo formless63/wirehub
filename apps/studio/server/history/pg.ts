@@ -20,21 +20,24 @@ import {
   definitionNoun,
   definitionSubject,
   known,
+  parseSubject,
   RECORD_KINDS_OF,
   restorableParts,
   subjectKey,
   subjectLabel,
   touchOf,
   UNKNOWN,
+  type CheckpointSummary,
   type HistoryCapabilities,
   type HistoryEntry,
   type HistoryTouch,
   type Known,
   type RecordDiff,
   type Subject,
+  knowledgeDocPath,
 } from '../../src/history/types.ts';
 import { inOrg, type Db, type Tx } from '../pg/db.ts';
-import type { HistoryList, HistoryQuery, HistorySource, SubjectState } from './source.ts';
+import { CHECKPOINT_DOCS, type CheckpointDoc, type CheckpointRecord, type CheckpointSource, type HistoryList, type HistoryQuery, type HistorySource, type PhotoState, type SubjectState } from './source.ts';
 import { stateAfter, stepsByChangeSet, type PartRow, type PartStep } from './timeline.ts';
 
 export const DATABASE_HISTORY: HistoryCapabilities = {
@@ -44,6 +47,7 @@ export const DATABASE_HISTORY: HistoryCapabilities = {
   diff: true,
   restore: true,
   filters: { person: true, date: true, kind: true },
+  checkpoints: true,
 };
 
 /** Parts whose states are documents a person can read field by field. */
@@ -63,6 +67,8 @@ interface SetRow {
   email: string | null;
   source: string;
   message: string;
+  /** the API token the change set was made with */
+  token: string | null;
 }
 
 function entryOf(row: SetRow, touches: HistoryTouch[], more = 0): HistoryEntry {
@@ -78,10 +84,11 @@ function entryOf(row: SetRow, touches: HistoryTouch[], more = 0): HistoryEntry {
     version: row.version,
     touches,
     ...(more > 0 ? { more } : {}),
+    ...(row.token === null || row.token === undefined ? {} : { via: { token: row.token } }),
   };
 }
 
-const SET_COLUMNS = sql`s.id::text AS id, s.catalog_version::text AS version, s.created_at AS at, s.actor_label AS name, p.email, s.source, s.message`;
+const SET_COLUMNS = sql`s.id::text AS id, s.catalog_version::text AS version, s.created_at AS at, s.actor_label AS name, p.email, s.source, s.message, s.api_token_id::text AS token`;
 
 /** A recorded JSON text as a state: SQL NULL = not recorded; JSON `null` = absent. */
 function stateOf(text: string | null, recorded: boolean): Known {
@@ -134,7 +141,9 @@ function designWhere(entry: DesignId): RawBuilder<unknown> {
   const id = entry.id;
   const prefix = `${id}/`;
   const cap = entry.before === undefined ? sql`` : sql` AND c.change_set_id < ${entry.before}::bigint`;
+  // a catalog import records each file it brought as a `doc` row keyed by its path
   return sql`(((c.kind IN ('design', 'drawing', 'drawing-photo', 'version-working') AND c.key = ${id})
+          OR (c.kind = 'doc' AND c.key = ${`designs/${id}.json`})
           OR (c.kind IN ('design-versions', 'drawing') AND c.op = 'move' AND c.to_key = ${id})
           OR (c.kind = 'design-versions' AND c.key = ${id})
           OR (c.kind IN ('design-version', 'version-draft', 'version-artwork') AND left(c.key, ${prefix.length}) = ${prefix}))${cap})`;
@@ -148,7 +157,7 @@ function subjectSql(subject: Subject, ids: readonly DesignId[] = []): SubjectRow
       const where = chain.map(designWhere).reduce((a, b) => sql`${a} OR ${b}`);
       return {
         where: sql`(${where})`,
-        part: (kind) => (kind === 'design' ? 'design' : kind === 'drawing' ? 'drawing' : kind === 'drawing-photo' ? 'photo' : 'versions'),
+        part: (kind) => (kind === 'design' || kind === 'doc' ? 'design' : kind === 'drawing' ? 'drawing' : kind === 'drawing-photo' ? 'photo' : 'versions'),
       };
     }
     case 'definition': {
@@ -168,6 +177,9 @@ function subjectSql(subject: Subject, ids: readonly DesignId[] = []): SubjectRow
       return { where: sql`(c.kind = 'vocab' AND c.key = ${subject.list})`, part: () => 'record' };
     case 'build':
       return { where: sql`(c.kind = 'builds' AND c.key = ${subject.name})`, part: () => 'record' };
+    case 'note':
+    case 'project':
+      return { where: sql`(c.kind = 'doc' AND c.key = ${knowledgeDocPath(subject)})`, part: () => 'record' };
   }
 }
 
@@ -257,7 +269,7 @@ function stepTouches(subject: Subject, steps: readonly PartStep[]): HistoryTouch
     return {
       subject: subjectKey(subject),
       label: `${subjectLabel(subject)} — ${PART_LABEL[step.part] ?? step.part}`,
-      kind: subject.type === 'design' ? 'design' : subject.type === 'definition' ? 'library' : subject.type === 'vocab' ? 'vocab' : 'builds',
+      kind: subject.type === 'design' ? 'design' : subject.type === 'definition' ? 'library' : subject.type === 'vocab' ? 'vocab' : subject.type === 'build' ? 'builds' : 'other',
       op,
       part: step.part,
       ...(fields === undefined ? {} : { fields }),
@@ -272,13 +284,13 @@ function stepTouches(subject: Subject, steps: readonly PartStep[]): HistoryTouch
 export function pgHistorySource(db: Db, orgId: string): HistorySource {
   const run = <T>(fn: (tx: Tx) => Promise<T>): Promise<T> => inOrg(db, orgId, fn, { snapshot: true, statementTimeoutMs: 30_000 });
 
-  async function touchesOf(tx: Tx, ids: string[]): Promise<Map<string, { touches: HistoryTouch[]; more: number }>> {
+  async function touchesOf(tx: Tx, ids: string[], cap = TOUCHES): Promise<Map<string, { touches: HistoryTouch[]; more: number }>> {
     const out = new Map<string, { touches: HistoryTouch[]; more: number }>();
     if (ids.length === 0) return out;
     const rows = (
       await sql<{ cs: string; seq: number; kind: string; key: string; op: 'put' | 'delete' | 'move'; to_key: string | null; n: string; ids: string[] | null }>`
         SELECT x.cs, x.seq, x.kind, x.key, x.op, x.to_key, x.n::text AS n,
-               CASE WHEN x.kind = 'definitions' AND json_typeof(x.after_body) = 'array' AND x.before_body IS NOT NULL THEN
+               CASE WHEN (x.kind = 'definitions' OR (x.kind = 'doc' AND x.key = 'data/firmware/projects.json')) AND json_typeof(x.after_body) = 'array' AND x.before_body IS NOT NULL THEN
                  coalesce((SELECT array_agg(coalesce(a.id, b.id) ORDER BY coalesce(a.id, b.id))
                     FROM (SELECT e ->> 'id' AS id, e::text AS t FROM json_array_elements(x.after_body) e) a
                     FULL JOIN (SELECT e ->> 'id' AS id, e::text AS t
@@ -293,12 +305,17 @@ export function pgHistorySource(db: Db, orgId: string): HistorySource {
               FROM studio.change c
              WHERE c.change_set_id = ANY(${ids}::bigint[]) AND c.kind <> 'derived'
           ) x
-         WHERE x.rn <= ${TOUCHES}
+         WHERE x.rn <= ${cap}
          ORDER BY x.cs::bigint, x.seq`.execute(tx)
     ).rows;
     for (const r of rows) {
-      const slot = out.get(r.cs) ?? { touches: [], more: Math.max(0, Number(r.n) - TOUCHES) };
+      const slot = out.get(r.cs) ?? { touches: [], more: Math.max(0, Number(r.n) - cap) };
       out.set(r.cs, slot);
+      // the firmware project list, like a definitions list: the projects that changed, each its own touch
+      if (r.kind === 'doc' && r.ids !== null && r.ids.length > 0) {
+        for (const id of r.ids) slot.touches.push({ subject: `other:firmware:${id}`, label: `firmware project ${id}`, kind: 'other', op: 'put' });
+        continue;
+      }
       if (r.kind === 'definitions' && r.ids !== null) {
         for (const id of r.ids) slot.touches.push({ subject: definitionSubject(r.key, id), label: `${definitionNoun(r.key)} ${id}`, kind: 'library', op: 'put', part: 'record' });
         continue;
@@ -323,6 +340,7 @@ export function pgHistorySource(db: Db, orgId: string): HistorySource {
         const before = query.before !== undefined && /^\d{1,18}$/.test(query.before) ? query.before : null;
         const pattern = query.person === undefined || query.person.trim() === '' ? null : `%${escapeLike(query.person.trim())}%`;
         const kinds = query.kind === undefined ? null : [...RECORD_KINDS_OF[query.kind]];
+        const token = query.token !== undefined && UUID.test(query.token) ? query.token : null;
         const rows = (
           await sql<SetRow>`
             SELECT ${SET_COLUMNS}
@@ -331,6 +349,7 @@ export function pgHistorySource(db: Db, orgId: string): HistorySource {
                AND (${pattern}::text IS NULL OR s.actor_label ILIKE ${pattern} OR p.email ILIKE ${pattern})
                AND (${query.from ?? null}::date IS NULL OR s.created_at >= ${query.from ?? null}::date)
                AND (${query.to ?? null}::date IS NULL OR s.created_at < ${query.to ?? null}::date + 1)
+               AND (${token}::uuid IS NULL OR s.api_token_id = ${token}::uuid)
                AND (${kinds}::text[] IS NULL OR EXISTS (SELECT 1 FROM studio.change c WHERE c.change_set_id = s.id AND c.kind = ANY(${kinds}::text[])))
              ORDER BY s.id DESC
              LIMIT ${query.limit + 1}`.execute(tx)
@@ -376,17 +395,7 @@ export function pgHistorySource(db: Db, orgId: string): HistorySource {
       if (subject.type !== 'design') return undefined;
       return run(async (tx) => {
         if ((await setRow(tx, id)) === undefined) return undefined;
-        const q = subjectSql(subject, await designIds(tx, subject.id));
-        // the newest photo change at or before the entry: a put names the bytes by hash, a delete is no photo
-        const row = (
-          await sql<{ op: string; after_etag: string | null; mime: string | null }>`
-            SELECT c.op, c.after_etag, c.after_body ->> 'mime' AS mime FROM studio.change c
-             WHERE ${q.where} AND c.kind = 'drawing-photo' AND c.change_set_id <= ${id}::bigint
-             ORDER BY c.change_set_id DESC, c.seq DESC LIMIT 1`.execute(tx)
-        ).rows[0];
-        if (row === undefined || row.op === 'delete') return 'none';
-        const hash = /^"?sha256:([0-9a-f]{64})"?$/.exec(row.after_etag ?? '');
-        return hash === null ? undefined : { sha256: hash[1] as string, ...(row.mime === 'image/png' || row.mime === 'image/jpeg' ? { mime: row.mime } : {}) };
+        return photoAtOrBefore(tx, subject, id);
       });
     },
 
@@ -397,6 +406,162 @@ export function pgHistorySource(db: Db, orgId: string): HistorySource {
         const out: SubjectState = {};
         for (const part of restorableParts(subject)) out[part] = stateAfter(parts, id, part);
         return { parts: out };
+      });
+    },
+
+    checkpoints: checkpointSource(run, touchesOf),
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * Agent checkpoints
+ * ------------------------------------------------------------------ */
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** A checkpoint reads at most this many of a token's change sets. */
+const CHECKPOINT_SETS = 500;
+
+/** The newest drawing-photo change at or before change set `id`: a put names the bytes by hash, a delete is no photo. */
+async function photoAtOrBefore(tx: Tx, subject: Subject, id: string): Promise<PhotoState> {
+  if (subject.type !== 'design') return undefined;
+  const q = subjectSql(subject, await designIds(tx, subject.id));
+  const row = (
+    await sql<{ op: string; after_etag: string | null; mime: string | null }>`
+      SELECT c.op, c.after_etag, c.after_body ->> 'mime' AS mime FROM studio.change c
+       WHERE ${q.where} AND c.kind = 'drawing-photo' AND c.change_set_id <= ${id}::bigint
+       ORDER BY c.change_set_id DESC, c.seq DESC LIMIT 1`.execute(tx)
+  ).rows[0];
+  if (row === undefined || row.op === 'delete') return 'none';
+  const hash = /^"?sha256:([0-9a-f]{64})"?$/.exec(row.after_etag ?? '');
+  return hash === null ? undefined : { sha256: hash[1] as string, ...(row.mime === 'image/png' || row.mime === 'image/jpeg' ? { mime: row.mime } : {}) };
+}
+
+interface SummaryRow {
+  token: string;
+  sets: number;
+  first: string;
+  last: string;
+  first_at: Date;
+  last_at: Date;
+  label: string;
+  email: string | null;
+}
+
+const summaryOf = (r: SummaryRow): CheckpointSummary => ({
+  token: r.token,
+  label: r.label,
+  // `Name via token x (drafts)`: the person is the part before the token
+  by: { name: r.label.replace(/ via token .*$/, ''), ...(r.email === null ? {} : { email: r.email }) },
+  sets: Number(r.sets),
+  first: r.first,
+  last: r.last,
+  firstAt: r.first_at.toISOString(),
+  lastAt: r.last_at.toISOString(),
+});
+
+const SUMMARY_COLUMNS = sql`s.api_token_id::text AS token, count(*)::int AS sets, min(s.id)::text AS first, max(s.id)::text AS last,
+  min(s.created_at) AS first_at, max(s.created_at) AS last_at,
+  (array_agg(s.actor_label ORDER BY s.id DESC))[1] AS label, (array_agg(p.email ORDER BY s.id DESC))[1] AS email`;
+
+type Run = <T>(fn: (tx: Tx) => Promise<T>) => Promise<T>;
+type TouchesOf = (tx: Tx, ids: string[], cap?: number) => Promise<Map<string, { touches: HistoryTouch[]; more: number }>>;
+
+function checkpointSource(run: Run, touchesOf: TouchesOf): CheckpointSource {
+  return {
+    async list(limit) {
+      return run(async (tx) => {
+        const rows = (
+          await sql<SummaryRow>`
+            SELECT ${SUMMARY_COLUMNS}
+              FROM studio.change_set s LEFT JOIN studio.person p ON p.id = s.actor_id
+             WHERE s.api_token_id IS NOT NULL
+             GROUP BY s.api_token_id
+             ORDER BY max(s.id) DESC
+             LIMIT ${limit}`.execute(tx)
+        ).rows;
+        return rows.map(summaryOf);
+      });
+    },
+
+    async of(token, from) {
+      if (!UUID.test(token)) return undefined;
+      const start = from !== undefined && /^\d{1,18}$/.test(from) ? from : null;
+      return run(async (tx) => {
+        const summary = (
+          await sql<SummaryRow>`
+            SELECT ${SUMMARY_COLUMNS}
+              FROM studio.change_set s LEFT JOIN studio.person p ON p.id = s.actor_id
+             WHERE s.api_token_id = ${token}::uuid AND (${start}::bigint IS NULL OR s.id >= ${start}::bigint)
+             GROUP BY s.api_token_id`.execute(tx)
+        ).rows[0];
+        if (summary === undefined) return undefined;
+        const sets = (
+          await sql<SetRow>`
+            SELECT ${SET_COLUMNS} FROM studio.change_set s LEFT JOIN studio.person p ON p.id = s.actor_id
+             WHERE s.api_token_id = ${token}::uuid AND s.id >= ${summary.first}::bigint
+             ORDER BY s.id DESC LIMIT ${CHECKPOINT_SETS}`.execute(tx)
+        ).rows;
+        const mine = new Set(sets.map((r) => r.id));
+        const touches = await touchesOf(tx, [...mine], 100_000);
+        const entries = sets.map((r) => {
+          const t = touches.get(r.id);
+          return entryOf(r, (t?.touches ?? []).slice(0, TOUCHES), Math.max(0, (t?.touches.length ?? 0) - TOUCHES));
+        });
+        // the records touched, once each; what no restore covers is said, not hidden
+        const subjects = new Map<string, Subject>();
+        const others = new Map<string, HistoryTouch>();
+        for (const t of [...touches.values()].flatMap((x) => x.touches)) {
+          const subject = parseSubject(t.subject);
+          if (subject !== undefined) subjects.set(t.subject, subject);
+          else if (!t.subject.startsWith('other:definitions:') && !t.subject.startsWith('other:artwork:')) others.set(`${t.subject}\u0000${t.part ?? ''}`, t);
+        }
+        const before = String(BigInt(summary.first) - 1n);
+        const records: CheckpointRecord[] = [];
+        for (const subject of subjects.values()) {
+          const { rows, parts } = await subjectRows(tx, subject);
+          const steps = stepsByChangeSet(parts);
+          const tokenOf = new Map(rows.map((r) => [r.cs, r.token] as const));
+          const quoted = new Set([...restorableParts(subject), ...(subject.type === 'design' ? ['photo'] : [])]);
+          const changed = new Set<string>();
+          for (const [cs, list] of steps) if (mine.has(cs)) for (const step of list) if (quoted.has(step.part)) changed.add(step.part);
+          if (changed.size === 0) continue;
+          const later: string[] = [];
+          for (const [cs, list] of steps) {
+            if (mine.has(cs) || BigInt(cs) < BigInt(summary.first)) continue;
+            if (tokenOf.get(cs) === token && BigInt(cs) >= BigInt(summary.first)) continue;
+            if (list.some((step) => changed.has(step.part))) later.push(cs);
+          }
+          const state: SubjectState = {};
+          for (const part of changed) if (part !== 'photo') state[part] = stateAfter(parts, before, part);
+          records.push({
+            subject,
+            parts: [...changed],
+            others: later,
+            before: state,
+            ...(changed.has('photo') ? { photo: await photoAtOrBefore(tx, subject, before) } : {}),
+          });
+        }
+        // the documents the undo puts back besides records (Explore's picks): before the first change, after the last
+        const docs: CheckpointDoc[] = [];
+        for (const path of CHECKPOINT_DOCS) {
+          const touched = [...others.keys()].filter((k) => k.startsWith(`other:doc:${path}\u0000`));
+          if (touched.length === 0) continue;
+          const rows = (
+            await sql<{ cs: string; op: string; before_text: string | null; after_text: string | null }>`
+              SELECT c.change_set_id::text AS cs, c.op, c.before_body::text AS before_text, c.after_body::text AS after_text
+                FROM studio.change c
+               WHERE c.kind = 'doc' AND c.key = ${path} AND c.change_set_id >= ${summary.first}::bigint
+               ORDER BY c.change_set_id, c.seq`.execute(tx)
+          ).rows.filter((r) => mine.has(r.cs));
+          const first = rows[0];
+          const last = rows.at(-1);
+          if (first === undefined || last === undefined) continue;
+          // a body of JSON null: the document did not exist; SQL NULL: its earlier state was not recorded
+          const parse = (text: string | null): unknown => (text === null ? undefined : (JSON.parse(text) ?? undefined));
+          docs.push({ path, before: parse(first.before_text), after: last.op === 'delete' ? undefined : parse(last.after_text), recorded: first.before_text !== null });
+          for (const k of touched) others.delete(k);
+        }
+        return { summary: summaryOf(summary), from: summary.first, entries, records, others: [...others.values()], ...(docs.length === 0 ? {} : { docs }) };
       });
     },
   };

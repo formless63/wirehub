@@ -334,6 +334,24 @@ export interface BuildCheckLibrary {
   vocab?: Vocab;
 }
 
+/**
+ * `pcbas` with each pack board that a local fork copies counted once: a fork
+ * (`derivedFrom`) is the same part under an id of its own, not another build.
+ * The copy stands for the pair, except where `keep` (the record being viewed)
+ * is the original.
+ */
+export function oneBoardPerFork<T extends Pick<PcbaDefinition, 'id' | 'derivedFrom'>>(pcbas: readonly T[], keep?: string): T[] {
+  const ids = new Set(pcbas.map((p) => p.id));
+  // the originals a copy in the list stands for
+  const forkedFrom = new Set(pcbas.flatMap((p) => (p.derivedFrom !== undefined && p.derivedFrom.id !== p.id && ids.has(p.derivedFrom.id) ? [p.derivedFrom.id] : [])));
+  return pcbas.filter((p) => {
+    if (p.id === keep) return true;
+    if (forkedFrom.has(p.id)) return false;
+    // a copy of the record being viewed is that record
+    return !(keep !== undefined && p.derivedFrom?.id === keep);
+  });
+}
+
 /** The definitions a build produced: same part number (and revision, if the file names one), same `build` string. */
 export function definitionsOfBuild(file: BoardBuilds, build: BoardBuild, pcbas: readonly PcbaDefinition[]): PcbaDefinition[] {
   return pcbas.filter(

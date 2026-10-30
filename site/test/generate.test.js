@@ -194,3 +194,20 @@ describe('the built page', () => {
     expect(page).not.toMatch(/^export /m);
   });
 });
+
+
+describe('tool image registry', () => {
+  it('writes optional registry credentials from the installation form', () => {
+    const result = generate(templates, { tools: { enabled: true, registry: 'registry.example/workshop/', username: 'reader', token: 'read-token' } });
+    expect(result.env).toContain('WIREHUB_TOOL_REGISTRY=registry.example/workshop');
+    expect(result.env).toContain('WIREHUB_TOOL_REGISTRY_USER=reader');
+    expect(result.env).toContain('WIREHUB_TOOL_REGISTRY_TOKEN=read-token');
+    expect(result.notes.some((n) => n.text.includes('download automatically'))).toBe(true);
+    expect(result.compose).toContain('images/create');
+  });
+  it('keeps existing local installations usable without a registry', () => {
+    const result = generate(templates, { tools: { enabled: true } });
+    expect(result.env).not.toContain('WIREHUB_TOOL_REGISTRY=');
+    expect(result.env).toContain('WIREHUB_TOOL_RUNNER=docker');
+  });
+});

@@ -7,6 +7,12 @@ import type { RevisionsAdapter, RevisionsView } from '../src/revisions.ts';
 vi.mock('../src/panels/ModelViewer3d.tsx', () => ({ default: ({ label }: { label: string }) => <p>{label}</p> }));
 afterEach(() => { cleanup(); window.localStorage.clear(); });
 
+/** Revisions is a collapsed section by default (its open state is remembered): open it when it is closed. */
+async function openRevisions(): Promise<void> {
+  const toggle = await screen.findByRole('button', { name: /^Revisions/ });
+  if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle);
+}
+
 it('shows a readable source revision and keeps its full citation available behind Source', async () => {
   const value: RevisionsView = {
     kind: 'pcbas', id: 'synthetic-board', label: 'Synthetic board', current: {}, revisions: [],
@@ -21,6 +27,7 @@ it('shows a readable source revision and keeps its full citation available behin
     nextNumber: async () => ({ ok: false, message: 'Read-only source' }),
   };
   render(<RevisionsSection kind="pcbas" id="synthetic-board" revisions={adapter} readOnly />);
+  await openRevisions();
   expect(await screen.findByText(/Moved the header/)).toBeTruthy();
   const summary = screen.getByText('Reference');
   const details = summary.closest('details')!;
@@ -43,6 +50,7 @@ it('opens source model revisions with no saved definition snapshots and does not
   const revisions: RevisionsAdapter = { list: async () => ({ ok: true, value }), read: async () => ({ ok: false, message: 'no snapshots' }), save: async () => ({ ok: false, message: 'read-only' }), nextNumber: async () => ({ ok: false, message: 'read-only' }) };
   const onCompare = vi.fn();
   render(<RevisionsSection kind="pcbas" id="synthetic-board" revisions={revisions} models={models} readOnly onCompare={onCompare} />);
+  await openRevisions();
   fireEvent.click(await screen.findByRole('button', { name: 'View 3D · Rev2' }));
   expect(await screen.findByText('Synthetic board · source Rev2')).toBeTruthy();
   expect(screen.getByText(/do not establish historical definitions/)).toBeTruthy();

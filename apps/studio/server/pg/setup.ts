@@ -19,7 +19,8 @@ import { assetSha, flatAssetPath, reconcileAssets, type InstalledPack } from '@w
 import { canonicalJson, contentSha, isBlobRef, isSkippedPath } from '@wirehub/catalog/src/codec/index.ts';
 import { readFlattenedCatalog } from '@wirehub/catalog/src/codec/tree.ts';
 
-import { commitUnit, publishCatalog, type WorkbenchDeps } from '../api.ts';
+import type { WorkbenchDeps } from '../api.ts';
+import { commitUnit, publishCatalog } from '../catalog-commit.ts';
 import type { SetupDeps } from '../setup.ts';
 import { isDocPath, parseDoc } from '../storage/doc-store.ts';
 import { rekeyBoardLinks } from '../models/board-art.ts';
@@ -30,6 +31,12 @@ import type { SnapshotSource } from './deps.ts';
 function installedOf(content: string | Uint8Array | { blob: string } | undefined): InstalledPack[] {
   if (typeof content !== 'string') return [];
   return (JSON.parse(content) as { packs?: InstalledPack[] }).packs ?? [];
+}
+
+/** The ids of the packs a flattened `data/packs.json` records as released to the hub. */
+function releasedOf(content: string | Uint8Array | { blob: string } | undefined): Set<string> {
+  if (typeof content !== 'string') return new Set();
+  return new Set(((JSON.parse(content) as { released?: { id: string }[] }).released ?? []).map((r) => r.id));
 }
 
 export interface PgSetupOptions {
@@ -152,9 +159,10 @@ export function pgSetupDeps(workbench: WorkbenchDeps, cache: SnapshotSource, opt
             nextPacks.push(Object.keys(ops.owned).length === 0 ? rest : { ...rest, assets: ops.owned });
           } else nextPacks.push(pack);
         }
-        // a disabled pack: what it owned goes, unless the catalog changed it since
+        // a disabled pack: what it owned goes, unless the catalog changed it since (a released one's stays: the hub's own now)
+        const releasedAfter = releasedOf(after.get('data/packs.json'));
         for (const pack of packsBefore) {
-          if (packsAfter.some((p) => p.id === pack.id) || pack.assets === undefined) continue;
+          if (packsAfter.some((p) => p.id === pack.id) || releasedAfter.has(pack.id) || pack.assets === undefined) continue;
           for (const relative of reconcileAssets(pack.assets, {}, (r) => holdingOf(flatAssetPath(r))).remove) await drop(relative);
         }
         if (ownership) {

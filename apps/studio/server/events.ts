@@ -1,7 +1,8 @@
 /**
  * Server events (`specs/postgres-backend.md` §2, task B6): what changed, for
  * `GET /api/events` (server-sent events). `catalog` — a commit produced a new
- * catalog version; `locks` — a lease changed on a record.
+ * catalog version; `locks` — a lease changed on a record; `inventory` — a
+ * workshop inventory write committed (not catalog data, so no new version).
  *
  * On files the studio publishes them itself, after a commit and after a lock
  * change. On Postgres they arrive through `LISTEN studio_catalog` /
@@ -12,6 +13,8 @@
 export type StudioEvent =
   | { type: 'catalog'; version: string }
   | { type: 'locks'; record: string }
+  /** stock, a reservation, a batch or a location changed (`docs/inventory.md`; `NOTIFY studio_inventory` on pg) */
+  | { type: 'inventory' }
   /** a process-control message for the worker (`NOTIFY studio_control`, `pg/control.ts`); never streamed to browsers */
   | { type: 'control'; action: 'restart' };
 

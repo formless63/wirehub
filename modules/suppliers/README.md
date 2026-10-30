@@ -76,6 +76,12 @@ order multiples before applying; incompatible existing MPN/manufacturer values
 are rejected. Importing appends source/provenance and a supplier-terms licence
 reference. It does not silently refresh canonical costs or existing revisions.
 
+**Save as offer** keeps a quote without touching the record: it records the
+price at the requested quantity (per piece or metre, once confirmed), the
+observation date and the order multiple as a dated supplier offer through the
+host's `POST /api/inventory/offers`, which build costing then uses. It needs a
+hub that keeps inventory.
+
 Offers and downloaded quotes are private deployment data, subject to the
 provider's account and redistribution terms. Do not publish imported quotes as
 CC0 catalog data. This repository contains synthetic fixtures only. Supplier

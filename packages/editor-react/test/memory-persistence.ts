@@ -12,7 +12,7 @@
  * editor cannot tell them apart.
  */
 
-import { errors, validateDesign, type CableDesign, type Db } from '@wirehub/model';
+import { integrityIssues, validateDesign, type CableDesign, type Db } from '@wirehub/model';
 
 import type { DesignSummary, Outcome, PersistenceAdapter } from '../src/persistence.ts';
 
@@ -36,11 +36,12 @@ export function memoryPersistence(db: Db, seed: CableDesign[] = []): MemoryPersi
   const copy = (design: CableDesign): CableDesign => structuredClone(design);
 
   const checked = (design: CableDesign): Outcome<CableDesign> => {
-    const issues = validateDesign(design, db);
-    if (errors(issues).length > 0) {
+    // the server's rule (`save-policy.ts`): design findings save, only integrity refuses
+    const issues = integrityIssues(validateDesign(design, db));
+    if (issues.length > 0) {
       return {
         ok: false,
-        message: `'${design.id}' has problems that have to be fixed before it can be saved.`,
+        message: `'${design.id}' cannot be stored as it stands.`,
         hint: 'Nothing was written — the stored design is untouched.',
         issues,
       };

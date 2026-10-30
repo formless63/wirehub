@@ -18,7 +18,7 @@ import { useEffect, useRef, useState, type JSX } from 'react';
 import { startImportJob, uploadImportJob } from '../jobs.browser.ts';
 import { useNotify } from '../notify.ts';
 import { designsKey } from '../queries.ts';
-import { ImportJob } from './ImportJob.tsx';
+import { ImportJob, PlanSummary } from './ImportJob.tsx';
 import { Button } from '@wirehub/editor-react';
 
 interface Proposal {
@@ -147,25 +147,7 @@ export function ModuleImport({ registry, onImported, expose }: { registry: Modul
           <strong>
             {pending.importerLabel}: {pending.fileName}
           </strong>
-          {Object.entries(proposal.definitions).map(([kind, list]) => (
-            <div key={kind}>
-              {list.length} new {kind}: {list.map((r) => r.id).join(', ')}
-            </div>
-          ))}
-          {Object.entries(proposal.updated ?? {}).map(([kind, list]) => (
-            <div key={`updated-${kind}`}>
-              {list.length} updated {kind}: {list.map((r) => r.id).join(', ')}
-            </div>
-          ))}
-          {proposal.designs.length === 0 ? null : <div>{proposal.designs.length} new designs: {proposal.designs.map((d) => d.id).join(', ')}</div>}
-          {(proposal.boardParts ?? []).length === 0 ? null : <div>Placed parts of: {proposal.boardParts!.join(', ')}</div>}
-          {(proposal.depictions ?? []).length === 0 ? null : <div>Board art for: {proposal.depictions!.join(', ')}</div>}
-          {proposal.existing.length + proposal.existingDesigns.length === 0 ? null : (
-            <div>Already in the library, skipped: {[...proposal.existing, ...proposal.existingDesigns].join(', ')}</div>
-          )}
-          {proposal.notes.map((note) => (
-            <div key={note}>Check: {note}</div>
-          ))}
+          <PlanSummary proposal={proposal} notes={proposal.notes} />
           <div className="cs-import-actions">
             <Button type="button" disabled={busy || added === 0} onClick={() => void accept()} className="cs-primary">
               {added === 0 ? 'Nothing new' : `Add ${added} record${added === 1 ? '' : 's'}`}

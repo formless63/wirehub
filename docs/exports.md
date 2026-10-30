@@ -17,8 +17,10 @@ wherever it was made. Nothing here is shop-specific: a module adds formats of it
 | Cut list (CSV) | `cut-list.csv` | pieces to cut per stock and length |
 | Crimp list (CSV) | `crimp-list.csv` | every cavity of each crimp housing: wires, contact, seal or plug, strip, crimp height, tool |
 | BOM, wire, cut and crimp lists (XLSX) | `production.xlsx` | the four above, one sheet each |
+| Mass (JSON) | `mass.json` | derived mass per BOM line and for one unit, every missing input listed (`docs/mass.md`) |
 | Continuity (CSV) | `continuity.csv` | net-to-pin pairs, expected connections, isolation pairs, with the test parameters |
 | Continuity (JSON) | `continuity.json` | the same, structured |
+| Required processes (JSON) | `processes.json` | the manufacturing processes the design needs, declared or derived, with where each came from ([processes.md](processes.md)) |
 | Wire labels (CSV) | `labels.csv` | text and position of the marker at each wire end |
 | Label sheet (SVG) | `labels.svg` | the labels laid out on a sheet of label stock |
 | P-touch labels (.lbx) | `labels.lbx` | one Brother P-touch Editor file per wire label on TZe tape (a zip of them; `page=` picks one) |
@@ -48,6 +50,10 @@ column order.
   extended_cost, currency` follow the BOM columns, and `Labour`, `Total` and (for a build quantity above 1)
   `Total x N` rows close the file, with the amount in `extended_cost`. A BOM with no prices has none of this.
   The API takes `?quantity=N` for the build quantity quantity breaks are read at.
+- **BOM mass columns:** when some part has a mass (`docs/mass.md`), `mass_each_g, mass_per_m_g, mass_g,
+  mass_bound` follow the cost columns (or the BOM columns), `mass_bound` `exact`, `floor` or `unknown`, and one
+  `Mass` row closes the file: description `one unit` (plus `; N line(s) without a mass`), the total in
+  `mass_g`. A length family's trunk rows are weighed at their variation's length. A BOM with no mass has none of this.
 - **Wire list:** `segment, stock_part_number, stock, element, kind, colour, a_landing,
   a_pad, b_landing, b_pad, length_mm, notes`. `element` is the element path in the stock
   (`pair-1.a`) or `pigtail:<id>`; `kind` is `core`, `screen`, `drain` or `pigtail`; a
@@ -297,6 +303,24 @@ with `Content-Disposition` and a sandboxing `Content-Security-Policy`.
   tree, and a saved revision draws the artwork it was saved with (as the browser does). The
   BOM carries the numbering scheme's proposals for unnumbered parts.
 
+### Released revisions: content hashes and the document manifest
+
+A saved revision's document or export asked for with nothing but `rev` (and `format` for a
+document) is rendered once and then served as stored, so its bytes never move under the
+revision: the response carries `ETag: "sha256:<hex>"`, `X-WireHub-Content-SHA256`,
+`X-WireHub-Render-Key` and the stored `X-WireHub-PDF-*` headers, and `If-None-Match` answers 304.
+A revision's sheets are dated with its release date (the approval's, else when it was saved) and
+carry no part-number proposals.
+
+```
+GET /api/designs/:id/versions/:rev/documents      :rev = a number, latest or released
+```
+
+lists every document (each kind in each format, but `csv` and the label `png`/`lbx`) and every
+export above of a locked revision, with its URL, size, media type and SHA-256, plus a
+`packageHash` over them all: what an ERP or document control system checks before it downloads
+anything. Details, the render key and where renders are kept: `docs/document-manifest.md`.
+
 ### Command line
 
 ```bash
@@ -332,3 +356,8 @@ When QR codes cannot fit a tape’s printable width, the preview says so. P-touc
 files also omit QR codes on light ink over dark tape to avoid printing an inverted
 code; choose dark ink on light tape for P-touch QR labels. Any export omissions
 are reported with the download.
+
+`continuity.json` and `continuity.csv` also carry the board trace when a placed board has native nets:
+`boardTrace.paths` (each probe pair reached across board nets, hop by hop; a `kind` of `active` is a
+declared passage through silicon, never copper) and `boardTrace.findings` (what the trace could not
+claim). In the CSV they are `board-path` and `board-finding` rows.

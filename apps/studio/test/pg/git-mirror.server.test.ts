@@ -34,6 +34,7 @@ import { importCatalog } from '../../server/pg/import.ts';
 import { blobObjectKey } from '../../server/pg/keys.ts';
 import { SnapshotCache } from '../../server/pg/snapshot.ts';
 import { describePg, freshDatabase, type TestDatabase } from './harness.ts';
+import { makePng, pngDataUri } from '../png-fixture.ts';
 
 const ISOLATED = { GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' };
 const git = (cwd: string, ...args: string[]): string =>
@@ -43,7 +44,7 @@ const git = (cwd: string, ...args: string[]): string =>
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
   });
-const PNG = `data:image/png;base64,${Buffer.from('a photo for the mirror').toString('base64')}`;
+const PNG = pngDataUri(makePng(4));
 
 function context(): JobContext & { steps: string[] } {
   const steps: string[] = [];
@@ -166,11 +167,11 @@ describePg('the git mirror on Postgres', () => {
     const config = mirrorTo({ path: dir }, dir);
     await run(config);
     const sheet = await handleWorkbenchRequest({ method: 'GET', path: '/api/drawings/dc-led-lead' }, deps);
-    const other = `data:image/png;base64,${Buffer.from('another photo, soon lost').toString('base64')}`;
+    const other = pngDataUri(makePng(5));
     expect((await handleWorkbenchRequest({ method: 'PUT', path: '/api/drawings/dc-led-lead/photo', body: { photo: other }, headers: { 'if-match': sheet.headers?.ETag as string }, user: alice }, deps)).status).toBe(200);
     await relabel(alice, '(after the lost photo)');
     // the photo's bytes are gone from the blob store
-    const sha = (await import('node:crypto')).createHash('sha256').update(Buffer.from('another photo, soon lost')).digest('hex');
+    const sha = (await import('node:crypto')).createHash('sha256').update(makePng(5)).digest('hex');
     unlinkSync(join(work, 'blobs', ...blobObjectKey(orgId, sha).split('/')));
     const out = await run(config);
     expect(String(out.result['resynced'])).toMatch(/not in the blob store/);

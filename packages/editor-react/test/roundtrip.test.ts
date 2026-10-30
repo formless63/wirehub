@@ -63,7 +63,7 @@ describe('import guards', () => {
     expect(next.rejection).toContain('schemaVersion');
   });
 
-  it('refuses a design document the definition library cannot resolve', () => {
+  it('imports a design document naming parts this library lacks, with findings', () => {
     const broken = {
       ...loadDesign('de9-terminal-board'),
       instances: {
@@ -75,8 +75,9 @@ describe('import guards', () => {
       type: 'import-json',
       json: JSON.stringify(broken),
     });
-    expect(next.design).toBe(state.design);
-    expect(next.rejection).toContain('unknown connector definition');
+    expect(next.rejection).toBeUndefined();
+    expect(next.design.instances.connectors.map((c) => c.id)).toContain('jX');
+    expect(next.issues.some((i) => i.code === 'unknown-def')).toBe(true);
   });
 
 });

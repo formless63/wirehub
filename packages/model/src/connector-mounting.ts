@@ -107,3 +107,33 @@ export function connectorMountingUsage(
   }
   return { straddle: [...straddle], direct: [...direct] };
 }
+
+/**
+ * Connector instances that duplicate a board's own integrated connector: the
+ * same definition, its pins jointed straight onto that board's
+ * `<prefix>.<pin>` terminals. The connector is already part of the board (one
+ * populated-board line in a BOM, SPEC "PCBAs"), so the instance must not count
+ * as a second part. Connector instance id → the board instance id it belongs to.
+ */
+export function integratedConnectorDuplicates(
+  db: Pick<Db, 'pcbas'>,
+  design: MountingDesign,
+): Map<string, string> {
+  const out = new Map<string, string>();
+  const boards = new Map<string, { connectorDefId: string; terminalPrefix: string }[]>();
+  for (const instance of design.instances.pcbas) {
+    const integrated = db.pcbas.find((p) => p.id === instance.def)?.integratedConnectors ?? [];
+    if (integrated.length > 0) boards.set(instance.id, integrated);
+  }
+  if (boards.size === 0) return out;
+  const defOf = new Map(design.instances.connectors.map((c) => [c.id, c.def] as const));
+  for (const joint of design.joints) {
+    for (const [own, other] of [[joint.a, joint.b], [joint.b, joint.a]] as const) {
+      const def = defOf.get(own.instance);
+      const integrated = boards.get(other.instance);
+      if (def === undefined || integrated === undefined) continue;
+      if (integrated.some((entry) => entry.connectorDefId === def && other.terminal.startsWith(`${entry.terminalPrefix}.`))) out.set(own.instance, other.instance);
+    }
+  }
+  return out;
+}

@@ -113,9 +113,16 @@ export function recordsOfWrite(method: string, path: string, body?: unknown): st
       return a === undefined || b === undefined || c !== undefined ? [] : [definitionRecord(a, b)];
     case 'tags':
       return a === undefined || b === undefined ? [] : [definitionRecord(a, b)];
+    case 'representations':
+      // a design's cover rides the design's lease; a library record's cover, the record's
+      if (a === 'designs') return b === undefined ? [] : [designRecord(b)];
+      return a === undefined || b === undefined ? [] : [definitionRecord(a, b)];
     case 'models':
       // a record's 3D model (attach, upload, detach) is an edit of that record
       return a === undefined || b === undefined ? [] : [definitionRecord(a, b)];
+    case 'enclosures':
+      // generating replaces the shell's 3D model and outputs: an edit of that shell
+      return a === undefined || a === 'boards' ? [] : [definitionRecord('mechanicals', a)];
     case 'wire-library':
       return a === 'stocks' && b !== undefined ? [definitionRecord('wires', b)] : [];
     case 'builds':
@@ -124,7 +131,13 @@ export function recordsOfWrite(method: string, path: string, body?: unknown): st
       return a === undefined ? [] : [vocabRecord(a)];
     case 'history':
       // restoring a record to an earlier state is an edit of that record: /api/history/records/<record key>/restore
-      return a === 'records' && b !== undefined && c === 'restore' && isRecordKey(b) ? [b] : [];
+      if (a === 'records' && b !== undefined && c === 'restore') return isRecordKey(b) ? [b] : [];
+      // undoing an agent checkpoint edits every record it quotes: /api/history/checkpoints/<token>/restore { current: { <record key>: … } }
+      if (a === 'checkpoints' && c === 'restore') {
+        const current = typeof body === 'object' && body !== null ? (body as { current?: unknown }).current : undefined;
+        return typeof current === 'object' && current !== null ? Object.keys(current).filter(isRecordKey) : [];
+      }
+      return [];
     case 'depictions':
       // artwork is keyed by definition id alone: it belongs to whichever
       // library record of that id is being edited
@@ -137,6 +150,15 @@ export function recordsOfWrite(method: string, path: string, body?: unknown): st
       return changes.flatMap((entry) => {
         const c = (typeof entry === 'object' && entry !== null ? entry : {}) as { id?: unknown; etag?: unknown };
         return typeof c.id === 'string' && c.etag !== undefined ? [designRecord(c.id)] : [];
+      });
+    }
+    case 'adopt': {
+      // adopting a newer revision edits every design it switches
+      const designs = typeof body === 'object' && body !== null ? (body as { designs?: unknown }).designs : undefined;
+      if (!Array.isArray(designs)) return [];
+      return designs.flatMap((entry) => {
+        const id = (entry as { id?: unknown } | null)?.id;
+        return typeof id === 'string' ? [designRecord(id)] : [];
       });
     }
     case 'lineup': {

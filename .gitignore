@@ -72,10 +72,19 @@ packages/catalog/data/setup.json
 # --- model caches ---------------------------------------------------------
 # GLBs built by an importer; data/models.json is the committed truth
 packages/catalog/data/.model-cache/
+.tool-outputs/
 # KiCad's 3D library, only the files a link needs, fetched at a pinned tag
 packages/catalog/data/.kicad-3d-cache/
 .model-cache/
+.thumb-cache/
+# released revision renders by render key (docs/document-manifest.md)
+packages/catalog/data/.document-cache/
+.document-cache/
 .user-prefs/
+# firmware source, binaries and logs when no blob store is configured
+packages/catalog/data/.firmware-blobs/
+.firmware-blobs/
+.inventory/
 
 # --- beads / Dolt (added by bd init) --------------------------------------
 .dolt/

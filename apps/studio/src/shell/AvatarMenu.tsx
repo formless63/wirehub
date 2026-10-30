@@ -2,7 +2,7 @@
 
 import { useNavigate } from '@tanstack/react-router';
 import { Menu, type MenuEntry } from '@wirehub/editor-react';
-import { IconKey, IconLogout, IconMoon, IconSun, IconUser } from '@tabler/icons-react';
+import { IconDeviceDesktop, IconKey, IconLogout, IconMoon, IconSun, IconUser } from '@tabler/icons-react';
 import type { JSX } from 'react';
 
 import { LockNameAvatar } from '../locks/LockNameAvatar.tsx';
@@ -10,7 +10,7 @@ import { initialsOf } from '../me.browser.ts';
 import { useStudio } from '../studio-context.tsx';
 
 export function AvatarMenu({ onNavigate }: { onNavigate?: () => void }): JSX.Element {
-  const { user, me, theme, toggleTheme } = useStudio();
+  const { user, me, theme, themeChoice, toggleTheme, setThemeChoice } = useStudio();
   const navigate = useNavigate();
   const who = me?.email === undefined ? user : `${user} <${me.email}>`;
   const session = me?.source === 'session';
@@ -18,6 +18,7 @@ export function AvatarMenu({ onNavigate }: { onNavigate?: () => void }): JSX.Ele
     ...(session ? [{ label: 'My account', icon: <IconUser size={14} aria-hidden />, onSelect: () => { onNavigate?.(); void navigate({ to: '/sign-in' }); } }] : []),
     ...(session && me.instance?.accounts === true ? [{ label: 'API tokens', icon: <IconKey size={14} aria-hidden />, onSelect: () => { onNavigate?.(); void navigate({ to: '/account/tokens' }); } }] : []),
     { label: theme === 'dark' ? 'Light theme' : 'Dark theme', icon: theme === 'dark' ? <IconSun size={14} aria-hidden /> : <IconMoon size={14} aria-hidden />, onSelect: toggleTheme },
+    ...(themeChoice === 'system' ? [] : [{ label: 'System theme', icon: <IconDeviceDesktop size={14} aria-hidden />, onSelect: () => setThemeChoice('system') }]),
     ...(session
       ? [
           { type: 'separator' } as const,

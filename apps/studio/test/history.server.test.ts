@@ -26,6 +26,7 @@ import { recordsOfWrite } from '../src/locks/records.ts';
 import type { ApiRequest } from '../server/api.ts';
 import type { StudioUser } from '../server/me.ts';
 import { historyScenario, photoScenario, renameAndListScenario } from './history-scenario.ts';
+import { makePng, pngDataUri } from './png-fixture.ts';
 
 const ISOLATED = { GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' };
 
@@ -89,7 +90,7 @@ describe('change history on the file backend (git)', () => {
     const atLegacy = commit('studio: legacy photo file');
     rmSync(legacy);
     const sheet = await handleWorkbenchRequest({ method: 'GET', path: `/api/drawings/${id}` }, deps);
-    const current = `data:image/png;base64,${png('current photo').toString('base64')}`;
+    const current = pngDataUri(makePng(4));
     const put = await handleWorkbenchRequest({ method: 'PUT', path: `/api/drawings/${id}/photo`, body: { photo: current }, headers: { 'if-match': sheet.headers?.ETag as string }, user }, deps);
     expect(put.status, JSON.stringify(put.body)).toBe(200);
     commit('studio: photo set');

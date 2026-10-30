@@ -254,18 +254,8 @@
   scroll-margin-top: 8px;
 }
 
-.cs-record-src summary {
-  font-size: var(--fs-2xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--dim);
-  cursor: pointer;
-}
-
 .cs-record-src p {
-  margin: 4px 0 0;
-  font-size: var(--fs-xs);
+  margin: 0;
   color: var(--dim);
   white-space: pre-wrap;
 }
@@ -282,4 +272,127 @@
 
 .cs-used-list .cs-link {
   font-family: 'IBM Plex Sans', system-ui, sans-serif;
+}
+
+/* where used: a compact table (name · PN · rev), first ten then "Show all" */
+.cs-used-table {
+  border-collapse: collapse;
+  font-size: var(--fs-xs);
+  min-width: 420px;
+}
+.cs-used-table th {
+  text-align: left;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 16px 4px 0;
+}
+.cs-used-table td {
+  padding: 3px 16px 3px 0;
+  border-top: 1px solid var(--line);
+  white-space: nowrap;
+  max-width: 520px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cs-used-table td.is-faint {
+  color: var(--faint);
+}
+.cs-used-table .cs-link {
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  text-align: left;
+}
+.cs-used-more {
+  margin-top: 4px;
+  font-size: var(--fs-xs);
+}
+
+.cs-lt-bar .cs-lt-sources {
+  width: auto;
+  min-width: 130px;
+  flex: 0 0 auto;
+}
+
+/* beside a record the list is narrow: one line per name, the full name on hover */
+.cs-lt.is-compact .cs-lt-cell {
+  white-space: nowrap;
+  overflow: hidden;
+}
+.cs-lt.is-compact .cs-lt-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* beside a record: the kind as one menu, search and the list's actions on one row */
+.cs-library-compact-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.cs-library-compact-bar > .cs-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.cs-library-more {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.cs-library-kind-menu {
+  font-weight: 600;
+}
+
+/* Library › Vocabulary: one list at a time, read-only */
+.cs-vocab-browse {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 16px 16px;
+}
+.cs-vocab-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cs-vocab-bar .cs-vocab-pick {
+  width: auto;
+  min-width: 180px;
+}
+.cs-vocab-bar .cs-input {
+  flex: 0 1 260px;
+}
+.cs-vocab-table {
+  border-collapse: collapse;
+  font-size: var(--fs-xs);
+  width: 100%;
+}
+.cs-vocab-table th {
+  text-align: left;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 4px 12px 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+.cs-vocab-table td {
+  padding: 3px 12px 3px 0;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cs-vocab-table td.is-dim {
+  color: var(--dim);
+}
+.cs-lt.is-compact .cs-lt-number-context {
+  display: none;
 }

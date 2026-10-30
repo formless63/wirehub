@@ -233,6 +233,28 @@ export function stampOf(state: string | undefined): string | undefined {
   return m === null ? undefined : (m[1] as string).toUpperCase();
 }
 
+/** A saved revision's approval, as a printed sheet states it. */
+export interface PrintedApproval {
+  state: 'submitted' | 'approved' | 'rejected';
+  by: string;
+  at: string;
+}
+
+/**
+ * The state word a printed sheet carries for what it prints — one rule for the
+ * server render and the in-app preview. The working copy is UNRELEASED. Saving
+ * does not certify (SPEC): a saved revision reads SAVED VERSION unless the
+ * sheet names its own state. With release approvals on (`approvals` given),
+ * only an approved revision is RELEASED, naming its approver; any other is
+ * UNAPPROVED.
+ */
+export function printedState(target: 'working' | number, sheetStatus: string | undefined, approvals?: { approval?: PrintedApproval }): string {
+  if (target === 'working') return 'UNRELEASED';
+  if (approvals === undefined) return sheetStatus ?? 'SAVED VERSION';
+  const a = approvals.approval;
+  return a?.state === 'approved' ? `RELEASED · approved by ${a.by} ${a.at.slice(0, 10)}` : `UNAPPROVED · ${a?.state === 'submitted' ? 'awaiting approval' : a?.state === 'rejected' ? 'rejected' : 'not approved'}`;
+}
+
 export function toneOfState(state: string | undefined): Tone {
   if (state === undefined || state.trim() === '') return 'muted';
   if (stampOf(state) !== undefined) return 'warn';

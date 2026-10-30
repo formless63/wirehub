@@ -10,7 +10,11 @@
  *
  * Scopes narrow what the person may do, never widen it: `read` always;
  * `catalog:write` for every write route of the GUI and `POST /api/batch`;
- * `imports` for `PUT /api/docs/*`. The person's current role still applies.
+ * `imports` for `PUT /api/docs/*`; `drafts:write` — a draft-work grant —
+ * for creating and editing working designs and library items only (never
+ * deleting, releasing, publishing or settings; `isDraftWrite`). A token may
+ * carry a write budget: its real (not dry-run) writes are counted and refused
+ * once it is spent. The person's current role still applies.
  */
 
 import { createHash, randomBytes } from 'node:crypto';
@@ -20,8 +24,14 @@ import { sql } from 'kysely';
 import { inOrg, orgOf, type Db, type OrgRef } from '../pg/db.ts';
 import type { Person, Role } from './people.ts';
 
-export const TOKEN_SCOPES = ['read', 'catalog:write', 'imports'] as const;
+import { DRAFT_SCOPE } from './draft-grant.ts';
+
+export { DRAFT_SCOPE, isDraftWrite, isFreeWrite } from './draft-grant.ts';
+export const TOKEN_SCOPES = ['read', 'catalog:write', 'imports', DRAFT_SCOPE] as const;
 export const TOKEN_DAYS = [1, 7, 30, 90] as const;
+/** shorter lives, for a draft-work grant handed to an agent for one task */
+export const TOKEN_HOURS = [1, 8] as const;
+export const MAX_WRITE_BUDGET = 10_000;
 export type TokenEnv = 'dev' | 'prod';
 
 export interface ApiToken {
@@ -36,6 +46,9 @@ export interface ApiToken {
   expiresAt: string;
   lastUsedAt: string | null;
   revokedAt: string | null;
+  /** the most real writes this token may make; `null` — no budget beyond the rate limits */
+  writeBudget: number | null;
+  writesUsed: number;
 }
 
 /** What a presented token resolves to, before the caller checks scope and role. */
@@ -86,6 +99,8 @@ interface Row {
   expires_at: Date;
   last_used_at: Date | null;
   revoked_at: Date | null;
+  write_budget: number | null;
+  writes_used: number;
 }
 const iso = (d: Date | null): string | null => (d === null ? null : d.toISOString());
 const tokenOf = (r: Row): ApiToken => ({
@@ -99,17 +114,24 @@ const tokenOf = (r: Row): ApiToken => ({
   expiresAt: r.expires_at.toISOString(),
   lastUsedAt: iso(r.last_used_at),
   revokedAt: iso(r.revoked_at),
+  writeBudget: r.write_budget,
+  writesUsed: r.writes_used,
 });
-const COLUMNS = sql`id::text AS id, person_id::text AS person_id, name, env, scopes, created_at, expires_at, last_used_at, revoked_at`;
+const COLUMNS = sql`id::text AS id, person_id::text AS person_id, name, env, scopes, created_at, expires_at, last_used_at, revoked_at, write_budget, writes_used`;
 
 export interface TokenStore {
-  create(input: { person: Person; name: string; scopes: string[]; days: number; env: TokenEnv }): Promise<{ token: ApiToken; secret: string }>;
+  /** `hours` instead of `days` for a short grant; `writeBudget` caps its real writes */
+  create(input: { person: Person; name: string; scopes: string[]; days: number; hours?: number; env: TokenEnv; writeBudget?: number }): Promise<{ token: ApiToken; secret: string }>;
   list(personId?: string): Promise<ApiToken[]>;
   revoke(id: string, by: Person): Promise<boolean>;
   /** a live token (unrevoked, unexpired) for this exact string, with its person */
   resolve(value: string): Promise<TokenHolder | undefined>;
   /** at most once a minute per token */
   touch(id: string): Promise<void>;
+  /** take `count` writes from a budgeted token's budget, all or none; false when it would overspend (a token without a budget always succeeds) */
+  spend?(id: string, count: number): Promise<boolean>;
+  /** give back writes a refused request had taken */
+  refund?(id: string, count: number): Promise<void>;
 }
 
 export function pgTokens(db: Db, orgRef: OrgRef, options: { now?: () => Date } = {}): TokenStore {
@@ -118,17 +140,17 @@ export function pgTokens(db: Db, orgRef: OrgRef, options: { now?: () => Date } =
   const now = options.now ?? (() => new Date());
   const touched = new Map<string, number>();
   return {
-    create: ({ person, name, scopes, days, env }) =>
+    create: ({ person, name, scopes, days, hours, env, writeBudget }) =>
       inOrg(db, org(), async (tx) => {
         const created = now();
-        const expires = new Date(created.getTime() + days * 86_400_000);
+        const expires = new Date(created.getTime() + (hours === undefined ? days * 86_400_000 : hours * 3_600_000));
         const id = (await sql<{ id: string }>`SELECT uuidv7()::text AS id`.execute(tx)).rows[0]!.id;
         const secret = `cst_${env}_${id.replace(/-/g, '').slice(0, 12)}_${base32(randomBytes(32))}`;
         const row = (
           await sql<Row>`
-            INSERT INTO auth.api_token (id, org_id, person_id, name, env, token_sha256, scopes, created_at, expires_at, created_by)
+            INSERT INTO auth.api_token (id, org_id, person_id, name, env, token_sha256, scopes, created_at, expires_at, created_by, write_budget)
             VALUES (${id}::uuid, ${org()}::uuid, ${person.id}::uuid, ${name}, ${env}, ${sha(secret)}, ${[...new Set(['read', ...scopes])]}::text[],
-                    ${created.toISOString()}::timestamptz, ${expires.toISOString()}::timestamptz, ${person.id}::uuid)
+                    ${created.toISOString()}::timestamptz, ${expires.toISOString()}::timestamptz, ${person.id}::uuid, ${writeBudget ?? null}::integer)
             RETURNING ${COLUMNS}`.execute(tx)
         ).rows[0] as Row;
         return { token: tokenOf(row), secret };
@@ -155,7 +177,7 @@ export function pgTokens(db: Db, orgRef: OrgRef, options: { now?: () => Date } =
       inOrg(db, org(), async (tx) => {
         const row = (
           await sql<Row & { email: string; pname: string; role: Role | 'service' }>`
-            SELECT t.id::text AS id, t.person_id::text AS person_id, t.name, t.env, t.scopes, t.created_at, t.expires_at, t.last_used_at, t.revoked_at,
+            SELECT t.id::text AS id, t.person_id::text AS person_id, t.name, t.env, t.scopes, t.created_at, t.expires_at, t.last_used_at, t.revoked_at, t.write_budget, t.writes_used,
                    p.email, p.name AS pname, p.role
               FROM auth.api_token t JOIN studio.person p ON p.id = t.person_id
              WHERE t.token_sha256 = ${sha(value)} AND t.revoked_at IS NULL AND t.expires_at > ${now().toISOString()}::timestamptz AND p.disabled_at IS NULL`.execute(tx)
@@ -170,6 +192,18 @@ export function pgTokens(db: Db, orgRef: OrgRef, options: { now?: () => Date } =
       touched.set(id, at);
       await inOrg(db, org(), async (tx) => void (await sql`UPDATE auth.api_token SET last_used_at = ${new Date(at).toISOString()}::timestamptz WHERE id = ${id}::uuid`.execute(tx)));
     },
+
+    spend: (id, count) =>
+      inOrg(db, org(), async (tx) => {
+        // one statement: two concurrent requests can never both take the last write
+        const result = await sql`
+          UPDATE auth.api_token SET writes_used = writes_used + ${count}::integer
+           WHERE id = ${id}::uuid AND (write_budget IS NULL OR writes_used + ${count}::integer <= write_budget)`.execute(tx);
+        return Number(result.numAffectedRows ?? 0) > 0;
+      }),
+
+    refund: (id, count) =>
+      inOrg(db, org(), async (tx) => void (await sql`UPDATE auth.api_token SET writes_used = greatest(0, writes_used - ${count}::integer) WHERE id = ${id}::uuid`.execute(tx))),
   };
 }
 
@@ -189,6 +223,10 @@ export function scopeFor(method: string, path: string): string | undefined {
     p.startsWith('/api/auth')
   )
     return undefined;
+  // the MCP endpoint reads; each tool's own requests are checked as themselves
+  if (p === '/api/mcp') return 'read';
+  // running an exploration computes over the library and writes nothing (POST only for its body)
+  if (m === 'POST' && p === '/api/explore/run') return 'read';
   if (m === 'GET' || m === 'HEAD') return 'read';
   if (p.startsWith('/api/docs/')) return 'imports';
   return 'catalog:write';

@@ -25,6 +25,7 @@ pack/
   designs/<id>.json                               example designs, optional
   validation-rules.json                           declarative design rules, optional (below)
   bench-rules.json                                work instructions as data, optional (below)
+  processes.json                                  required-process vocabulary, optional (below)
   pcba-pads.json                                  pads per board terminal, optional (below)
   drawing-art.json                                faces, plugs, cutaways by definition id, optional (below)
   docs/**/*.pdf  assets/**/*.pdf                  vendor datasheets, optional (below)
@@ -76,6 +77,12 @@ A pack can carry configuration as data, not only records (`docs/catalog-store.md
   refused, so write a rule a design of the starter or your own example designs satisfies (or make it
   a `warning`). `verify-pack.mjs` reports a rule the language cannot use. A hub owner can switch a pack
   rule off or change it by saving a rule with the same id in Settings.
+- **`processes.json`**: the required-manufacturing-process vocabulary, an array of records
+  (`docs/processes.md`; each `{ id, label, description?, derive?: [{ each, where?, note? }], enabled?, src }`).
+  It merges by id like a record file; a hub's own record of the same id shadows the pack's (Settings →
+  Processes), and `enabled: false` switches one off. `verify-pack.mjs` and the install refuse an entry the
+  checks reject (`processListProblems`). Ids are kebab-case so a shop can align them with its own
+  operation ids; keep labels generic in a shared pack.
 - **`bench-rules.json`**: an array of bench rule records (`docs/modules.md`, "Bench work instructions";
   each `{ id, phase, src, when?, steps: [{ text, src, tools?, checks?, images? }] }`). The catalog reads
   it at runtime, so the build sheet prints the steps at once, and a disable restores the generic ones.

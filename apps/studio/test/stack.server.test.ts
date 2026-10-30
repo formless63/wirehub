@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { backrestConfig, backupInit, checkCron, LOCAL_REPOSITORY, MARKER_FILE, withMarkerHooks } from '../stack/backup-init.ts';
 import { bootstrap, bundledDatabaseUrl, garageToml } from '../stack/bootstrap.ts';
 import { ensureKey, garageInit, KEYS, parseSize } from '../stack/garage-init.ts';
+import { initEnv, missingSecretFiles } from '../stack/start.ts';
 import { readSecret } from '../stack/secrets.ts';
 
 let dir = '';
@@ -335,6 +336,19 @@ describe('backup-init', () => {
   });
 });
 
+describe('startup initialisation (stack/start.ts)', () => {
+  it('never takes a file it writes itself for a value the deployer set', () => {
+    const env = { DATABASE_URL_FILE: '/run/wirehub/database_url', S3_ACCESS_KEY_ID_FILE: '/run/wirehub/s3_access_key_id', BETTER_AUTH_SECRET_FILE: '/srv/mine', POSTGRES_PASSWORD: 'set' };
+    expect(initEnv(env)).toEqual({ BETTER_AUTH_SECRET_FILE: '/srv/mine', POSTGRES_PASSWORD: 'set' });
+  });
+
+  it('has the worker wait only for the volume files it would read', () => {
+    const env = { DATABASE_URL_FILE: '/run/wirehub/database_url', S3_ACCESS_KEY_ID_FILE: '/run/wirehub/s3_access_key_id', S3_ACCESS_KEY_ID: 'explicit', OTHER_FILE: '/srv/x' };
+    expect(missingSecretFiles(env, () => false)).toEqual(['/run/wirehub/database_url']);
+    expect(missingSecretFiles(env, () => true)).toEqual([]);
+  });
+});
+
 describe('compose.yaml', () => {
   const compose = readFileSync(join(process.cwd(), '..', '..', 'compose.yaml'), 'utf8');
 
@@ -376,9 +390,9 @@ describe('compose.yaml', () => {
     }
   });
 
-  it('runs the worker after migrate, inside its memory budget (S6: 1.5 GiB, one STEP conversion below it)', () => {
+  it('runs the worker after the startup initialisation, inside its memory budget (S6: 1.5 GiB, one STEP conversion below it)', () => {
     const service = /\n  worker:\n([\s\S]*?)\n\n/.exec(compose)?.[1] ?? '';
-    expect(service).toContain('server/worker.ts');
+    expect(service).toContain('"stack/start.ts", "worker"');
     expect(service).toMatch(/\n    mem_limit: 1536m\n/);
     expect(service).toMatch(/migrate:\n        condition: service_completed_successfully/);
     expect(service).toContain('DATABASE_URL_FILE: /run/wirehub/database_url');

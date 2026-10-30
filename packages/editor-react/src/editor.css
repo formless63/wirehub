@@ -426,6 +426,14 @@
   border-color: var(--cs-accent);
 }
 
+.cs-part-item.has-cover {
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas: 'cover label add' 'cover detail add';
+}
+.cs-part-cover { grid-area: cover; display: inline-flex; width: 44px; height: 32px; align-items: center; justify-content: center; margin-right: 2px; }
+.cs-editor .cs-def-item { position: relative; }
+.cs-editor .cs-def-item.has-cover { padding-right: 64px; }
+.cs-def-cover { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); display: inline-flex; width: 52px; height: 36px; align-items: center; justify-content: center; }
 .cs-part-connector { border-left-color: var(--conn-kind); }
 .cs-part-segment { border-left-color: var(--wire-kind); }
 .cs-part-component { border-left-color: var(--comp-kind); }
@@ -529,7 +537,7 @@
 
 .cs-issue {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: 1fr;
   gap: 2px 6px;
   padding: 4px 6px;
   margin-bottom: 4px;
@@ -553,7 +561,7 @@
 }
 
 .cs-issue-where {
-  grid-column: 2;
+  grid-column: 1;
   color: var(--cs-dim);
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
@@ -598,15 +606,9 @@
   grid-template-columns: 1fr auto;
 }
 
-.cs-issue.has-fix .cs-issue-code {
-  grid-column: 1;
-  grid-row: 1;
-  align-self: center;
-}
-
 .cs-issue.has-fix .cs-issue-message,
 .cs-issue.has-fix .cs-issue-where {
-  grid-column: 1 / span 2;
+  grid-column: 1;
 }
 
 .cs-editor .cs-issue-fix {
@@ -1012,7 +1014,11 @@
   border: 1px solid var(--line2);
   border-radius: 6px;
   box-shadow: var(--shadow);
-  overflow: hidden;
+  /* a card's pin handles sit on its edge, half outside: it clips 8 px out (half a 16 px
+     handle) so the outer half is drawn and hittable too; its head rounds its
+     own corners rather than relying on the clip */
+  overflow: clip;
+  overflow-clip-margin: 8px;
 }
 
 .cs-node.is-selected {
@@ -1034,6 +1040,7 @@
   padding: 4px 7px;
   background: var(--raised);
   border-bottom: 1px solid var(--line);
+  border-radius: 5px 5px 0 0;
 }
 
 .cs-badge {
@@ -1512,7 +1519,9 @@
   border-radius: 50%;
   background: transparent;
   transform: translate(-50%, -50%);
-  z-index: 2;
+  /* above the pads' `+` buttons (z-index 3): a press inside a pad's hit area
+     always starts a wire, never lands on a neighbour's `+` */
+  z-index: 4;
 }
 
 .cs-editor .react-flow__handle.cs-pad-handle::before,
@@ -1527,8 +1536,9 @@
 }
 
 .cs-editor .react-flow__handle.cs-pad-handle::before {
-  width: 14px;
-  height: 14px;
+  /* at least 10 screen pixels whatever the zoom (the flow sets --cs-zoom), 14 canvas pixels when zoomed in */
+  width: max(14px, calc(12px / var(--cs-zoom, 1)));
+  height: max(14px, calc(12px / var(--cs-zoom, 1)));
 }
 
 .cs-editor .react-flow__handle.cs-pad-handle::after {
@@ -4442,8 +4452,9 @@ fieldset.cs-lock-fence {
 
 .cs-editor .cs-wizard-kind {
   display: flex;
-  gap: 10px;
-  margin: 0 0 12px;
+  gap: 16px;
+  margin: 0 0 10px;
+  font-size: var(--fs-xs);
 }
 
 .cs-wizard-kind legend {
@@ -4468,19 +4479,43 @@ fieldset.cs-lock-fence {
   color: var(--cs-dim);
 }
 
+.cs-wizard-older {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 4px 0;
+  color: var(--cs-dim);
+  font-size: var(--fs-xs);
+}
+
 .cs-wizard-presets {
   display: flex;
   gap: 6px;
   margin: -6px 0 12px;
 }
 
-/* a question the catalog could not answer at all — the options are near
-   misses, so it reads differently from a plain "pick one of these two" */
-.cs-field.is-weak > span::after {
-  content: ' — nothing matches exactly';
-  color: var(--cs-warn);
-  font-weight: 400;
+/* step 1's rarely-needed fields */
+.cs-wizard-more { margin-top: 8px; font-size: var(--fs-xs); }
+.cs-wizard-more > summary { cursor: pointer; color: var(--cs-dim); margin-bottom: 6px; }
+
+/* the decide step: one row per question — what, the pick, a short why (full reason on hover) */
+.cs-wizard-choices section { margin-bottom: 8px; }
+.cs-wizard-choice {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(200px, 1.2fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: var(--fs-xs);
 }
+.cs-wizard-choice-what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* the review's pin table */
+.cs-wizard-pins { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); }
+.cs-wizard-pins th { text-align: left; font-weight: 500; color: var(--cs-dim); padding: 2px 6px; border-bottom: 1px solid var(--cs-line); }
+.cs-wizard-pins td { padding: 2px 6px; border-bottom: 1px solid var(--cs-line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+.cs-wizard-review .cs-dim, .cs-wizard-left .cs-dim { color: var(--cs-dim); }
+.cs-wizard-left li { font-size: var(--fs-xs); gap: 6px; flex-wrap: wrap; }
 
 .cs-wizard-review section {
   margin-bottom: 4px;
@@ -4498,6 +4533,11 @@ fieldset.cs-lock-fence {
 
 .cs-wizard-review .cs-list {
   max-height: 220px;
+  overflow: auto;
+}
+
+.cs-wizard-review section:has(.cs-wizard-pins) {
+  max-height: 320px;
   overflow: auto;
 }
 
@@ -4792,7 +4832,7 @@ fieldset.cs-lock-fence {
 
 .cs-conn-add-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
   gap: 6px;
   align-items: center;
   min-height: 30px;
@@ -4973,6 +5013,16 @@ fieldset.cs-lock-fence {
 .cs-conn-art .cs-handle-add.is-left,
 .cs-wire-art .cs-handle-add.is-left {
   transform: translate(calc(-100% - 6px), -50%);
+}
+
+/* on a board the `+` sits just outside its pad's hit area (which grows as the
+   canvas zooms out, see .cs-pad-handle::before), so both stay reachable */
+.cs-board-art .cs-handle-add.is-right {
+  transform: translate(max(6px, calc(6px / var(--cs-zoom, 1))), -50%);
+}
+
+.cs-board-art .cs-handle-add.is-left {
+  transform: translate(calc(-100% - max(6px, calc(6px / var(--cs-zoom, 1)))), -50%);
 }
 
 /* ---------- the node picker popover ---------- */
@@ -5919,7 +5969,7 @@ fieldset.cs-lock-fence {
 }
 
 .cs-in-kits {
-  padding: 0 0 8px;
+  margin-bottom: 0;
 }
 
 .cs-kit-chip {
@@ -6232,11 +6282,10 @@ fieldset.cs-lock-fence {
  * Views: 2D / 3D / Photo of a Library record
  * ------------------------------------------------------------------ */
 
+/* the record page's Views reads like the other record sections (ui/Section.tsx): a hairline, a compact head */
 .cs-model-panel {
-  margin: 8px 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel);
+  margin: 0;
+  border-top: 1px solid var(--line);
   overflow: hidden;
 }
 
@@ -6245,8 +6294,8 @@ fieldset.cs-lock-fence {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  padding: 5px 8px;
-  border-bottom: 1px solid var(--line);
+  min-height: 30px;
+  padding: 0 4px 0 0;
   font-size: var(--fs-xs);
 }
 
@@ -6255,12 +6304,19 @@ fieldset.cs-lock-fence {
 }
 
 .cs-editor .cs-model-fold {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border: 0;
   background: none;
-  padding: 2px 4px;
-  color: var(--dim);
+  padding: 0 4px;
+  height: 26px;
+  color: var(--ink);
   font-weight: 600;
 }
+
+.cs-editor .cs-model-fold svg { color: var(--faint); transition: transform var(--dur-fast) var(--ease); }
+.cs-model-panel:not(.is-collapsed) .cs-model-fold svg { transform: rotate(90deg); }
 
 .cs-seg {
   display: inline-flex;
@@ -6429,8 +6485,53 @@ fieldset.cs-lock-fence {
   color: var(--dim);
 }
 
-.cs-model-attach select[size] {
-  min-width: min(360px, 100%);
+.cs-model-attach-row {
+  align-items: center;
+}
+.cs-model-attach-row .cs-ui-input {
+  flex: 1 1 220px;
+}
+.cs-model-file {
+  color: var(--ink);
+}
+.cs-editor .cs-model-attach .cs-ui-filedrop {
+  padding: var(--space-md);
+}
+/* stored models: a quiet list, one row each */
+.cs-model-pick {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+}
+.cs-model-pick ul {
+  width: 100%;
+  max-height: 160px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+}
+.cs-editor .cs-model-pick li button {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.cs-model-pick li button:hover {
+  background: var(--raised);
+}
+.cs-model-pick li button.is-on {
+  background: var(--selected);
+  color: var(--ink);
 }
 
 .cs-model-hint {
@@ -6707,3 +6808,238 @@ fieldset.cs-lock-fence {
 .cs-editor .react-flow__controls-button { background: var(--raised); color: var(--ink); border-bottom-color: var(--line); }
 .cs-editor .react-flow__controls-button:hover { background: var(--panel); }
 .cs-editor .react-flow__controls-button svg { fill: currentColor; }
+
+/* ---------- label legibility over board artwork ----------
+   The sheet is paper in both themes, so the halo is the paper token: a text
+   outline painted under the glyphs keeps net labels, pad names and the via
+   annotations readable where they cross green copper art or another link's
+   line. Presentation only: no geometry, anchor or mirroring is touched. */
+.cs-schematic-sheet svg .annot,
+.cs-schematic-sheet svg .pad-label,
+.cs-schematic-sheet svg .callout,
+.cs-schematic-sheet svg .pin-label,
+.cs-schematic-sheet svg .pin-id,
+.cs-schematic-sheet svg .face-caption {
+  paint-order: stroke fill;
+  stroke: var(--paper);
+  stroke-width: 0.9px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.cs-schematic-sheet svg .annot {
+  fill: var(--paper-ink);
+  font-weight: 500;
+}
+
+.cs-schematic-sheet svg .pad-label,
+.cs-schematic-sheet svg .callout {
+  fill: var(--paper-ink-2);
+}
+
+.cs-schematic-sheet svg .internal-link {
+  stroke: var(--paper-dim);
+}
+
+/* ------------------------------------------------------------------ *
+ * Conductor trace across boards (board-trace.tsx): the findings list.
+ * The board highlight itself is a generated <style> of the --trace-* tokens.
+ * ------------------------------------------------------------------ */
+/* top right: clear of the minimap and the zoom controls, beside the canvas toolbar */
+.cs-trace-findings {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  z-index: 5;
+  width: min(380px, calc(100% - 20px));
+  max-height: 40%;
+  overflow: auto;
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--cs-panel);
+  border: 1px solid var(--cs-line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--elev-2);
+  font-size: var(--fs-2xs);
+  color: var(--cs-ink);
+  pointer-events: none;
+}
+.cs-trace-findings[data-pinned] {
+  pointer-events: auto;
+}
+.cs-trace-findings-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2xs) var(--space-sm);
+}
+.cs-trace-findings-from {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+.cs-trace-legend {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  color: var(--cs-dim);
+}
+.cs-trace-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+}
+.cs-trace-swatch {
+  display: inline-block;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--trace-copper);
+}
+.cs-trace-swatch[data-kind='passive'] { background: var(--trace-passive); }
+.cs-trace-swatch[data-kind='active'] { background: var(--trace-active); }
+.cs-trace-swatch[data-kind='unknown'] { background: var(--trace-unknown); }
+.cs-trace-boards,
+.cs-trace-none {
+  margin: var(--space-2xs) 0 0;
+  color: var(--cs-dim);
+}
+.cs-trace-list {
+  list-style: none;
+  margin: var(--space-2xs) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3xs);
+}
+.cs-trace-finding {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: baseline;
+  gap: var(--space-2xs);
+}
+.cs-trace-finding-kind {
+  color: var(--cs-dim);
+  font-weight: 600;
+}
+.cs-trace-more {
+  color: var(--cs-dim);
+}
+/* the traced route over a board node's art (BoardTracePath) */
+.cs-trace-path {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+.cs-trace-seg {
+  stroke: var(--trace-copper);
+  stroke-width: 2.5px;
+  stroke-linecap: round;
+  opacity: 0.95;
+}
+.cs-trace-seg[data-kind='passive'] { stroke: var(--trace-passive); }
+.cs-trace-seg[data-kind='active'] { stroke: var(--trace-active); stroke-dasharray: 4 3; }
+.cs-trace-seg[data-kind='unknown'] { stroke: var(--trace-unknown); stroke-dasharray: 2 3; }
+.cs-trace-part circle {
+  fill: var(--cs-panel);
+  fill-opacity: 0.35;
+  stroke: var(--trace-copper);
+  stroke-width: 2px;
+}
+.cs-trace-part[data-kind='passive'] circle { stroke: var(--trace-passive); }
+.cs-trace-part[data-kind='active'] circle { stroke: var(--trace-active); stroke-dasharray: 4 2; }
+.cs-trace-part[data-kind='unknown'] circle { stroke: var(--trace-unknown); stroke-dasharray: 2 2; }
+.cs-trace-part text {
+  font-family: var(--font-mono);
+  font-size: var(--fs-canvas-10);
+  font-weight: 600;
+  text-anchor: middle;
+  fill: var(--cs-ink);
+  paint-order: stroke;
+  stroke: var(--cs-panel);
+  stroke-width: 3px;
+}
+
+/* declaring a jumper or switch state (PartStatesSection, TraceFindings) */
+.cs-part-state-list { display: grid; gap: var(--space-2xs); }
+.cs-part-state { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
+.cs-trace-declare { margin-left: var(--space-xs); vertical-align: middle; }
+
+/* the board record's components table: Qty right-aligned and kept apart from the refs */
+.cs-bc-table .cs-bc-qty { width: 3.5em; padding-right: var(--space-md); text-align: right; white-space: nowrap; }
+.cs-bc-table td, .cs-bc-table th { padding-right: var(--space-sm); }
+
+/* a linked model not built here yet: one quiet line, the why in its tooltip */
+.cs-model-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 10px;
+  font-size: var(--fs-xs);
+  color: var(--dim);
+}
+.cs-model-spin {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--line2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .cs-model-spin {
+    animation: cs-model-spin 0.9s linear infinite;
+  }
+}
+@keyframes cs-model-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* the Part tab's header: the part's name, one meta line (ids on hover), a quiet delete */
+.cs-part-head { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 8px; }
+.cs-part-head-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.cs-part-head-text strong { font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cs-editor .cs-part-delete { color: var(--cs-dim); }
+.cs-editor .cs-part-delete:hover { color: var(--cs-error); }
+
+.cs-conn-add-label { font-size: var(--fs-2xs); color: var(--cs-dim); white-space: nowrap; }
+
+/* a board whose record defines no pads: one quiet word in the node head */
+.cs-node-newer { display: inline-flex; align-items: center; justify-content: center; margin-left: 4px; width: 14px; height: 14px; border-radius: 3px; color: var(--cs-accent); background: color-mix(in srgb, var(--cs-accent) 14%, transparent); flex: none; }
+.cs-node-hint { margin-left: 6px; padding: 0 4px; border: 1px solid var(--cs-warn); border-radius: 3px; color: var(--cs-warn); font-size: var(--fs-2xs); white-space: nowrap; }
+
+/* the design's required processes (Notes tab, ProcessesFields.tsx) */
+.cs-processes {
+  margin: 0 0 12px;
+}
+
+.cs-processes-label {
+  display: block;
+  margin-bottom: 3px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--cs-dim);
+}
+
+.cs-processes-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.cs-processes .cs-ui-chip[data-declared] {
+  cursor: pointer;
+}
+
+.cs-processes-note {
+  margin-top: 4px;
+  width: 100%;
+}
+
+.cs-processes-add {
+  width: 160px;
+}

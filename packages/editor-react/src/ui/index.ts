@@ -45,6 +45,10 @@ export type { DataColumn, DataSort, DataTableProps } from './DataTable.tsx';
 export { EmptyState, KeyValues, Page, PageBody, PageHeader, SidePanel, Toolbar } from './Page.tsx';
 export type { EmptyStateProps, PageHeaderProps, SidePanelProps, ToolbarProps } from './Page.tsx';
 export { FilterChip, FilterMenu } from './FilterChip.tsx';
+export { FindingsChip, FindingsList, asFindings, findingsSummary } from './Findings.tsx';
+export type { Finding, FindingLevel } from './Findings.tsx';
+export { Section, SectionAdds } from './Section.tsx';
+export type { SectionProps } from './Section.tsx';
 export type { FilterGroup } from './FilterChip.tsx';
 
 export { localPrefsBackend, readPref, setPrefsBackend, usePref, writePref } from './prefs.ts';

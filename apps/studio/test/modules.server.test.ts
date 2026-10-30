@@ -77,13 +77,15 @@ describe('module routes', () => {
 });
 
 describe('module validation rules', () => {
-  it('refuse a save the rule rejects, with the module-prefixed code', async () => {
+  it('save with what the rule finds, under the module-prefixed code (saving is not approval)', async () => {
     const design = loadDesign('de9-crossover');
     const bare = { ...structuredClone(design), notes: [] };
     const deps = depsWith(design);
     const etag = (await call(deps, { method: 'GET', path: `/api/designs/${design.id}` }) as { headers?: Record<string, string> }).headers?.['ETag'];
-    const refused = await handleWorkbenchRequest({ method: 'PUT', path: `/api/designs/${design.id}`, body: bare, headers: etag === undefined ? {} : { 'if-match': etag } }, deps);
-    expect(refused.status).toBe(422);
-    expect(JSON.stringify(refused.body)).toContain('example/no-notes');
+    const saved = await handleWorkbenchRequest({ method: 'PUT', path: `/api/designs/${design.id}`, body: bare, headers: etag === undefined ? {} : { 'if-match': etag } }, deps);
+    expect(saved.status).toBe(200);
+    expect(saved.headers?.['X-WireHub-Findings']).toContain('problem');
+    const found = await call(deps, { method: 'GET', path: `/api/designs/${design.id}/issues` });
+    expect(JSON.stringify(found.body)).toContain('example/no-notes');
   });
 });

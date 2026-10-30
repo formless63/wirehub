@@ -167,14 +167,16 @@ describe('Settings: validation rules', () => {
     fireEvent.click(within(editor).getByRole('button', { name: 'Test on my designs' }));
     const result = await screen.findByTestId('rule-test');
     expect(result.textContent).toMatch(/6 error\(s\)/);
-    expect(result.textContent).toMatch(/dc-led-lead/);
+    expect(result.textContent).toContain('LED supply lead');
     fireEvent.click(within(editor).getByRole('button', { name: 'Save rule' }));
     await waitFor(() => expect(section.querySelector('[data-rule="example-power-area"]')).not.toBeNull());
-    // it runs: the design now fails its save for the thin power lead
+    // it runs: the design still saves (a rule error is a finding, not a refusal) and carries it
     const lead = await handleWorkbenchRequest({ method: 'GET', path: '/api/designs/dc-led-lead' }, deps);
-    const refused = await handleWorkbenchRequest({ method: 'PUT', path: '/api/designs/dc-led-lead', body: lead.body, headers: { 'if-match': lead.headers?.ETag ?? '' } }, deps);
-    expect(refused.status).toBe(422);
-    expect(JSON.stringify(refused.body)).toContain('rule:example-power-area');
+    const saved = await handleWorkbenchRequest({ method: 'PUT', path: '/api/designs/dc-led-lead', body: lead.body, headers: { 'if-match': lead.headers?.ETag ?? '' } }, deps);
+    expect(saved.status).toBe(200);
+    expect(saved.headers?.['X-WireHub-Findings']).toMatch(/problem/);
+    const issues = await handleWorkbenchRequest({ method: 'GET', path: '/api/designs/dc-led-lead/issues' }, deps);
+    expect(JSON.stringify(issues.body)).toContain('rule:example-power-area');
     const row = section.querySelector('[data-rule="example-power-area"]') as HTMLElement;
     fireEvent.click(within(row).getByRole('button', { name: 'Turn off' }));
     await waitFor(() => expect(within(section.querySelector('[data-rule="example-power-area"]') as HTMLElement).getByRole('button', { name: 'Turn on' })).toBeTruthy());

@@ -13,36 +13,41 @@ import { useState, type JSX } from 'react';
 import { fetchJob, isFinished, jobKey, jobsKey, publishJob, type ImportProposal, type JobView } from '../jobs.browser.ts';
 import { designsKey } from '../queries.ts';
 import { Button } from '@wirehub/editor-react';
+import { displayName } from '../display.ts';
+import { localDateTime } from '../when.ts';
 
-const when = (iso: string | undefined): string => (iso === undefined ? '' : new Date(iso).toLocaleString());
+const when = (iso: string | undefined): string => (iso === undefined ? '' : localDateTime(iso, true));
 
 /** The plan, in words: new records by kind, what is skipped, the importer's notes. */
 export function PlanSummary({ proposal, notes }: { proposal: ImportProposal | undefined; notes: string[] }): JSX.Element {
+  const kindLabel = (kind: string): string => (({ pcbas: 'boards', mechanicals: 'hardware', bodies: 'connector bodies', interfaces: 'pinouts' } as Record<string, string>)[kind] ?? kind);
+  const records = [...Object.values(proposal?.definitions ?? {}).flat(), ...Object.values(proposal?.updated ?? {}).flat()];
+  const boardName = (ref: string): string => displayName(records.find((r) => ref === r.id || ref.startsWith(`${r.id}@`))?.label, 'Board');
   return (
     <>
       {proposal === undefined
         ? null
         : Object.entries(proposal.definitions).map(([kind, list]) => (
             <div key={kind}>
-              {list.length} new {kind}: {list.map((r) => r.id).join(', ')}
+              {list.length} new {kindLabel(kind)}: {list.map((r) => displayName(r.label)).join(', ')}
             </div>
           ))}
       {proposal === undefined
         ? null
         : Object.entries(proposal.updated ?? {}).map(([kind, list]) => (
             <div key={`updated-${kind}`}>
-              {list.length} updated {kind}: {list.map((r) => r.id).join(', ')}
+              {list.length} updated {kindLabel(kind)}: {list.map((r) => displayName(r.label)).join(', ')}
             </div>
           ))}
       {proposal === undefined || proposal.designs.length === 0 ? null : (
         <div>
-          {proposal.designs.length} new designs: {proposal.designs.map((d) => d.id).join(', ')}
+          {proposal.designs.length} new designs: {proposal.designs.map((d) => displayName(d.label, 'Unnamed design')).join(', ')}
         </div>
       )}
-      {(proposal?.boardParts ?? []).length === 0 ? null : <div>Placed parts of: {proposal!.boardParts!.join(', ')}</div>}
-      {(proposal?.depictions ?? []).length === 0 ? null : <div>Board art for: {proposal!.depictions!.join(', ')}</div>}
+      {(proposal?.boardParts ?? []).length === 0 ? null : <div>Placed parts of: {proposal!.boardParts!.map(boardName).join(', ')}</div>}
+      {(proposal?.depictions ?? []).length === 0 ? null : <div>Board art for: {proposal!.depictions!.map(boardName).join(', ')}</div>}
       {proposal === undefined || proposal.existing.length + proposal.existingDesigns.length === 0 ? null : (
-        <div>Already in the library, skipped: {[...proposal.existing, ...proposal.existingDesigns].join(', ')}</div>
+        <div>Already in the library, skipped: {proposal.existing.length + proposal.existingDesigns.length} record{proposal.existing.length + proposal.existingDesigns.length === 1 ? '' : 's'}</div>
       )}
       {notes.map((note) => (
         <div key={note}>Check: {note}</div>

@@ -2,7 +2,8 @@
  * Live updates: `GET /api/events` (server-sent events, `server/events.ts`).
  *
  * The server greets with the catalog version (`hello`), then sends `catalog`
- * when a commit made a new version and `locks` when a lease changed — from
+ * when a commit made a new version, `locks` when a lease changed and
+ * `inventory` when a stock, reservation or batch write committed — from
  * any process on the database backend, from this one on files. A page uses
  * them to refetch what changed instead of waiting for the next poll.
  *
@@ -21,6 +22,8 @@ export interface EventStreamHandlers {
   onCatalog(version: string): void;
   /** a lease changed on `record` (also once on every (re)connect: refresh the lease list) */
   onLocks(record: string | undefined): void;
+  /** an inventory write committed anywhere (also once on every reconnect: it may have moved meanwhile) */
+  onInventory?(): void;
   /** true while the stream is open, false while it is down */
   onState?(live: boolean): void;
 }
@@ -88,8 +91,9 @@ export function connectEventStream(handlers: EventStreamHandlers, options: Event
       const version = parse(event.data)['version'];
       const seen = typeof version === 'string' && version !== '' ? version : undefined;
       setLive(true);
-      // the lease list may have moved while the stream was down
+      // the lease list and the inventory may have moved while the stream was down
       handlers.onLocks(undefined);
+      handlers.onInventory?.();
       if (seen !== undefined && lastVersion !== undefined && seen !== lastVersion) handlers.onCatalog(seen);
       if (seen !== undefined) lastVersion = seen;
     });
@@ -105,6 +109,10 @@ export function connectEventStream(handlers: EventStreamHandlers, options: Event
       if (!current()) return;
       const record = parse(event.data)['record'];
       handlers.onLocks(typeof record === 'string' ? record : undefined);
+    });
+    next.addEventListener('inventory', () => {
+      if (!current()) return;
+      handlers.onInventory?.();
     });
     next.onerror = () => {
       if (!current()) return;

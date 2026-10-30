@@ -21,6 +21,7 @@ import { bindPort, devicePort, policyInForce, resolveDevice, type DevicePort, ty
 import { valueOfText } from './link-elements.ts';
 import { CURRENT_SCHEMA_VERSION, type CableDesign, type Db, type ComponentDefinition, type ComponentInstance, type ConnectorDefinition, type ConnectorInstance, type GroupElement, type Joint, type PcbaInstance, type Pigtail, type TerminalRef, type WireDefinition } from './model.ts';
 import { elementPaths, resolveElementPath } from './paths.ts';
+import { wireElementName } from './names.ts';
 import { optionOf, resolve, type CableOption, type End, type Finding, type Link, type ResolveQuery, type Resolution } from './resolve.ts';
 import type { CableRecipe } from './cable-recipe.ts';
 import { vocabEntry, type SignalEntry } from './vocab.ts';
@@ -125,11 +126,14 @@ export function diffPairs(lib: ResolverLibrary, links: readonly Link[]): [number
  * lines and the return; a screen when an end has a chassis pin; twisted
  * pairs for the differential pairs; the fewest spare conductors.
  */
-export function suggestStocks(lib: ResolverLibrary, option: CableOption): { id: string; label: string; spare: number; reasons: string[] }[] {
+export function suggestStocks(lib: ResolverLibrary, option: CableOption): { id: string; label: string; spare: number; dropped: number; misfit: number; reasons: string[] }[] {
   const needs = stockNeeds(lib, option);
   const kindOf = (signal: string | undefined): string | undefined => (signal === undefined ? undefined : vocabEntry<SignalEntry>(lib.vocab, 'signals', signal)?.kind);
   const optionalLines = option.links.filter((l) => kindOf(l.signal) === 'control' && kindOf(l.toSignal) === 'control').length;
-  const out: { id: string; label: string; spare: number; score: number[]; reasons: string[] }[] = [];
+  // lines a coax centre is the wrong home for: logic, data and supply lines want plain cores or twisted pairs
+  const plainKinds = new Set(['control', 'data', 'power', 'ground']);
+  const plainLines = option.links.filter((l) => plainKinds.has(kindOf(l.signal) ?? '') || plainKinds.has(kindOf(l.toSignal) ?? '')).length;
+  const out: { id: string; label: string; spare: number; dropped: number; misfit: number; score: number[]; reasons: string[] }[] = [];
   for (const wire of lib.wires) {
     const shape = stockShape(wire);
     const n = shape.conductors.length;
@@ -144,13 +148,27 @@ export function suggestStocks(lib: ResolverLibrary, option: CableOption): { id: 
     const unpaired = Math.max(0, needs.pairs - shape.pairs.length);
     if (needs.pairs > 0) reasons.push(unpaired === 0 ? `${needs.pairs} twisted pair${needs.pairs === 1 ? '' : 's'} for the differential lines` : `${unpaired} differential pair${unpaired === 1 ? '' : 's'} without a twisted pair`);
     const spare = Math.max(0, n - needs.lines - returnConductor);
-    out.push({ id: wire.id, label: wire.label, spare, score: [dropped, noScreen, unpaired, screenReturn ? 1 : 0, spare], reasons });
+    // plain lines that do not fit on the plain cores end up on coax centres
+    const centres = coaxCentres(wire);
+    const plainCarried = Math.max(0, plainLines - dropped);
+    const otherCarried = Math.max(0, needs.lines - dropped - plainCarried);
+    const coaxed = Math.max(0, Math.min(centres - Math.min(centres, otherCarried), plainCarried + returnConductor - (n - centres)));
+    if (coaxed > 0) reasons.push(`${coaxed} logic or data line${coaxed === 1 ? '' : 's'} on coax centres`);
+    // what the stock lacks for these lines: a screen, twisted pairs, plain cores
+    const misfit = noScreen + unpaired + coaxed;
+    out.push({ id: wire.id, label: wire.label, spare, dropped, misfit, score: [dropped, noScreen, unpaired, screenReturn ? 1 : 0, spare], reasons });
   }
   out.sort((a, b) => {
     for (let i = 0; i < a.score.length; i++) if (a.score[i] !== b.score[i]) return a.score[i]! - b.score[i]!;
     return a.id.localeCompare(b.id);
   });
-  return out.map(({ id, label, spare, reasons }) => ({ id, label, spare, reasons }));
+  return out.map(({ id, label, spare, dropped, misfit, reasons }) => ({ id, label, spare, dropped, misfit, reasons }));
+}
+
+/** The centre conductors of a stock's coax elements. */
+function coaxCentres(wire: WireDefinition): number {
+  return elementPaths(wire.structure).filter((e) => e.element.kind === 'group' && (e.element as GroupElement).role === 'coax')
+    .reduce((sum, e) => sum + elementPaths(e.element as GroupElement).filter((x) => x.element.kind === 'conductor' && x.element.bare !== true).length, 0);
 }
 
 /** The component record for a recipe part: by id, else the first of its kind whose value reads the same. */
@@ -430,7 +448,7 @@ export function deriveCable(lib: ResolverLibrary, query: ResolveQuery, optionId?
   for (const j of joints) for (const t of [j.a, j.b]) if (t.instance === 'w1') landed.add(t.terminal);
   for (const entry of elementPaths(wire.structure)) {
     if (entry.element.kind !== 'conductor' || entry.element.bare === true || landed.has(entry.path)) continue;
-    notes.push(`w1:${entry.path}@a is a spare: not connected at either end`);
+    notes.push(`${((n) => n.charAt(0).toUpperCase() + n.slice(1))(wireElementName(wire, entry.path))} is a spare: not connected at either end [w1:${entry.path}@a]`);
   }
 
   const recipe: CableRecipe = {

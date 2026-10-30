@@ -24,7 +24,8 @@
 import { normalStoreKey } from '@wirehub/catalog/src/server.ts';
 import { MODULE_API_VERSION } from '@wirehub/modules';
 
-import { publishCatalog, type ApiResponse, type WorkbenchDeps } from '../api.ts';
+import type { ApiResponse, WorkbenchDeps } from '../api.ts';
+import { publishCatalog } from '../catalog-commit.ts';
 import type { StudioUser } from '../me.ts';
 import { codeModulesAllowedByEnv, isPinned, readSettingsFile, settingsOf, updateSettingsFile, CODE_MODULES_DOC, type CodeModuleSettings } from './state.ts';
 import { isOwner, keyFacts } from './trust.ts';

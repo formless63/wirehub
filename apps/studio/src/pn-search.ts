@@ -63,6 +63,7 @@ export function entryMatches(entry: CableListEntry, query: string): boolean {
     ...entry.wireLabels,
     ...(entry.wires ?? []).map((w) => `${w.name} ${w.vendor ?? ''}`),
     ...(entry.features ?? []).map((f) => f.text),
+    ...(entry.tags ?? []),
     ...entry.boardLabels,
   ]
     .join(' ')

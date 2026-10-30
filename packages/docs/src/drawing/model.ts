@@ -33,7 +33,9 @@ import {
   findConnector,
   findMechanical,
   findPcba,
+  pcbaName,
   findWire,
+  integratedConnectorDuplicates,
   passThroughRuns,
   type CableDesign,
   type ConductorElement,
@@ -253,6 +255,11 @@ export interface Drawing {
    * supplied stripped ("Stripped Per Photo" on the owner's sheets).
    */
   stripped: { a: boolean; b: boolean };
+  /**
+   * An end whose conductors land on board pads, not on a mating connector:
+   * the boards' designators ("U1"), written at the cable end instead of NC.
+   */
+  boardEnds: { a?: string; b?: string };
   lengths: LengthVariant[];
   rows: WireRow[];
   remarks: Remark[];
@@ -344,9 +351,10 @@ interface Shield {
 }
 
 /** Signal conductors (not drains) and every shield/drain, in structure order. */
-function walkStructure(root: Element): { cores: Core[]; grounds: Shield[] } {
+function walkStructure(root: Element): { cores: Core[]; grounds: Shield[]; overall: OverallScreen | undefined } {
   const cores: Core[] = [];
   const grounds: Shield[] = [];
+  let overall: OverallScreen | undefined;
   const visit = (element: Element, prefix: string, shielded: boolean, coax: boolean): void => {
     const path = prefix === '' ? element.id : `${prefix}.${element.id}`;
     switch (element.kind) {
@@ -356,6 +364,8 @@ function walkStructure(root: Element): { cores: Core[]; grounds: Shield[] } {
         return;
       case 'shield':
         grounds.push({ path });
+        // a screen around the whole cable: a direct child of the cable, not a core's or pair's own
+        if (prefix === '' && overall === undefined) overall = { construction: element.construction ?? 'shield', drain: false };
         return;
       case 'insulation':
         return;
@@ -368,7 +378,16 @@ function walkStructure(root: Element): { cores: Core[]; grounds: Shield[] } {
   // paths are relative to the root group's children
   if (root.kind === 'group') for (const child of root.children) visit(child, '', false, false);
   else visit(root, '', false, false);
-  return { cores, grounds };
+  if (overall !== undefined && root.kind === 'group') {
+    overall.drain = root.children.some((child) => child.kind === 'conductor' && child.bare === true);
+  }
+  return { cores, grounds, overall };
+}
+
+/** The cable's overall screen ("foil", "braid"), and whether a drain runs with it. */
+interface OverallScreen {
+  construction: string;
+  drain: boolean;
 }
 
 /* ------------------------------------------------------------------ *
@@ -524,6 +543,37 @@ function copperReach(start: string, graph: Map<string, Adjacent[]>, seeds: Map<s
   return out;
 }
 
+/**
+ * The board pads (not a board's own connector) a conductor is soldered to: the first pads its
+ * copper reaches, no stepping — never further along the board's own nets.
+ */
+function padReach(start: string, graph: Map<string, Adjacent[]>, seeds: Map<string, PortSeed>, byKey: Map<string, ResolvedTerminal>): BoardPad[] {
+  const out: BoardPad[] = [];
+  const visited = new Set([start]);
+  const queue = [start];
+  while (queue.length > 0) {
+    const key = queue.shift() as string;
+    const terminal = byKey.get(key);
+    if (terminal?.instanceKind === 'pcba' && matingPin(terminal, seeds) === undefined) {
+      out.push({ board: terminal.instance, pad: terminal.terminal });
+      continue;
+    }
+    for (const next of graph.get(key) ?? []) {
+      if (next.stepped || visited.has(next.to.key)) continue;
+      visited.add(next.to.key);
+      queue.push(next.to.key);
+    }
+  }
+  return out;
+}
+
+interface BoardPad {
+  /** the board instance */
+  board: string;
+  /** its terminal (pad) id */
+  pad: string;
+}
+
 /* ------------------------------------------------------------------ *
  * The derivation
  * ------------------------------------------------------------------ */
@@ -552,7 +602,7 @@ export function deriveDrawing(design: CableDesign, db: Db, meta: DrawingMeta = {
   const seeds = portSeeds(design, db);
   const adj = adjacency(graph.edges, trunk?.id ?? '');
 
-  const { cores, grounds } = wire === undefined ? { cores: [], grounds: [] } : walkStructure(wire.structure);
+  const { cores, grounds, overall } = wire === undefined ? { cores: [], grounds: [], overall: undefined } : walkStructure(wire.structure);
   const endKey = (path: string, end: Side): string => `${trunk?.id ?? ''}:${path}@${end}`;
 
   // what each core reaches at each end
@@ -560,6 +610,12 @@ export function deriveDrawing(design: CableDesign, db: Db, meta: DrawingMeta = {
     core,
     a: reach(endKey(core.path, 'a'), adj, seeds, byKey),
     b: reach(endKey(core.path, 'b'), adj, seeds, byKey),
+  }));
+  // where a core lands on board pads instead of a mating connector: the
+  // sheet names the pad ("U1 “A” pad"), never NC
+  const corePads = cores.map((core) => ({
+    a: padReach(endKey(core.path, 'a'), adj, seeds, byKey),
+    b: padReach(endKey(core.path, 'b'), adj, seeds, byKey),
   }));
   const groundReach = {
     a: grounds.flatMap((g) => copperReach(endKey(g.path, 'a'), adj, seeds, byKey)),
@@ -584,7 +640,11 @@ export function deriveDrawing(design: CableDesign, db: Db, meta: DrawingMeta = {
 
   // drop a board's integrated port when a real connector instance is wired
   // to the board instead (the board is the connector's carrier, not a port)
-  const seedList = [...seeds.values()].filter((seed) => seed.prefix === undefined || hits.has(seed.key));
+  // (or an instance standing for that very connector — it is drawn once, as the instance)
+  const onBoard = integratedConnectorDuplicates(db, design);
+  const standsIn = (seed: PortSeed): boolean =>
+    [...onBoard].some(([connector, board]) => board === seed.instance && seeds.get(connector)?.connectorDef === seed.connectorDef);
+  const seedList = [...seeds.values()].filter((seed) => seed.prefix === undefined || (hits.has(seed.key) && !standsIn(seed)));
   const sideOf = (seed: PortSeed): Side | undefined => {
     const tally = hits.get(seed.key);
     if (tally === undefined) return undefined;
@@ -660,7 +720,16 @@ export function deriveDrawing(design: CableDesign, db: Db, meta: DrawingMeta = {
     !design.joints.some((j) => [j.a, j.b].some((r) => r.instance === trunk.id && r.end === end));
   const stripped = { a: strippedEnd('a'), b: strippedEnd('b') };
 
-  const describe = (pins: MatingPin[], side: Side): string => {
+  const describe = (pins: MatingPin[], side: Side, pads: BoardPad[] = []): string => {
+    if (pins.length === 0 && pads.length > 0) {
+      const boards = [...new Set(pads.map((p) => p.board))];
+      return boards
+        .map((board) => {
+          const own = [...new Set(pads.filter((p) => p.board === board).map((p) => p.pad))].sort(comparePins);
+          return `${board.toUpperCase()} ${own.map((pad) => `“${pad}”`).join('/')} ${own.length === 1 ? 'pad' : 'pads'}`;
+        })
+        .join(', ');
+    }
     if (pins.length === 0) return stripped[side] ? '' : 'NC';
     const groups = new Map<string, MatingPin[]>();
     for (const pin of pins) {
@@ -688,14 +757,14 @@ export function deriveDrawing(design: CableDesign, db: Db, meta: DrawingMeta = {
     return parts.join(', ');
   };
 
-  const rows: WireRow[] = coreReach.map(({ core, a, b }) => {
+  const rows: WireRow[] = coreReach.map(({ core, a, b }, index) => {
     const colorWord = core.element.color ?? '';
     return {
       name: colorWord === '' ? (core.element.label ?? core.path) : titleCase(colorWord),
       swatch: PIN_COLORS[colorWord.toLowerCase()] ?? UNUSED_FILL,
       line: core.shielded ? 'shielded' : 'plain',
-      left: describe(a, 'a'),
-      right: describe(b, 'b'),
+      left: describe(a, 'a', corePads[index]?.a),
+      right: describe(b, 'b', corePads[index]?.b),
     };
   });
 
@@ -775,8 +844,15 @@ export function deriveDrawing(design: CableDesign, db: Db, meta: DrawingMeta = {
     return { port, face, traced, source, pins, bridges };
   };
   const faces = { a: faceOf('a'), b: faceOf('b') };
-  if (faces.a === undefined && !stripped.a && !isBreakout.a) caveats.push('Nothing on the source end reaches a mating connector, so there is no P1 face.');
-  if (faces.b === undefined && !stripped.b && !isBreakout.b) caveats.push('Nothing on the destination end reaches a mating connector, so there is no far-end face.');
+  // an end with no mating connector whose cores land on board pads: the boards
+  const boardEndOf = (side: Side): string | undefined => {
+    if (primaries[side] !== undefined) return undefined;
+    const boards = [...new Set(corePads.flatMap((p) => p[side].map((pad) => pad.board)))];
+    return boards.length === 0 ? undefined : boards.map((b) => b.toUpperCase()).join(', ');
+  };
+  const boardEnds = { a: boardEndOf('a'), b: boardEndOf('b') };
+  if (faces.a === undefined && !stripped.a && !isBreakout.a && boardEnds.a === undefined) caveats.push('Nothing on the source end reaches a mating connector, so there is no P1 face.');
+  if (faces.b === undefined && !stripped.b && !isBreakout.b && boardEnds.b === undefined) caveats.push('Nothing on the destination end reaches a mating connector, so there is no far-end face.');
 
   /** a port drawn in side view on its lead, or end-on in the hood when it has no lead */
   const plugOf = (port: DrawingPort, side: Side): DrawingPlug | undefined => {
@@ -857,7 +933,15 @@ export function deriveDrawing(design: CableDesign, db: Db, meta: DrawingMeta = {
   // BOM: identical materials share a line, the way the sheets write "P1, P2"
   const bom: BomRow[] = [];
   const connectorLines = new Map<string, string[]>();
+  // a board's own connector (integrated, or an instance standing for it) is
+  // part of the populated board: its P number goes on the board's line
+  const boardPorts = new Map<string, string[]>();
   for (const port of ports) {
+    const board = port.prefix !== undefined ? port.instance : onBoard.get(port.instance);
+    if (board !== undefined) {
+      boardPorts.set(board, [...(boardPorts.get(board) ?? []), port.designator]);
+      continue;
+    }
     const list = connectorLines.get(port.material);
     if (list === undefined) connectorLines.set(port.material, [port.designator]);
     else list.push(port.designator);
@@ -890,11 +974,10 @@ export function deriveDrawing(design: CableDesign, db: Db, meta: DrawingMeta = {
   }
   for (const instance of design.instances.pcbas) {
     const pcba = findPcba(db, instance.def);
-    const served = ports
-      .filter((p) => p.instance === instance.id || boardServes(design, instance.id, p.instance))
-      .sort((x, y) => Number(x.designator.slice(1)) - Number(y.designator.slice(1)));
-    const reference = served[0] === undefined ? 'PCBA' : `${served[0].designator} PCBA`;
-    const material = meta.materials?.[instance.id] ?? (pcba === undefined ? instance.def : `${pcba.partNumber} ${pcba.revision}`);
+    // the board's own designator, then the P numbers of the plugs it carries
+    const carried = boardPorts.get(instance.id) ?? [];
+    const reference = [instance.id.toUpperCase(), ...carried].join(', ');
+    const material = meta.materials?.[instance.id] ?? (pcba === undefined ? instance.def : pcbaName(pcba));
     bom.push({ n: bom.length + 1, reference, material, qty: '1' });
   }
   // discrete parts: referenced by designator, named plainly ("180 Ω
@@ -912,6 +995,12 @@ export function deriveDrawing(design: CableDesign, db: Db, meta: DrawingMeta = {
   for (const [material, refs] of componentLines) {
     bom.push({ n: bom.length + 1, reference: refs.join(', '), material, qty: String(refs.length) });
   }
+
+  // "Gray indicates Ground" only when a grey pin is actually on the sheet
+  const greyDrawn = (): boolean =>
+    [faces.a?.pins, faces.b?.pins, ...plugs.map((p) => p.pins), ...[breakouts.a, breakouts.b].flatMap((b) => b?.plugs.map((p) => p.pins) ?? [])].some(
+      (pins) => pins !== undefined && Object.values(pins).some((state) => state.kind === 'ground'),
+    );
 
   const lengths =
     meta.lengths !== undefined && meta.lengths.length > 0
@@ -933,9 +1022,13 @@ export function deriveDrawing(design: CableDesign, db: Db, meta: DrawingMeta = {
     plugs,
     breakouts,
     stripped,
+    boardEnds: {
+      ...(boardEnds.a === undefined ? {} : { a: boardEnds.a }),
+      ...(boardEnds.b === undefined ? {} : { b: boardEnds.b }),
+    },
     lengths,
     rows,
-    remarks: [...deriveRemarks(cores, grounds.length > 0), ...(meta.remarks ?? []).map((text) => ({ text }))],
+    remarks: [...deriveRemarks(cores, overall, greyDrawn()), ...(meta.remarks ?? []).map((text) => ({ text }))],
     ...(trunk === undefined ? {} : { trunkDef: trunk.def }),
     ...(wire === undefined ? {} : { trunkWire: wire }),
     cutawayStyle: meta.cutaway ?? 'art',
@@ -1013,7 +1106,7 @@ function cableMaterial(cores: Core[], label: string): string {
 }
 
 /** The remarks block, from the stock's own structure. */
-function deriveRemarks(cores: Core[], hasGround: boolean): Remark[] {
+function deriveRemarks(cores: Core[], overall: OverallScreen | undefined, hasGround: boolean): Remark[] {
   const out: Remark[] = [{ text: 'All units 100% QC tested.' }];
   const shielded = cores.filter((c) => c.shielded);
   const plain = cores.filter((c) => !c.shielded);
@@ -1027,8 +1120,17 @@ function deriveRemarks(cores: Core[], hasGround: boolean): Remark[] {
     });
   }
   if (plain.length > 0) {
+    // under an overall screen the cores are screened together, not unshielded; a foil or tape screen is trimmed
+    // back at every end and never indicated (specs/shield-bonding.md §4), so the remark does not name it
+    const trimmed = overall !== undefined && (overall.construction === 'foil' || overall.construction === 'tape');
+    const screen =
+      overall === undefined
+        ? 'unshielded with'
+        : trimmed
+          ? `${plural(plain.length, 'conductor')} without their own shields;`
+          : `${plural(plain.length, 'conductor')} under an overall ${overall.construction} shield${overall.drain ? ' with drain' : ''};`;
     out.push({
-      text: `${count(plain.length)} total unshielded with insulation ${plural(plain.length, 'color')}: ${colors(plain)}`,
+      text: `${count(plain.length)} total ${screen} insulation ${plural(plain.length, 'color')}: ${colors(plain)}`,
       line: 'plain',
     });
   }

@@ -13,6 +13,7 @@ import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
 import { formatDesignJson, type DesignStore } from '../server/designs.ts';
 import { memoryDrawingStore, readDrawingMeta, readPhoto } from '../server/drawings.ts';
 import { withLoadedVersion } from './loaded-version.ts';
+import { makePng, pngDataUri } from './png-fixture.ts';
 
 const DRAWINGS = join(process.cwd(), '..', '..', 'packages', 'catalog', 'data', 'drawings');
 const db = loadDb();
@@ -84,7 +85,7 @@ describe('/api/drawings/:id', () => {
   });
 
   it('stores and removes a photo', async () => {
-    const png = `data:image/png;base64,${Buffer.from('not really a png').toString('base64')}`;
+    const png = pngDataUri(makePng(4));
     expect((await call('PUT', `/api/drawings/${REAL.id}/photo`, { photo: png })).body).toEqual({ photo: png });
     expect((await call('PUT', `/api/drawings/${REAL.id}/photo`, { photo: null })).body).toEqual({});
     expect((await call('PUT', `/api/drawings/${REAL.id}/photo`, { photo: 'data:image/gif;base64,AAAA' })).status).toBe(422);

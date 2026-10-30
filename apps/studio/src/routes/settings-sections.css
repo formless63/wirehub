@@ -8,7 +8,7 @@
 .settings-mobile-navigation { display: none; }
 .settings-content { min-width: 0; padding: 16px; overflow: auto; }
 /* settings forms stay readable: 640 px at most */
-.settings-content form, .settings-content fieldset { max-width: 640px; }
+.settings-content form, .settings-content fieldset { max-width: 760px; }
 .settings-section-heading { margin-bottom: 18px; }
 .settings-section-heading p { margin-top: 4px; }
 .settings-content > section[hidden] { display: none; }
@@ -20,3 +20,17 @@
   .settings-mobile-navigation { display: flex; gap: 8px; align-items: center; }
   .settings-content { padding: 12px; }
 }
+/* flat label/control rows: the label (with its (?)) on the left, the control on the right; no box per field */
+.settings-row { display: grid; grid-template-columns: 240px minmax(0, 1fr); align-items: center; gap: 4px 16px; padding: 5px 0; min-width: 0; }
+.settings-row-label { display: block; color: var(--ink); }
+.settings-row-label > * { vertical-align: middle; margin-right: 6px; }
+.settings-group-title { display: flex; align-items: center; gap: 6px; margin: 0 0 4px; font-size: var(--fs-sm); font-weight: 600; }
+.settings-subgroup-title { margin: 8px 0 2px; color: var(--dim); font-size: var(--fs-xs); font-weight: 600; }
+.settings-subgroup { border-top: 1px solid var(--line); }
+.settings-subgroup:last-of-type { border-bottom: 1px solid var(--line); }
+.settings-subgroup > summary { display: flex; align-items: center; gap: 8px; padding: 7px 0; cursor: pointer; font-weight: 500; list-style: none; }
+.settings-subgroup > summary::-webkit-details-marker { display: none; }
+.settings-subgroup > summary::before { content: '▸'; color: var(--faint); font-size: var(--fs-2xs); }
+.settings-subgroup[open] > summary::before { content: '▾'; }
+@media (max-width: 640px) { .settings-row { grid-template-columns: minmax(0, 1fr); } }
+.settings-row.is-top { align-items: start; }

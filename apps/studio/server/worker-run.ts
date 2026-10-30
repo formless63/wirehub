@@ -21,6 +21,8 @@ import { settingsCipherFromEnv } from './settings-secrets.ts';
 import { createJobService, executeJob } from './jobs/service.ts';
 import { createWebhookEmitter } from './webhooks/emitter.ts';
 import { moduleJobKinds, moduleSchedules } from './jobs/module-queues.ts';
+import { TOOL_STAGE_KINDS } from './jobs/tool-stages.ts';
+import { sweepOrphanedToolContainers } from './tools/sweep.ts';
 import type { JobKind, JobService } from './jobs/types.ts';
 import { pgAppConfigFromEnv, redactUrl } from './pg/config.ts';
 import { inOrg, openPg, resolveOrgId, type PgHandle } from './pg/db.ts';
@@ -198,7 +200,7 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
 
     const afterJob = (line: string): void => log(`${line} (worker rss ${Math.round(process.memoryUsage().rss / 1048576)} MiB)`);
     const workKind = async (kind: JobKind): Promise<void> => {
-      await boundBoss.work<BossPayload>(bossQueueName(kind), { batchSize: 1, localConcurrency: 1, pollingIntervalSeconds: kind === 'convert' || kind === 'import' || kind === 'webhook' ? 1 : 5 }, async ([job]) => {
+      await boundBoss.work<BossPayload>(bossQueueName(kind), { batchSize: 1, localConcurrency: 1, pollingIntervalSeconds: kind === 'convert' || kind === 'import' || kind === 'webhook' || (TOOL_STAGE_KINDS as readonly string[]).includes(kind) ? 1 : 5 }, async ([job]) => {
         if (job === undefined) return;
         const payload = job.data;
         if (payload.org !== org) {
@@ -322,9 +324,24 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
 
     // the heartbeat
     const me = { worker: hostname(), version: env.WIREHUB_VERSION ?? 'dev', startedAt, queues: kinds };
+    // a job left running by a worker that died (its lease ran out): interrupted, visible, and repeatable from the Jobs page
+    const reconcileJobs = async (): Promise<void> => {
+      const marked = await store.reconcile?.().catch((error: unknown) => {
+        log(`job reconciliation failed: ${error instanceof Error ? error.message : String(error)}`);
+        return [];
+      });
+      for (const job of marked ?? []) log(`${job.kind} ${job.id}: interrupted (its process stopped while it ran)`);
+      // their tool containers, which nothing else would remove (only this stack's: tools/sweep.ts)
+      const swept = await sweepOrphanedToolContainers({ env, jobStatus: async (id) => (await store.get(id))?.status }).catch((error: unknown) => {
+        log(`tool container sweep failed: ${error instanceof Error ? error.message : String(error)}`);
+        return [];
+      });
+      if (swept.length > 0) log(`removed ${swept.length} orphaned tool container(s)`);
+    };
     const doBeat = async (): Promise<void> => {
       touchBeat();
       await beat(handle.db, org, me).catch((error: unknown) => log(`heartbeat failed: ${error instanceof Error ? error.message : String(error)}`));
+      await reconcileJobs();
       // the settings, once a minute, in case a notification was missed
       await settings.refresh().catch((error: unknown) => log(`settings refresh failed: ${error instanceof Error ? error.message : String(error)}`));
     };

@@ -9,7 +9,7 @@
 // 4. with other pack directories: installs each of them first into the same copy,
 //    then this pack, and again in the opposite order (the order must not matter);
 // 5. checks the pack's own files for a `src` on every record, the manifest's `partNumberScheme`
-//    (a declarative numbering scheme it offers) and `validation-rules.json` (declarative rules);
+//    (a declarative numbering scheme it offers) and `validation-rules.json` (declarative rules) and `processes.json` (required processes);
 // 6. for a pack that carries a code module (`module` in the manifest, specs/runtime-modules.md):
 //    the block is sound and names entries the pack has, and no other file sits under code/.
 // Writes nothing outside a temporary directory. Exits 1 on any problem.
@@ -23,7 +23,7 @@ const root = fileURLToPath(new URL('../../../../', import.meta.url));
 const { createCatalog, dataPath, fsCatalogSource, installPack, layeredCatalogSource, packAssetFiles, packDocumentSrcProblems, packFiles, readPackManifest } = await import(
   new URL('packages/catalog/src/index.ts', `file://${root}`).href
 );
-const { benchRuleProblems, declarativeSchemeProblems, ruleListProblems, validateDb, validateDesign } = await import(new URL('packages/model/src/index.ts', `file://${root}`).href);
+const { benchRuleProblems, declarativeSchemeProblems, processListProblems, ruleListProblems, validateDb, validateDesign } = await import(new URL('packages/model/src/index.ts', `file://${root}`).href);
 const { codeModuleManifestProblems, isCodeFilePath } = await import(new URL('packages/modules/src/index.ts', `file://${root}`).href);
 const { MAX_PACK_FONT_BYTES, MAX_PACK_PDF_BYTES, fontProblem, isPackDocPath, isPackFontPath, pdfProblem } = await import(new URL('apps/studio/server/pack-archive.ts', `file://${root}`).href);
 
@@ -53,6 +53,7 @@ console.log(`pack ${manifest.id}@${manifest.version} (${manifest.license})`);
 if (manifest.partNumberScheme !== undefined) for (const problem of declarativeSchemeProblems(manifest.partNumberScheme)) fail(`manifest partNumberScheme: ${problem}`);
 if (existsSync(join(packDir, 'bench-rules.json'))) for (const problem of benchRuleProblems(JSON.parse(readFileSync(join(packDir, 'bench-rules.json'), 'utf8')), 'bench-rules.json')) fail(problem);
 if (existsSync(join(packDir, 'validation-rules.json'))) for (const problem of ruleListProblems(JSON.parse(readFileSync(join(packDir, 'validation-rules.json'), 'utf8')))) fail(`validation-rules.json: ${problem}`);
+if (existsSync(join(packDir, 'processes.json'))) for (const problem of processListProblems(JSON.parse(readFileSync(join(packDir, 'processes.json'), 'utf8')))) fail(`processes.json: ${problem}`);
 
 // vendor PDFs (docs/, assets/) and fonts (fonts/) are what a studio would install: the path, the header, the size, no active content
 for (const relative of packAssetFiles(packDir).filter((p) => /^(docs|assets|fonts)\//.test(p))) {

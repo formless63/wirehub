@@ -1,14 +1,15 @@
 # Board import
 
 Bring a PCBA into WireHub from its open fabrication files, whatever shop made it.
-Three importers over the module importer contract (`docs/modules.md`), and a page
-that is their review step:
+Four importers over the module importer contract (`docs/modules.md`), and a page
+that takes a board's files in one drop:
 
 | Importer | Reads | Proposes |
 | --- | --- | --- |
 | `kicad-board` | a KiCad `.kicad_pcb` (or its `.net` netlist) | the PCBA: terminals with their pads, internal links, integrated connectors; `kicad`-tier art (outline and pads) with anchors; with `parts: yes`, also one component per distinct footprint part and the board's placed parts |
 | `gerbers` | a Gerber set `.zip` (RS-274X/X2 and Excellon) | `gerber`-tier art: top and bottom, sanitised SVG, anchored on the board's pads |
 | `fab-bom` | a fab BOM and/or placement (CPL) `.csv`, or both in a `.board-bom.json` | one component record per distinct part, and the board's placed parts (`data/board-parts.json`) |
+| `board-set` | the page's `.board-set.json` bundle (board file, Gerbers, BOM, placement) | all of the above as one proposal; with `update`, a refresh of an existing board's terminals and netlist |
 
 Every import is a proposal. The studio runs it as a job, shows the plan (the art is
 previewed) and publishes it as one change set; a record the Library already has is
@@ -20,6 +21,13 @@ terminal's pads are. The Gerber art is framed on the board outline, so it lines 
 those pads whatever origin the plot used, and its anchors come from them. A BOM or
 placement file names the board it belongs to with the `board` option, or by its file
 name.
+
+**KiCad check** (`src/disagree.ts`): under a board's Import step, one row per terminal where
+the schematic, the stored board file, the net the record stored at import and its curated
+role/signal differ (`sch ≠ board`, `not in sch`, `record ≠ file`, `not in file`, `new in file`,
+`renamed`). Unnamed nets (`Net-(R1-Pad2)`) compare by the pads they join. The schematic's nets come
+from the `kicad` tool pack's `netlist` op; **Keep** records the row in `data/board-checks/<id>.json`
+until its values change; **Take the file's terminals** opens Update from file with the stored board file.
 
 **How terminals and links are found** (`src/derive.ts`): a footprint whose pads are all
 on one net is a landing — one terminal, named by its value (`GND`, `A`), else its net,

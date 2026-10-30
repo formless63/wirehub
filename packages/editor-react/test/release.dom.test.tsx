@@ -64,9 +64,9 @@ describe('<DocumentsPane release>', () => {
     }
     expect(load).toHaveBeenCalledWith(2);
     expect(derive.mock.calls.at(-1)?.[1].label).toBe('as released in Rev 2');
-    expect(derive.mock.calls.at(-1)?.[3]?.document).toMatchObject({ revision: '2', status: 'RELEASED' });
+    expect(derive.mock.calls.at(-1)?.[3]?.document).toMatchObject({ revision: '2', status: 'SAVED VERSION' });
 
-    choose('Revision to print', 'Working · unreleased');
+    choose('Revision to print', 'Working copy');
     await act(async () => {
       await vi.advanceTimersByTimeAsync(50);
     });

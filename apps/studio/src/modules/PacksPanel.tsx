@@ -8,6 +8,8 @@ import { AppLink } from '../shell/AppLink.tsx';
  * sentence. An installed pack the store has since yanked, flagged, or whose signing
  * key it revoked carries a warning badge with the version to update to (from the
  * store list's `notices`; nothing when no store index is reachable).
+ * An owner can **release** an installed pack to the hub: its records keep their ids and content
+ * and become the hub's own (editable); the pack then shows as released, without update or disable.
  */
 
 import { useCallback, useEffect, useState, type JSX } from 'react';
@@ -15,6 +17,7 @@ import { loadMe } from '../me.browser.ts';
 
 import {
   applyInstall,
+  applyRelease,
   applyUpdate,
   disablePack,
   listPacks,
@@ -22,12 +25,14 @@ import {
   noticeText,
   previewDisable,
   previewInstall,
+  previewRelease,
   previewUpdate,
   sourceOfFile,
   type InstalledPackView,
   type PackAnswer,
   type PackDiff,
   type PackPlan,
+  type PackReleasePlan,
   type PackSource,
   type RecordRef,
   type StoreNotice,
@@ -35,7 +40,7 @@ import {
 import type { CodePreviewView } from '../code-modules.browser.ts';
 import { CodeConsent } from './CodeConsent.tsx';
 import { useNotify, type ViewTarget } from '../notify.ts';
-import { Button, Chip, Drawer, FileDrop, Input, notify as toastKit } from '@wirehub/editor-react';
+import { Button, Drawer, FileDrop, Input, notify as toastKit } from '@wirehub/editor-react';
 
 const toastDeferred = toastKit.deferred;
 
@@ -49,7 +54,7 @@ const RECORD_LABEL: Readonly<Record<string, string>> = {
   pcbas: 'Boards', mechanicals: 'Shells and hardware', kits: 'Kits', design: 'Example designs',
 };
 const categoryOf = (r: RecordRef): string => r.file.startsWith('vocab/') ? 'Vocabulary' : RECORD_LABEL[r.kind] ?? r.kind.replaceAll('-', ' ');
-const nameOf = (r: RecordRef): string => r.label === undefined || r.label === r.id ? r.id : `${r.label} (${r.id})`;
+const nameOf = (r: RecordRef): string => r.label || categoryOf(r);
 
 function ContentsView({ diff, updating }: { diff: PackDiff; updating: boolean }): JSX.Element {
   const categories = [...new Set([...diff.added, ...diff.changed, ...diff.removed].map(categoryOf))].sort();
@@ -100,6 +105,21 @@ function DiffView({ diff }: { diff: PackDiff }): JSX.Element {
   );
 }
 
+/** Why a previewed install or update cannot be applied, in one line; undefined when it can (or the plan already says it in red). */
+export function blockedReason(plan: PackPlan, applicable: boolean): string | undefined {
+  if (applicable) return undefined;
+  if (plan.direction === 'same') return `Already installed at ${plan.pack.from ?? plan.pack.to ?? ''}`.trim();
+  if ((plan.conflicts ?? []).length > 0) return 'Clashes with records outside the pack';
+  if ((plan.issues ?? []).length > 0) return 'Would add errors to the library';
+  if ((plan.unmetRequires ?? []).length > 0) return 'Needs packs that are not installed';
+  return undefined;
+}
+
+export function BlockedReason({ plan, applicable }: { plan: PackPlan; applicable: boolean }): JSX.Element | null {
+  const reason = blockedReason(plan, applicable);
+  return reason === undefined ? null : <span className="text-dim text-xs" data-testid="pack-blocked">{reason}</span>;
+}
+
 export function PlanView({ plan }: { plan: PackPlan }): JSX.Element {
   return (
     <div>
@@ -117,19 +137,38 @@ export function PlanView({ plan }: { plan: PackPlan }): JSX.Element {
       {(plan.retired ?? []).length > 0 ? (
         <div data-testid="pack-retired">
           {plan.retired?.length} record{plan.retired?.length === 1 ? ' is' : 's are'} dropped by the new version but still used, so {plan.retired?.length === 1 ? 'it is' : 'they are'} kept as your own (retired from the pack, editable):{' '}
-          {plan.retired?.map((r) => r.id).join(', ')}.
+          {plan.retired?.map(nameOf).join(', ')}.
         </div>
       ) : null}
       {(plan.references ?? []).length > 0 ? (
         <ul data-testid="pack-references" className={plan.retired === undefined ? 'ml-4 list-disc text-err' : 'ml-4 list-disc'}>
           {plan.references?.map((r) => (
             <li key={`${r.from.file}-${r.from.id}-${r.field}`}>
-              {r.from.kind} {r.from.id} uses {r.to} ({r.field})
+              {nameOf(r.from)} still uses a record in this pack ({r.field})
             </li>
           ))}
         </ul>
       ) : null}
       {plan.records === undefined ? null : <div>{plan.records.length} records would be removed.</div>}
+    </div>
+  );
+}
+
+/** What releasing a pack hands over: records per kind and the pack's other files. */
+export function ReleaseView({ plan }: { plan: PackReleasePlan }): JSX.Element {
+  const kinds = Object.entries(plan.counts).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  return (
+    <div data-testid="pack-release-plan">
+      <p className="mt-0">
+        Every record below keeps its id and content and becomes this hub&apos;s own: editable, renamable and deletable like any other.
+        Designs that use them do not change. The pack is then listed as released, and it is never installed or updated over these records again.
+      </p>
+      <table className="w-full text-left text-xs">
+        <thead><tr><th className="py-1 pr-3">Kind</th><th className="px-2">Records</th></tr></thead>
+        <tbody>{kinds.map(([kind, n]) => <tr key={kind} className="border-t border-line"><th className="py-1 pr-3 font-normal">{RECORD_LABEL[kind] ?? kind.replaceAll('-', ' ')}</th><td className="px-2 tabular-nums">{n}</td></tr>)}</tbody>
+      </table>
+      {plan.files.length === 0 ? null : <p className="mt-2 text-dim">Also the hub&apos;s own: {plan.files.length} other file{plan.files.length === 1 ? '' : 's'} (drawing facts, settings, images, model links).</p>}
+      {plan.blockers.map((b) => <div key={b} className="text-err">Cannot release: {b}.</div>)}
     </div>
   );
 }
@@ -149,6 +188,9 @@ export function PacksPanel(): JSX.Element {
   const [busy, setBusy] = useState(false);
   // a viewer reads: no install, update or disable (the server refuses them too)
   const [canWrite, setCanWrite] = useState(true);
+  // releasing a pack to the hub is the owners' (the server refuses anyone else)
+  const [canRelease, setCanRelease] = useState(false);
+  const [releasing, setReleasing] = useState<PackReleasePlan | undefined>(undefined);
 
   const [notices, setNotices] = useState<StoreNotice[]>([]);
 
@@ -164,7 +206,10 @@ export function PacksPanel(): JSX.Element {
   }, [notify]);
   useEffect(() => {
     void reload();
-    void loadMe().then((me) => setCanWrite(me.role !== 'viewer'));
+    void loadMe().then((me) => {
+      setCanWrite(me.role !== 'viewer');
+      setCanRelease(me.role === undefined || me.role === 'owner');
+    });
   }, [reload]);
 
   const finish = async (title: string, description: string | undefined, view: ViewTarget): Promise<void> => {
@@ -239,10 +284,33 @@ export function PacksPanel(): JSX.Element {
       const codeNote = pending.code === undefined ? '' : status?.state === 'loaded' ? (pending.code.apply === 'live' ? ' Its code runs now.' : ' Its code runs now; its job queues start after Restart WireHub (Settings).') : ` Its code is not running: ${status?.error ?? 'see Settings, Code modules'}.`;
       const offersScheme = answer.body['offers'] !== undefined && (answer.body['offers'] as { partNumberScheme?: unknown }).partNumberScheme !== undefined;
       await finish(
-        `${pending.kind === 'update' ? 'Updated' : 'Installed'} ${pending.id}.`,
+        `${pending.kind === 'update' ? 'Updated' : 'Installed'} ${pending.plan.pack.name ?? 'catalog pack'}.`,
         `${codeNote}${offersScheme ? ' It offers a part-numbering scheme: an owner can review and switch to it in Settings, Part numbers. Nothing was switched.' : ''}`.trim(),
         pending.code === undefined ? { to: '/library' } : { to: '/extensions', tab: 'installed' },
       );
+    });
+
+  const startRelease = (id: string): Promise<void> =>
+    run(async () => {
+      const answer = await previewRelease(id);
+      if (!answer.ok) {
+        notify.error(headline(answer), answer.hint);
+        return;
+      }
+      setReleasing(answer.body['plan'] as PackReleasePlan);
+    });
+
+  const confirmRelease = (): Promise<void> =>
+    run(async () => {
+      if (releasing === undefined) return;
+      const answer = await applyRelease(releasing.pack.id);
+      if (!answer.ok) {
+        notify.error(headline(answer), answer.hint);
+        return;
+      }
+      setReleasing(undefined);
+      notify.success(`Released ${releasing.pack.name} to this hub.`, { description: `${releasing.records.length} records are this hub's own now, editable in the Library.`, view: { to: '/library' } });
+      await reload();
     });
 
   return (
@@ -252,8 +320,7 @@ export function PacksPanel(): JSX.Element {
       <ul>
         {(packs ?? []).filter((p) => !leaving.has(p.id)).map((p) => (
           <li key={p.id} className="my-2 flex flex-wrap items-center gap-2 rounded border border-line p-3" data-pack={p.id}>
-            <div className="min-w-0 flex-1"><b>{p.id}</b> <span className="text-dim">{p.version} · {p.license} · {p.records} records</span></div>
-            <Chip>Installed</Chip>
+            <div className="min-w-0 flex-1"><b>{p.name ?? 'Catalog pack'}</b> <span className="text-dim">{p.version} · {p.license} · {p.records} records</span></div>
             <a href={`/library/connectors?pack=${encodeURIComponent(p.id)}`} className="cs-ui-btn" data-variant="secondary" data-size="xs">View contents</a>
             {notices
               .filter((n) => n.id === p.id && n.version === p.version)
@@ -267,12 +334,22 @@ export function PacksPanel(): JSX.Element {
                   )}
                 </span>
               ))}
-            {!canWrite || p.available === undefined ? null : (
+            {p.released === undefined ? null : (
+              <span className="text-dim text-xs" data-pack-released={p.id}>
+                Released to this hub {p.released.at.slice(0, 10)}{p.released.by === undefined ? '' : ` by ${p.released.by}`}: its records are the hub&apos;s own
+              </span>
+            )}
+            {!canWrite || p.released !== undefined || p.available === undefined ? null : (
               <Button type="button" disabled={busy} onClick={() => void run(async () => showPlan(await previewUpdate(p.id), 'update', p.id))} className="ml-2">
                 Update to {p.available}…
               </Button>
             )}
-            {!canWrite ? null : <Button type="button" disabled={busy} onClick={() => void run(async () => showPlan(await previewDisable(p.id), 'disable', p.id))} className="ml-2">
+            {!canRelease || p.released !== undefined ? null : (
+              <Button type="button" disabled={busy} onClick={() => void startRelease(p.id)} className="ml-2" title="Make its records this hub's own, editable in place">
+                Release to this hub…
+              </Button>
+            )}
+            {!canWrite || p.released !== undefined ? null : <Button type="button" disabled={busy} onClick={() => void run(async () => showPlan(await previewDisable(p.id), 'disable', p.id))} className="ml-2">
               Disable…
             </Button>}
           </li>
@@ -307,11 +384,11 @@ export function PacksPanel(): JSX.Element {
         <div className="mt-1">
           <Input
             aria-label="Publisher key for a code module"
-            placeholder="Publisher key (RW…), for a pack with code"
+            placeholder="Publisher key (RW…), only for a pack with code"
+            title="Only for a code module from a file or an address: its publisher's public key, compared with the publisher another way (owners)."
             value={trustKey}
             onChange={(e) => setTrustKey(e.target.value)} className="w-80 max-w-full min-w-0"
-          />{' '}
-          <span className="text-faint">only for a code module from a file or address: its publisher's public key, compared with the publisher another way (owners)</span>
+          />
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-2">
           <Input type="url" aria-label="Pack address" placeholder="https://…/pack.zip" value={url} onChange={(e) => setUrl(e.target.value)} className="w-80 max-w-full min-w-0" />
@@ -327,7 +404,7 @@ export function PacksPanel(): JSX.Element {
 
       <Drawer
         open={pending !== undefined}
-        title={pending === undefined ? '' : `${pending.kind === 'update' ? 'Update' : pending.kind === 'disable' ? 'Disable' : 'Install'} ${pending.plan.pack.id}${pending.plan.pack.to ?? pending.plan.pack.version ? ` ${pending.plan.pack.to ?? pending.plan.pack.version}` : ''}`}
+        title={pending === undefined ? '' : `${pending.kind === 'update' ? 'Update' : pending.kind === 'disable' ? 'Disable' : 'Install'} ${pending.plan.pack.name ?? 'catalog pack'}${pending.plan.pack.to ?? pending.plan.pack.version ? ` ${pending.plan.pack.to ?? pending.plan.pack.version}` : ''}`}
         onClose={() => setPending(undefined)}
         testId="pack-pending"
         footer={pending === undefined ? undefined : (
@@ -336,6 +413,7 @@ export function PacksPanel(): JSX.Element {
               {pending.kind === 'update' ? 'Update' : pending.kind === 'disable' ? 'Disable pack' : 'Install'}
             </Button>
             <Button onClick={() => setPending(undefined)}>Cancel</Button>
+            {pending.kind === 'disable' ? null : <BlockedReason plan={pending.plan} applicable={pending.applicable} />}
           </>
         )}
       >
@@ -345,6 +423,21 @@ export function PacksPanel(): JSX.Element {
             {pending.code === undefined ? null : <CodeConsent code={pending.code} agreed={agreed} onAgree={setAgreed} />}
           </>
         )}
+      </Drawer>
+
+      <Drawer
+        open={releasing !== undefined}
+        title={releasing === undefined ? '' : `Release ${releasing.pack.name} ${releasing.pack.version} to this hub`}
+        onClose={() => setReleasing(undefined)}
+        testId="pack-release"
+        footer={releasing === undefined ? undefined : (
+          <>
+            <Button variant="primary" disabled={busy || !releasing.ok} onClick={() => void confirmRelease()}>Release to this hub</Button>
+            <Button onClick={() => setReleasing(undefined)}>Cancel</Button>
+          </>
+        )}
+      >
+        {releasing === undefined ? null : <ReleaseView plan={releasing} />}
       </Drawer>
     </section>
   );

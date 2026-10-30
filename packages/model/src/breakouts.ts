@@ -33,6 +33,7 @@ import {
   type TerminalRef,
   type WireDefinition,
 } from './model.ts';
+import { wireDisplayName } from './wire-display.ts';
 import { electricalPaths, isElectricalElement, resolveElementPath } from './paths.ts';
 
 type End = 'a' | 'b';
@@ -330,7 +331,7 @@ export function breakoutIssues(design: CableDesign, db: Db): Issue[] {
           return;
         }
         if (leg.def !== segment.def) {
-          issues.push(issue('breakout-through-stock', `breakout '${breakout.id}': ${entry.segment}:${entry.path} passes through uncut onto '${leg.id}', which is a different stock (${leg.def}, not ${segment.def}) — a conductor that changes stock is terminated and spliced, not passed through`, at));
+          issues.push(issue('breakout-through-stock', `breakout '${breakout.id}': ${entry.segment}:${entry.path} passes through uncut onto '${leg.id}', which is a different stock (${wireDisplayName(db, leg.def)}, not ${wireDisplayName(db, segment.def)}) — a conductor that changes stock is terminated and spliced, not passed through`, at));
           return;
         }
         for (const path of paths) {

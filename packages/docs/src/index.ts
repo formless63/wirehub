@@ -50,6 +50,8 @@ export type {
   TestSpec,
 } from './test-spec.ts';
 export { meterWord, testSpecToHtml, testSpecToMarkdown } from './test-spec-render.ts';
+export { deriveBoardTrace } from './board-trace-spec.ts';
+export type { BoardFindingRow, BoardPathRow, BoardTraceSection } from './board-trace-spec.ts';
 
 export {
   formatOhms,
@@ -147,3 +149,5 @@ export { registerBenchSteps } from './bench/standard-work.ts';
 export type { BenchStepsProvider, ShellSet, Step as BenchStep } from './bench/standard-work.ts';
 
 export { framedSchematicSvg, schematicFrame, svgSize } from './schematic-sheet.ts';
+export { deriveMass, hasMassData, massGapCount, wireMassAt } from './mass.ts';
+export type { DesignMass, LineMass, MassLine, MassOptions, MassRate } from './mass.ts';

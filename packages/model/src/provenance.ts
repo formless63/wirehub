@@ -18,6 +18,7 @@
  */
 
 import { costIssues, type PartCost } from './cost.ts';
+import { massIssues } from './mass.ts';
 import { sourcingShapeIssues, type PartRoute, type PartSupplier } from './products.ts';
 import type { Issue } from './model.ts';
 
@@ -208,6 +209,7 @@ export function recordMetaIssues(record: object, where: string): Issue[] {
     }
   }
   issues.push(...costIssues(record, where));
+  issues.push(...massIssues(record, where));
   issues.push(...sourcingShapeIssues(record, where));
   return issues;
 }

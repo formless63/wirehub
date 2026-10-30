@@ -16,7 +16,7 @@
 import {
   composeConnector,
   decomposeConnector,
-  errors,
+  integrityIssues,
   validateDb,
   validateDesign,
   type CableDesign,
@@ -104,14 +104,14 @@ export function memoryDefinitions(db: Db, designs: CableDesign[] = []): MemoryDe
     records: DefinitionRecord[],
     record: DefinitionRecord,
   ): Outcome<DefinitionRecord> => {
-    const before = new Set(errors(everything(current())).map(issueKey));
-    const blocking = errors(everything(candidate(kind, records))).filter(
+    const before = new Set(integrityIssues(everything(current())).map(issueKey));
+    const blocking = integrityIssues(everything(candidate(kind, records))).filter(
       (issue) => !before.has(issueKey(issue)),
     );
     if (blocking.length > 0) {
       return {
         ok: false,
-        message: `Saving this would break ${blocking.length === 1 ? 'something' : `${blocking.length} things`}.`,
+        message: `Saving this would make the library ambiguous${blocking.length === 1 ? '' : ` in ${blocking.length} places`}.`,
         hint: 'Nothing was written — the catalog is untouched.',
         issues: blocking,
       };

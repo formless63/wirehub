@@ -902,7 +902,7 @@ export function compileWire(recipe: WireRecipe, library: readonly WirePart[]): C
       arrangement: lay.arrangement,
       direction: lay.direction,
       ring: [...lay.ring],
-      src: lay.src,
+      src: lay.src ?? '',
     };
     if (lay.viewedFrom !== undefined) layOrder.viewedFrom = lay.viewedFrom;
     if (lay.center !== undefined) layOrder.center = lay.center;

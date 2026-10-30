@@ -91,7 +91,8 @@ export async function runResolverFlow({ call }: ResolverFlowHooks): Promise<void
   // this hub's own devices: If-Match required, a broken list refused, a pack device shadowed
   expect((await call('PUT', '/api/resolver/devices', { devices: [] }, OWNER)).status).toBe(428);
   const tag = lib.body.etags.devices as string;
-  const broken = await call('PUT', '/api/resolver/devices', { devices: [{ ...PANEL, id: 'odd', ports: [{ id: 'x', interface: 'no-such-pinout' }] }] }, OWNER, { 'if-match': tag });
+  // two devices under one id are refused (a port naming a missing pinout is only a finding)
+  const broken = await call('PUT', '/api/resolver/devices', { devices: [{ ...PANEL, id: 'odd' }, { ...PANEL, id: 'odd' }] }, OWNER, { 'if-match': tag });
   expect(broken.status).toBe(422);
   const shadow = await call('PUT', '/api/resolver/devices', { devices: [{ ...PANEL, label: 'LED panel (our build)' }] }, OWNER, { 'if-match': tag });
   expect(shadow.status, JSON.stringify(shadow.body)).toBe(200);

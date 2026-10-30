@@ -9,6 +9,8 @@
  *   POST /api/jobs                                   { kind: model-cache | derive } — run one now (202)
  *   GET  /api/jobs/:id                               one job, with an import's plan files
  *   POST /api/jobs/:id/publish                       commit an import's plan as one change set
+ *   POST /api/jobs/:id/cancel                        stop a queued or running job (a tool pack's container is killed)
+ *   POST /api/jobs/:id/retry                         run a failed, cancelled or interrupted job of a repeatable kind again (202, the new job)
  *
  * An import runs as a job (the worker on Postgres, this process on files);
  * its publish is a request, so a stale record answers 409 to the person who
@@ -21,13 +23,15 @@ import { CommitRefusedError, ReadOnlyBackendError, StaleRecordError } from '../s
 import { withWriteLock } from '../storage/write-lock.ts';
 import { importOptionsOfQuery, parseModuleIoPath, readImportOptions, type ModuleIoPath } from '../module-io.ts';
 import { commitPlan, MAX_IMPORT_BYTES, planChanges, readImportRequest } from './import.ts';
-import { isJobKind, isModuleJobKind, type JobKind, type JobRun } from './types.ts';
+import { isJobKind, isModuleJobKind, REPEATABLE_KINDS, type JobKind, type JobRun } from './types.ts';
 
 export const JOB_ROUTES = [
   'GET    /api/jobs',
   'POST   /api/jobs',
   'GET    /api/jobs/:id',
   'POST   /api/jobs/:id/publish',
+  'POST   /api/jobs/:id/cancel',
+  'POST   /api/jobs/:id/retry',
 ] as const;
 
 /** Kinds a person may start by hand (`POST /api/jobs`), and every module queue; the rest have their own triggers. */
@@ -166,6 +170,25 @@ export async function handleJobRequest(request: ApiRequest, deps: WorkbenchDeps)
   if (action === undefined) {
     if (method !== 'GET') return fail(405, `${method} is not something this address accepts.`, 'It answers GET.');
     return { status: 200, body: { job: jobView(job), ...(job.kind === 'import' ? { files: await jobs.files(id) } : {}) } };
+  }
+  if (action === 'cancel') {
+    if (method !== 'POST') return fail(405, `${method} is not something this address accepts.`, 'It answers POST.');
+    if (jobs.cancel === undefined) return fail(501, 'This hub cannot cancel jobs.');
+    if (request.user?.role === 'viewer') return fail(403, 'Viewers cannot cancel jobs.');
+    const cancelled = await jobs.cancel(id, request.user?.name);
+    if (cancelled === undefined) return fail(409, `Job ${id} is ${job.status}; only a queued or running job can be cancelled.`);
+    return { status: 200, body: { job: jobView(cancelled) } };
+  }
+  if (action === 'retry') {
+    if (method !== 'POST') return fail(405, `${method} is not something this address accepts.`, 'It answers POST.');
+    if (jobs.retry === undefined) return fail(501, 'This hub cannot run jobs again.');
+    if (request.user?.role === 'viewer') return fail(403, 'Viewers cannot start jobs.');
+    if (!REPEATABLE_KINDS.includes(job.kind)) return fail(400, `A ${job.kind} job is not run again from here.`, job.kind === 'import' ? 'Upload the file again.' : undefined);
+    if (job.status === 'queued' || job.status === 'running' || job.status === 'done') return fail(409, `Job ${id} is ${job.status}; only a failed, cancelled or interrupted job is run again.`);
+    if (!jobs.kinds.includes(job.kind)) return fail(503, `This hub does not run '${job.kind}' jobs right now.`);
+    const again = await jobs.retry(id, request.user);
+    if (again === undefined) return fail(409, `Job ${id} cannot be run again.`);
+    return { status: 202, body: { job: jobView(again) }, headers: { Location: `/api/jobs/${again.id}` } };
   }
   if (action !== 'publish') return fail(404, 'There is nothing at that address.', JOB_ROUTES.join('; '));
   if (method !== 'POST') return fail(405, `${method} is not something this address accepts.`, 'It answers POST.');

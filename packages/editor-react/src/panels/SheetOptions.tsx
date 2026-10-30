@@ -2,14 +2,14 @@
  * The printed sheets' options row: paper, document
  * number / revision / status, and whether to stamp today's date — above the
  * build sheet, BOM and continuity spec. Stored per design in the drawing
- * sidecar's `sheet` field through the same Save as the drawing's title block.
+ * sidecar's `sheet` field, written once typing pauses (as the drawing's title block is).
  * Labels live in tooltips and placeholders, per the UX rules.
  */
 
 import type { CableDesign } from '@wirehub/model';
 import { PAPERS, PAPER_IDS, isPaperId, type DrawingMeta, type PaperId, type SheetSettings } from '@wirehub/docs';
 import type { JSX } from 'react';
-import { Select, Checkbox, Button, Combobox } from '../ui/index.ts';
+import { Select, Checkbox, Combobox } from '../ui/index.ts';
 
 export interface SheetOptionsProps {
   design: CableDesign;
@@ -81,16 +81,7 @@ export function SheetOptions(props: SheetOptionsProps): JSX.Element {
         onValueChange={(value) => set('status', value === 'none' ? undefined : value)} onCreate={(value) => set('status', value)}
         options={[{ value: 'none', label: 'No status' }, ...[...new Set([...STATUSES, ...(sheet.status ? [sheet.status] : [])])].map((value) => ({ value, label: value }))]} />
       <Checkbox checked={sheet.stampDate === true} onCheckedChange={(checked) => set('stampDate', checked)} label="Date" />
-      {props.onSave === undefined ? null : (
-        <Button
-          disabled={!props.dirty || props.saving}
-          title="Save these options beside the design — every print of it uses them"
-          onClick={props.onSave}
-        >
-          {props.saving ? 'saving…' : 'Save'}
-        </Button>
-      )}
-      {props.dirty ? <span className="cs-chip is-draft">unsaved</span> : null}
+      {props.saving ? <span className="cs-chip is-draft">saving…</span> : props.dirty ? <span className="cs-chip is-draft">unsaved</span> : null}
       {props.status === undefined ? null : <small className="cs-drawing-status">{props.status}</small>}
     </div>
   );

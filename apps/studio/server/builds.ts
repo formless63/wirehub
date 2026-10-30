@@ -22,7 +22,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 
 import { dataPath } from '@wirehub/catalog';
-import { buildsFileName, canonicalBuildsFile, errors, validateBoardBuilds, type BoardBuilds, type Db, type Issue } from '@wirehub/model';
+import { buildsFileName, canonicalBuildsFile, integrityIssues, validateBoardBuilds, type BoardBuilds, type Db, type Issue } from '@wirehub/model';
 
 import type { ApiError, ApiResponse } from './api.ts';
 import { checkIfMatch, contentETag } from './etag.ts';
@@ -157,13 +157,15 @@ async function putBuilds(deps: BuildsDeps, store: BuildsStore, name: string, bod
     if (guard !== undefined) return guard;
   }
   const issues = own(await check(store, await deps.loadDb(), name, file), file);
-  const failures = errors(issues);
+  // design findings (an unknown setting, an unlinked path) are saved with the file and handed back
+  // in `issues`; only an ambiguous file (two builds under one key) refuses (`save-policy.ts`)
+  const failures = integrityIssues(issues);
   if (failures.length > 0) {
     return fail(
       422,
-      failures.length === 1 ? `${file.board} has a build problem to fix before it can be saved.` : `${file.board} has ${failures.length} build problems to fix before it can be saved.`,
+      failures.length === 1 ? `${file.board} has a build file that cannot be stored as it stands.` : `${file.board} has ${failures.length} things that stop its build file being stored.`,
       'Nothing was written — the build file on disk is untouched.',
-      issues,
+      failures,
     );
   }
   await store.write(name, file);

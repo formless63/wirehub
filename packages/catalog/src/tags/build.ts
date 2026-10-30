@@ -169,7 +169,9 @@ export function buildTags(given: TagInputs): TagOutputs {
   const ownPinSignals: SignalRef[] = [];
   for (const connector of input.connectors) {
     const out: Record<string, SignalRef> = {};
-    for (const pin of connector.pins) {
+    for (const given of connector.pins) {
+      // a draft pin may have no label yet: an empty one, never a crash
+      const pin = given.label === undefined ? { ...given, label: '' } : given;
       if (pin.signal !== undefined) {
         ownPinSignals.push(pin.signal);
         const tagged = pinLabels.get(pin.label) ?? new Set<string>();

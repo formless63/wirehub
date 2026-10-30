@@ -6,6 +6,9 @@
 
 import type { Issue, StripPractice, WireLibrary, WirePart, WireRecipe } from '@wirehub/model';
 import type { Outcome, WireLibraryAdapter } from '@wirehub/editor-react';
+import { toast } from 'sonner';
+
+import { findingsOf, withFindings } from './save-findings.ts';
 
 async function call<T>(
   input: string,
@@ -60,14 +63,19 @@ export function workbenchWireLibrary(): WireLibraryAdapter {
   return {
     load: () => call<WireLibrary>('/api/wire-library', 'GET', undefined, {}, remember),
     addPart: (part: WirePart) => call<WirePart>('/api/wire-library/parts', 'POST', { part }, {}, remember),
+    // the server's findings for the save (`X-WireHub-Findings`) toast once; the builder shows its own live
     saveStock: (recipe: WireRecipe, create: boolean) =>
-      call<{ recipe: WireRecipe }>(
+      withFindings((onResponse) => call<{ recipe: WireRecipe }>(
         `/api/wire-library/stocks/${encodeURIComponent(recipe.id)}`,
         'PUT',
         { recipe, create },
         create ? {} : guard(),
-        remember,
-      ),
+        onResponse,
+      ), remember).then((outcome) => {
+        const line = findingsOf(outcome);
+        if (line !== undefined) toast.warning(`Saved ${recipe.label} with ${line}`);
+        return outcome;
+      }),
     practice: () => call<StripPractice[]>('/api/wire-library/strip-practice', 'GET'),
   };
 }

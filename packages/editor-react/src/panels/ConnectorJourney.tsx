@@ -68,6 +68,7 @@ import { signalRefOf, useVocab, type PickOption } from '../vocab.ts';
 import { constructionLabel, variantIdOf, withConstructionInLabel } from '../naming.ts';
 import { BuiltInConnectorArt, builtInConnectorArt } from './BuiltInArt.tsx';
 import { Choice, Field, FormSection, SrcField } from './fields.tsx';
+import { MassFields } from './MassFields.tsx';
 import { HousingSection } from './ConnectorEditor.tsx';
 import { Pick } from './Pick.tsx';
 import { useUnsavedChangesGuard } from './useUnsavedChangesGuard.ts';
@@ -181,6 +182,7 @@ export function ConnectorJourney(props: ConnectorJourneyProps): JSX.Element {
     partNumber: connector?.partNumber ?? '',
     construction: connector?.construction ?? '',
     sourcing: connector?.sourcing ?? '',
+    ...(connector?.mass === undefined ? {} : { mass: connector.mass }),
     src:
       connector?.src ??
       (variantOf === undefined
@@ -462,7 +464,7 @@ export function ConnectorJourney(props: ConnectorJourneyProps): JSX.Element {
   const mirrorOptions = useMemo((): PickOption[] => {
     if (body === undefined) return [];
     const opposite = bodies.filter(
-      (b) => b.gender !== body.gender && (b.id === body.mates || b.mates === body.id || b.family === body.family),
+      (b) => body.gender !== undefined && b.gender !== undefined && b.gender !== body.gender && (b.id === body.mates || b.mates === body.id || b.family === body.family),
     );
     return interfaces
       .filter((i) => i.bodies.some((id) => opposite.some((b) => b.id === id)) && overlap(i, body) > 0)
@@ -471,7 +473,7 @@ export function ConnectorJourney(props: ConnectorJourneyProps): JSX.Element {
   const mateOptions = useMemo((): PickOption[] => {
     if (body === undefined) return [];
     return bodies
-      .filter((b) => b.gender !== body.gender && b.family === body.family && (b.mates === undefined || b.mates === body.id || b.mates === bodyBaseline?.id))
+      .filter((b) => body.gender !== undefined && b.gender !== undefined && b.gender !== body.gender && b.family === body.family && (b.mates === undefined || b.mates === body.id || b.mates === bodyBaseline?.id))
       .map((b) => ({ value: b.id, label: b.label, hint: b.id }));
   }, [bodies, body, bodyBaseline]);
   const templateChoices = [
@@ -617,8 +619,8 @@ export function ConnectorJourney(props: ConnectorJourneyProps): JSX.Element {
                   </button>
                   <button
                     type="button"
-                    disabled={locked || body === undefined}
-                    title="A new body with the same positions and the other gender, mated to this one"
+                    disabled={locked || body === undefined || body.gender === undefined}
+                    title={body?.gender === undefined ? 'Set this body\'s gender first' : 'A new body with the same positions and the other gender, mated to this one'}
                     onClick={() => body !== undefined && newBody(oppositeGenderBody(body, bodies.map((b) => b.id)))}
                   >
                     Opposite gender
@@ -635,7 +637,7 @@ export function ConnectorJourney(props: ConnectorJourneyProps): JSX.Element {
           {bodyMode === 'pick' && body !== undefined ? (
             <div className="cs-journey-facts">
               <span className="cs-chip">{familyLabel(body.family)}</span>
-              <span className="cs-chip">{body.gender}</span>
+              <span className="cs-chip">{body.gender ?? 'gender not known yet'}</span>
               <span className="cs-chip" title={body.positions.map((p) => p.id).join(' ')}>
                 {body.positions.length} positions
               </span>
@@ -700,9 +702,10 @@ export function ConnectorJourney(props: ConnectorJourneyProps): JSX.Element {
                   say="Male is the plug, female the socket. The list is open: type a gender it lacks to add it (with its source)."
                   list="genders"
                   value={bodyDraft.gender}
-                  onChange={(value) => {
-                    if (value !== '') setBody({ gender: value });
-                  }}
+                  clearable
+                  noneLabel="not known yet"
+                  placeholder="Not known yet (a draft)"
+                  onChange={(value) => setBody({ gender: value })}
                 />
                 <Choice
                   label="Layout"
@@ -726,13 +729,7 @@ export function ConnectorJourney(props: ConnectorJourneyProps): JSX.Element {
                   onChange={(value) => setBodyDraft((d) => ({ ...d, label: value, labelTouched: true }))}
                   placeholder="Family, angle, gender"
                 />
-                <Field
-                  label="Id"
-                  value={bodyDraft.id}
-                  onChange={(value) => setBodyDraft((d) => ({ ...d, id: value, idTouched: true }))}
-                  placeholder="follows the name"
-                  mono
-                />
+
                 <Field
                   label="Part number"
                   say="The bare plug or socket as a stock item."
@@ -853,13 +850,7 @@ export function ConnectorJourney(props: ConnectorJourneyProps): JSX.Element {
                 <fieldset disabled={locked} className="cs-journey-fields">
                   <div className="cs-form-grid">
                     <Field label="Name" value={ifaceDraft.label} onChange={setIfaceLabel} placeholder="Device / port" />
-                    <Field
-                      label="Id"
-                      value={ifaceDraft.id}
-                      onChange={(value) => setIfaceDraft((d) => ({ ...d, id: value, idTouched: true }))}
-                      placeholder="follows the name"
-                      mono
-                    />
+
                   </div>
                 </fieldset>
               )}
@@ -967,13 +958,7 @@ export function ConnectorJourney(props: ConnectorJourneyProps): JSX.Element {
                 placeholder="Body (pinout)"
                 wide
               />
-              <Field
-                label="Id"
-                say={connector === undefined ? 'Follows the name until typed.' : 'Fixed: every design refers to this connector by its id.'}
-                value={shownIdentity.id}
-                onChange={(value) => connector === undefined && setIdentity((i) => ({ ...i, id: value, idTouched: true }))}
-                mono
-              />
+
               <Field
                 label="Part number"
                 say="Your stock number for this connector. It may differ from the physical body’s number; leave blank to use the body’s."
@@ -1003,6 +988,16 @@ export function ConnectorJourney(props: ConnectorJourneyProps): JSX.Element {
                 onChange={(value) => setIdentity((i) => ({ ...i, sourcing: value }))}
               />
             </div>
+            <MassFields
+              key={connector?.id ?? 'new'}
+              mass={identity.mass}
+              onChange={(mass) =>
+                setIdentity((i) => {
+                  const { mass: _old, ...rest } = i;
+                  return mass === undefined ? rest : { ...rest, mass };
+                })
+              }
+            />
             <SrcField value={identity.src} onChange={(value) => setIdentity((i) => ({ ...i, src: value }))} />
           </fieldset>
         </FormSection>

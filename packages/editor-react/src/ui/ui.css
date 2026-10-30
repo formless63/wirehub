@@ -116,6 +116,7 @@
 /* select, combobox, menu: shared list look */
 .cs-ui-select-trigger { display: inline-flex; align-items: center; justify-content: space-between; gap: var(--space-sm); text-align: left; cursor: pointer; }
 .cs-ui-select-trigger[data-placeholder] { color: var(--faint); }
+.cs-ui-select-trigger > span:first-child { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cs-ui-select-trigger svg { flex: none; color: var(--dim); }
 .cs-ui-pop {
   z-index: 70; box-sizing: border-box; min-width: 160px; max-height: min(320px, var(--radix-popper-available-height, 320px)); overflow: auto;
@@ -163,7 +164,7 @@
 .cs-ui-radio { border-radius: 50%; }
 .cs-ui-check[data-state='checked'], .cs-ui-check[data-state='indeterminate'] { background: var(--accent); border-color: var(--accent); }
 .cs-ui-radio[data-state='checked'] { border-color: var(--accent); }
-.cs-ui-radio-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.cs-ui-radio-dot { display: block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
 .cs-ui-radiogroup { display: flex; flex-direction: column; gap: var(--space-xs); }
 .cs-ui-radiogroup[data-orientation='horizontal'] { flex-direction: row; flex-wrap: wrap; gap: var(--space-lg); }
 .cs-ui-switch {
@@ -406,3 +407,38 @@
 .cs-ext-section + .cs-ext-section { margin-top: var(--space-xl); padding-top: var(--space-lg); border-top: 1px solid var(--line); }
 .cs-ext-section h2 { margin: 0; font-size: var(--fs-md); font-weight: 600; }
 @media (max-width: 899px) { .cs-ext-browse { grid-template-columns: 1fr; } .cs-ext-facets { border-right: 0; border-bottom: 1px solid var(--line); } }
+
+/* findings: one compact chip and list everywhere (Findings.tsx) */
+.cs-ui-findings-chip { cursor: pointer; font-family: inherit; }
+.cs-ui-findings-chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.cs-ui-findings-pop { max-width: 420px; padding: var(--space-xs) var(--space-sm); }
+.cs-ui-findings { display: flex; flex-direction: column; gap: var(--space-3xs); margin: 0; padding: 0; list-style: none; font-size: var(--fs-xs); line-height: 1.35; color: var(--ink); }
+.cs-ui-findings li { display: flex; align-items: baseline; gap: var(--space-xs); }
+.cs-ui-findings-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; transform: translateY(-1px); background: var(--faint); }
+.cs-ui-findings-dot[data-tone='err'] { background: var(--err); }
+.cs-ui-findings-dot[data-tone='warn'] { background: var(--warn); }
+.cs-ui-findings-dot[data-tone='info'] { background: var(--info); }
+.cs-ui-findings-at { flex: none; font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--dim); }
+.cs-ui-findings-more { color: var(--faint); padding-left: var(--space-md); }
+
+/* record sections: compact collapsible header + body (Section.tsx) */
+.cs-ui-section { border-top: 1px solid var(--line); }
+.cs-ui-section-head { display: flex; align-items: center; gap: var(--space-xs); min-height: 30px; padding: 0 var(--space-2xs) 0 0; }
+.cs-ui-section-toggle {
+  display: flex; flex: 1; min-width: 0; align-items: center; gap: var(--space-xs); height: 30px; padding: 0 var(--space-2xs);
+  font: inherit; font-size: var(--fs-xs); color: var(--ink); text-align: left; background: none; border: 0; border-radius: var(--r-sm); cursor: pointer;
+}
+.cs-ui-section-toggle:hover:not(:disabled) { background: var(--hover); }
+.cs-ui-section-toggle:disabled { cursor: default; }
+.cs-ui-section-toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.cs-ui-section-chev { flex: none; color: var(--faint); transition: transform var(--dur-fast) var(--ease); }
+.cs-ui-section-chev[data-hidden='true'] { visibility: hidden; }
+.cs-ui-section[data-open='true'] .cs-ui-section-chev { transform: rotate(90deg); }
+.cs-ui-section-title { flex: none; font-weight: 600; }
+.cs-ui-section-sum { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); font-size: var(--fs-2xs); }
+.cs-ui-section-actions { display: flex; flex: none; align-items: center; gap: var(--space-2xs); }
+.cs-ui-section-body { padding: 0 var(--space-sm) var(--space-sm) calc(var(--space-2xs) + 18px); font-size: var(--fs-xs); }
+.cs-ui-section-adds { display: flex; flex-wrap: wrap; gap: var(--space-2xs); padding: var(--space-2xs) 0; }
+.cs-ui-findings-go { padding: 0; font: inherit; color: inherit; text-align: left; background: none; border: 0; cursor: pointer; }
+.cs-ui-findings-go:hover { text-decoration: underline; }
+.cs-ui-findings-go:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }

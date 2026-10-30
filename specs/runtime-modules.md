@@ -196,8 +196,8 @@ Settings → Code modules → **Restart WireHub** (owners, signed in), `POST /ap
    it lets a running job finish (the pg-boss graceful stop, 30 s), logs the same line and exits 75.
 
 `restart: unless-stopped` (compose: `wirehub`, `worker` and every other long-running service —
-`postgres`, `garage`, `backup-dump`, `backup-mirror`, `backrest`, `pdf`; the one-shots `bootstrap`,
-`migrate`, `garage-init`, `backup-init` are `"no"`; verified 2026-10-05) brings both back. The page
+`postgres`, `garage`, `backup-dump`, `backup-mirror`, `backrest`, `pdf`; the one-shots `backup-init` and the
+`init-services` profile's `bootstrap`, `migrate`, `garage-init` are `"no"`; verified 2026-10-05) brings both back. The page
 shows *Restarting WireHub…*, polls `GET /api/system/boot` until the boot id changes (and `restarting` is
 false), then reloads (`waitForRestart` in `src/code-modules.browser.ts`). Any other client does the same:
 the response carries the id it must see replaced.

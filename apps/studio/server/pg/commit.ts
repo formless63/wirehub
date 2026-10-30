@@ -22,6 +22,7 @@
  *    still references refuses the whole set (409).
  */
 
+import { actorName } from '../me.ts';
 import { contentETag } from '../etag.ts';
 import { commitMessage } from '../backup/commit-message.ts';
 import { derivedModuleOf, entitiesOf, explode, sha256Hex, type CatalogRows, type EntityKind } from '@wirehub/catalog/src/codec/index.ts';
@@ -54,12 +55,12 @@ export interface PgCommitOptions {
 /** The person a change set is attributed to: a `studio.person` row, made on first sight by email. */
 async function actorOf(tx: Tx, orgId: string, set: ChangeSet): Promise<{ id: string | null; label: string }> {
   const user = set.context.user;
-  const label = user?.name ?? 'WireHub (local)';
+  const label = actorName(user) ?? 'WireHub (local)';
   const email = user?.email?.toLowerCase();
   if (email === undefined || !email.includes('@')) return { id: null, label };
   const found = (
     await sql<{ id: string }>`
-      INSERT INTO studio.person (org_id, email, name) VALUES (${orgId}::uuid, ${email}, ${label})
+      INSERT INTO studio.person (org_id, email, name) VALUES (${orgId}::uuid, ${email}, ${user?.name ?? label})
       ON CONFLICT (org_id, email) DO UPDATE SET name = studio.person.name
       RETURNING id::text AS id`.execute(tx)
   ).rows[0];

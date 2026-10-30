@@ -45,8 +45,9 @@ describe('derived panels', () => {
     const state = initialEditorState(loadDesignFromDisk('de9-terminal-board'), db);
     const { ui } = harness(state, <NetsPanel state={state} />);
     render(ui);
-    expect(screen.getByText('net-1')).toBeDefined();
-    expect(screen.getAllByText(/^j1:/).length).toBeGreaterThan(0);
+    // nets are named by their pins' shared label, terminals by name; the ids stay in tooltips
+    expect(screen.getByTitle('net-1')).toBeDefined();
+    expect(screen.getAllByText(/^J1 pin /).length).toBeGreaterThan(0);
   });
 
   it('reports a clean design as clean and a broken one in the validator words', () => {
@@ -64,7 +65,7 @@ describe('derived panels', () => {
       ],
     };
     render(harness(broken, <IssuesPanel state={broken} />).ui);
-    expect(screen.getByText('unknown-def')).toBeDefined();
+    expect(screen.getByTitle('unknown-def')).toBeDefined();
     expect(screen.getByText('made up for the view')).toBeDefined();
   });
 

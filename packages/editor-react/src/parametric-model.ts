@@ -355,6 +355,38 @@ function terminalBlock(mesh: Mesh, spec: ParametricSpec, p: Params): void {
   }
 }
 
+/** A pan-head screw: head above y = 0, shank below. */
+function screw(mesh: Mesh, _spec: ParametricSpec, p: Params): void {
+  const hd = p['headDiameterMm']!;
+  const hh = p['headHeightMm']!;
+  mesh.cylinder('steel', [0, 0, 0], [0, hh, 0], hd / 2, hd / 2.3, 20);
+  mesh.box('black', 0, hh + 0.01, 0, hd * 0.45, 0.04, hd * 0.12);
+  mesh.box('black', 0, hh + 0.01, 0, hd * 0.12, 0.04, hd * 0.45);
+  mesh.cylinder('steel', [0, 0, 0], [0, -p['lengthMm']!, 0], p['diameterMm']! / 2, p['diameterMm']! / 2.6, 14);
+}
+
+/** A hex standoff standing on y = 0. */
+function standoff(mesh: Mesh, _spec: ParametricSpec, p: Params): void {
+  const r = p['acrossFlatsMm']! / Math.sqrt(3);
+  const hex: Poly = Array.from({ length: 6 }, (_, i) => [Math.cos((i * Math.PI) / 3) * r, Math.sin((i * Math.PI) / 3) * r]);
+  const l = p['lengthMm']!;
+  // the prism extrudes along z: build it along z, then it is the same envelope turned upright
+  for (let i = 0; i < 6; i++) {
+    const a = hex[i]!;
+    const b = hex[(i + 1) % 6]!;
+    mesh.quad('gold', [a[0], 0, a[1]], [b[0], 0, b[1]], [b[0], l, b[1]], [a[0], l, a[1]], [0, l / 2, 0]);
+    mesh.tri('gold', [0, 0, 0], [a[0], 0, a[1]], [b[0], 0, b[1]], [0, l / 2, 0]);
+    mesh.tri('gold', [0, l, 0], [a[0], l, a[1]], [b[0], l, b[1]], [0, l / 2, 0]);
+  }
+  mesh.cylinder('black', [0, l, 0], [0, l + 0.05, 0], p['threadDiameterMm']! / 2, p['threadDiameterMm']! / 2, 12);
+}
+
+/** A rubber foot hanging below y = 0. */
+function foot(mesh: Mesh, _spec: ParametricSpec, p: Params): void {
+  const d = p['diameterMm']!;
+  mesh.cylinder('rubber', [0, 0, 0], [0, -p['heightMm']!, 0], d / 2, d / 2.5, 24);
+}
+
 const BUILDERS: Record<ParametricSpec['shape'], (mesh: Mesh, spec: ParametricSpec, p: Params) => void> = {
   'd-sub': dSub,
   xlr,
@@ -363,6 +395,9 @@ const BUILDERS: Record<ParametricSpec['shape'], (mesh: Mesh, spec: ParametricSpe
   'sealed-rectangular': sealedRectangular,
   'jst-xh': jstXh,
   'terminal-block': terminalBlock,
+  screw,
+  standoff,
+  foot,
 };
 
 /** The triangles of a spec, grouped by material. Throws with the problems when the spec cannot be drawn. */

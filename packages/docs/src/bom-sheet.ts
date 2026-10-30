@@ -14,6 +14,7 @@
 import {
   findPcba,
   findWire,
+  formatMassValue,
   kitsContaining,
   placedDesign,
   type CableDesign,
@@ -28,6 +29,7 @@ import { catalogDepictions } from '@wirehub/layout';
 
 import { costLineOf, deriveCost, formatMoney, type CostSummary } from './cost.ts';
 import { deriveBom, type BomCategory, type BomLine } from './bom.ts';
+import { deriveMass, hasMassData, wireMassAt, type DesignMass, type LineMass } from './mass.ts';
 import { footHtml, headerFrameCss, headerHtml, sheetHeader, type DocumentFacts, type SheetHeader } from './bench/header.ts';
 import type { PaperId, TitleBlockStandard } from './frame/index.ts';
 import { trunkSides } from './bench/model.ts';
@@ -114,6 +116,8 @@ export interface BomSheetLine {
   proposal?: PnSuggestion;
   /** why it is unmapped */
   reason?: string;
+  /** the line's derived mass (`mass.ts`); present when the sheet has a `mass` */
+  mass?: LineMass;
 }
 
 export interface BomSheet {
@@ -131,6 +135,8 @@ export interface BomSheet {
   notes: string[];
   /** unit and extended cost and the total; absent when nothing is priced */
   cost?: CostSummary;
+  /** derived mass per line and for one unit; absent when no part has a recorded mass */
+  mass?: DesignMass;
 }
 
 export interface BomSheetOptions {
@@ -232,16 +238,30 @@ export function deriveBomSheet(design: CableDesign, db: Db, options: BomSheetOpt
   // where a part goes, in bench words: the end it sits at (a shell's screws at their shell's end)
   const sides = trunkSides(design, db);
   const mech = design.instances.mechanical ?? [];
+  const trunkRun = trunkSegment(design, db)?.id;
+  const runIds = new Set(design.instances.segments.map((s) => s.id));
+  const onSideRun = (instance: string): boolean =>
+    trunkRun !== undefined &&
+    design.joints.some((j) => (j.a.instance === instance && runIds.has(j.b.instance) && j.b.instance !== trunkRun) || (j.b.instance === instance && runIds.has(j.a.instance) && j.a.instance !== trunkRun));
   const whereOf = (line: BomLine): string => {
     if (line.category === 'wire' || line.category === 'subassembly') return line.location;
     // a contact's provenance is its cavity (`j2:1`): it sits where its connector does
-    let id = (line.provenance[0] ?? '').split(':')[0] ?? '';
-    for (let guard = 0; guard < 4; guard += 1) {
-      const m = mech.find((x) => x.id === id);
-      if (m?.attachedTo === undefined) break;
-      id = m.attachedTo;
-    }
-    const side = sides.get(id);
+    const placeOf = (instance: string): string => {
+      let id = instance.split(':')[0] ?? '';
+      for (let guard = 0; guard < 4; guard += 1) {
+        const m = mech.find((x) => x.id === id);
+        if (m?.attachedTo === undefined) break;
+        id = m.attachedTo;
+      }
+      return id;
+    };
+    const id = placeOf(line.provenance[0] ?? '');
+    // a board jointed to a run other than the trunk sits between runs, not at an end of the cable
+    if (line.category === 'pcba' && line.provenance.some((p) => onSideRun(placeOf(p)))) return line.location;
+    // a line folded from several places (two occurrences of one board) names an end only when they all sit there
+    const placed = new Set(line.provenance.map((p) => sides.get(placeOf(p))));
+    const side = placed.size === 1 ? sides.get(id) : undefined;
+    if (placed.size > 1) return line.location;
     const end = side === 'a' ? 'Source end' : side === 'b' ? 'Destination end' : undefined;
     const role = design.instances.connectors.find((c) => c.id === id)?.role;
     return facts([end, line.category === 'connector' || line.category === 'termination' ? role : undefined]) || line.location;
@@ -251,7 +271,8 @@ export function deriveBomSheet(design: CableDesign, db: Db, options: BomSheetOpt
   const annotate = (line: BomLine, variation?: { pn: string; mm: number }): BomSheetLine => {
     const isWire = line.category === 'wire';
     const mm = isWire ? (variation?.mm ?? line.totalMm ?? line.length?.mm) : undefined;
-    const quantity = isWire && mm !== undefined ? num(Math.round((mm / MM_PER_FT) * 100) / 100) : String(line.qty);
+    // feet to the hundredth (500 mm is 1.64 ft, not 2): `num` alone rounds to whole units
+    const quantity = isWire && mm !== undefined ? num(mm / MM_PER_FT, 2).replace(/\.?0+$/, '') : String(line.qty);
     const out: BomSheetLine = {
       section: SECTION_OF[line.category],
       sourceKey: line.key,
@@ -265,7 +286,8 @@ export function deriveBomSheet(design: CableDesign, db: Db, options: BomSheetOpt
       label: line.label,
       location: whereOf(line),
       instances: [...line.provenance].sort(compareStrings),
-      notes: line.detail ?? '',
+      // a run with no length is counted, not measured: say so where the quantity would be read
+      notes: isWire && mm === undefined ? ['length not set: no cut length to order by', line.detail].filter((x) => x !== undefined && x !== '').join(' · ') : (line.detail ?? ''),
     };
     if (line.category === 'pcba') {
       const pcba = findPcba(db, line.ref);
@@ -340,6 +362,18 @@ export function deriveBomSheet(design: CableDesign, db: Db, options: BomSheetOpt
     subassemblies.set(line.sourceKey, own.cost);
   }
   const cost = deriveCost(design, db, lines, { ...(options.buildQty === undefined ? {} : { buildQty: options.buildQty }), ...(subassemblies.size === 0 ? {} : { subassemblies }) });
+  // mass: per line (a family's trunk at its variation's length) and the design's own total
+  const derived = deriveMass(design, db, { bom, explode: options.explode === true, assemblyStack: stack });
+  const mass = hasMassData(derived) ? derived : undefined;
+  if (mass !== undefined) {
+    const byKey = new Map(mass.lines.map((l) => [l.key, l]));
+    for (const line of lines) {
+      const own = byKey.get(line.sourceKey);
+      if (own === undefined) continue;
+      const { key: _k, category: _c, ref: _r, label: _l, partNumber: _p, qty: _q, instances: _i, ...lineMass } = own;
+      line.mass = line.variationPn !== undefined && line.wire?.mm !== undefined ? wireMassAt(lineMass, line.wire.mm) : lineMass;
+    }
+  }
   return {
     header,
     products,
@@ -350,6 +384,7 @@ export function deriveBomSheet(design: CableDesign, db: Db, options: BomSheetOpt
     ...(productProposal === undefined ? {} : { productProposal }),
     notes: bom.notes.map((n) => n.text),
     ...(cost === undefined ? {} : { cost }),
+    ...(mass === undefined ? {} : { mass }),
   };
 }
 
@@ -363,7 +398,7 @@ function qtyText(line: BomSheetLine): string {
 
 function partCell(line: BomSheetLine): string {
   if (line.sku !== undefined) return `<span class="cs-sku">${escapeHtml(line.sku)}</span>`;
-  return `<span class="cs-flag" title="${escapeHtml(line.reason ?? 'no part number')}">UNMAPPED</span>${
+  return `<span title="${escapeHtml(line.reason ?? 'No part number')}">—</span>${
     line.proposal === undefined
       ? ''
       : `<span class="cs-proposal" title="${escapeHtml(`${line.proposal.explanation}${line.proposal.fallback ? ' (next free number — no pattern applied)' : ''}`)}">proposed ${escapeHtml(line.proposal.pn)}</span>`
@@ -389,18 +424,42 @@ function costCells(sheet: BomSheet, line: BomSheetLine): string {
   return priced === undefined ? '<td class="cs-num">—</td><td class="cs-num">—</td>' : `<td class="cs-num">${escapeHtml(formatMoney(priced.unitPrice))}${priced.unit === 'm' ? '/m' : ''}</td><td class="cs-num">${escapeHtml(formatMoney(priced.extended, priced.currency))}</td>`;
 }
 
+/** A line's mass as printed: `16.4 g`, `≥ 39 g`, or a dash. */
+function massCellText(mass: LineMass | undefined): string {
+  return mass === undefined ? '—' : (formatMassValue({ g: mass.g, bound: mass.bound }) ?? '—');
+}
+
+/** What the summary names as without a mass: the line's label and its instances. */
+function massGapsText(mass: DesignMass): string {
+  const label = new Map(mass.lines.map((l) => [l.key, l.label]));
+  const out: string[] = [];
+  for (const m of mass.missing) {
+    const what = m.line === undefined ? m.record : (label.get(m.line) ?? m.record);
+    const why = m.reason === 'no-length' ? 'no length' : m.reason === 'no-definition' ? 'not in the library' : m.reason === 'subassembly' ? (m.detail ?? 'sub-assembly') : undefined;
+    const text = `${what} (${[m.instances.join(' '), why].filter((x) => x !== undefined && x !== '').join(', ')})`;
+    if (!out.includes(text)) out.push(text);
+  }
+  return out.join('; ');
+}
+
+/** `Mass, one unit: ≥ 182.4 g — without a mass: …` */
+export function massSummaryText(mass: DesignMass): string {
+  const total = formatMassValue(mass.total) ?? 'unknown';
+  return `Mass, one unit: ${total}${mass.missing.length === 0 ? '' : ` — without a mass: ${massGapsText(mass)}`}`;
+}
+
 function sectionHtml(sheet: BomSheet, section: BomSection, title: string): string {
   const rows = sheet.lines.filter((l) => l.section === section);
   if (rows.length === 0) return '';
   const body = rows
     .map(
       (line) =>
-        `<tr class="${line.state === 'unmapped' ? 'cs-is-unmapped' : ''}" data-key="${escapeHtml(line.sourceKey)}"><td class="cs-num">${escapeHtml(qtyText(line))}</td><td>${partCell(line)}</td><td>${describe(
+        `<tr class="${line.state === 'unmapped' ? 'cs-is-unmapped' : ''}" data-key="${escapeHtml(line.sourceKey)}"><td class="cs-num">${line.category === 'wire' && line.unit !== 'ft' ? `<span class="cs-flag" title="This run has no length: set it on the design to order and cut it">NO LENGTH</span>` : escapeHtml(qtyText(line))}</td><td>${partCell(line)}</td><td>${describe(
           line,
-        )}</td><td>${escapeHtml(line.variationPn ?? line.location)}<span class="cs-refs">${escapeHtml(line.instances.join(' '))}</span></td>${sheet.cost === undefined ? '' : costCells(sheet, line)}</tr>`,
+        )}</td><td>${escapeHtml(line.variationPn ?? line.location)}<span class="cs-refs">${escapeHtml(line.instances.join(' '))}</span></td>${sheet.cost === undefined ? '' : costCells(sheet, line)}${sheet.mass === undefined ? '' : `<td class="cs-num">${escapeHtml(massCellText(line.mass))}</td>`}</tr>`,
     )
     .join('');
-  const head = `<th class="cs-num">Qty</th><th>Part</th><th>Description</th><th>${section === 'wire' ? 'For' : 'Where'}</th>${sheet.cost === undefined ? '' : '<th class="cs-num">Unit</th><th class="cs-num">Extended</th>'}`;
+  const head = `<th class="cs-num">Qty</th><th>Part</th><th>Description</th><th>${section === 'wire' ? 'For' : 'Where'}</th>${sheet.cost === undefined ? '' : '<th class="cs-num">Unit</th><th class="cs-num">Extended</th>'}${sheet.mass === undefined ? '' : '<th class="cs-num">Mass</th>'}`;
   return `<section class="cs-section cs-bom-sec" data-section="${section}"><h2 class="cs-section__h">${escapeHtml(title)}</h2><table class="cs-table cs-bomtable"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></section>`;
 }
 
@@ -433,6 +492,7 @@ export function bomSheetBody(sheet: BomSheet): string {
   }
   for (const { id, title } of BOM_SECTIONS) parts.push(sectionHtml(sheet, id, title));
   if (sheet.cost !== undefined) parts.push(costHtml(sheet.cost));
+  if (sheet.mass !== undefined) parts.push(`<section class="cs-section cs-mass" data-section="mass"><p class="cs-meta">${escapeHtml(massSummaryText(sheet.mass))}</p></section>`);
   if (sheet.kits.length > 0) {
     parts.push(
       `<section class="cs-section"><h2 class="cs-section__h">Kits</h2><p class="cs-meta">Information only — kits are never BOM lines.</p><ul class="cs-notes">${sheet.kits
@@ -470,9 +530,9 @@ export function bomSheetMarkdown(sheet: BomSheet): string {
   for (const { id, title } of BOM_SECTIONS) {
     const rows = sheet.lines.filter((l) => l.section === id);
     if (rows.length === 0) continue;
-    out.push(`## ${title}`, '', `| Qty | Part | Description | Where | Refs |${sheet.cost === undefined ? '' : ' Unit | Extended |'}`, `| ---: | :--- | :--- | :--- | :--- |${sheet.cost === undefined ? '' : ' ---: | ---: |'}`);
+    out.push(`## ${title}`, '', `| Qty | Part | Description | Where | Refs |${sheet.cost === undefined ? '' : ' Unit | Extended |'}${sheet.mass === undefined ? '' : ' Mass |'}`, `| ---: | :--- | :--- | :--- | :--- |${sheet.cost === undefined ? '' : ' ---: | ---: |'}${sheet.mass === undefined ? '' : ' ---: |'}`);
     for (const line of rows) {
-      const part = line.sku ?? `UNMAPPED${line.proposal === undefined ? '' : ` (proposed ${line.proposal.pn})`}`;
+      const part = line.sku ?? `—${line.proposal === undefined ? '' : ` (proposed ${line.proposal.pn})`}`;
       // never the maker in the printed description:
       // `line.wire.manufacturer` still carries it, for a caller that wants it
       const desc = facts([
@@ -483,7 +543,7 @@ export function bomSheetMarkdown(sheet: BomSheet): string {
         line.board?.jumpers,
       ]);
       const where = line.variationPn ?? line.location;
-      out.push(`| ${escapeMarkdownCell(qtyText(line))} | ${escapeMarkdownCell(part)} | ${escapeMarkdownCell(desc)} | ${escapeMarkdownCell(where)} | ${escapeMarkdownCell(line.instances.join(' '))} |${sheet.cost === undefined ? '' : ` ${costMarkdown(sheet.cost, line)} |`}`);
+      out.push(`| ${escapeMarkdownCell(qtyText(line))} | ${escapeMarkdownCell(part)} | ${escapeMarkdownCell(desc)} | ${escapeMarkdownCell(where)} | ${escapeMarkdownCell(line.instances.join(' '))} |${sheet.cost === undefined ? '' : ` ${costMarkdown(sheet.cost, line)} |`}${sheet.mass === undefined ? '' : ` ${escapeMarkdownCell(massCellText(line.mass))} |`}`);
     }
     out.push('');
   }
@@ -496,6 +556,7 @@ export function bomSheetMarkdown(sheet: BomSheet): string {
     for (const n of c.notes) out.push(`- ${n}`);
     out.push('');
   }
+  if (sheet.mass !== undefined) out.push(massSummaryText(sheet.mass), '');
   if (sheet.kits.length > 0) {
     out.push('## Kits (information only)', '');
     for (const k of sheet.kits) out.push(`- ${k.sku} ${k.label}: ${k.parts.join(', ')}`);

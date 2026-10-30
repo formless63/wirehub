@@ -25,8 +25,8 @@ import type { Awaitable } from '../storage/change-set.ts';
 import type { ModelBuild, SourceFile } from './cache.ts';
 import { hubCatalogSource } from '../catalog-files.ts';
 
-/** Where a model came from: a board file, a printed housing, a vendor download, an upload, or KiCad's standard 3D library. */
-export const MODEL_SOURCE_KINDS = ['kicad-board', 'resin-print', 'vendor', 'uploaded', 'kicad-library', 'parametric'] as const;
+/** Where a model came from: a board file, a printed housing, a vendor download, an upload, KiCad's standard 3D library, or a tool pack that generated it (an enclosure). */
+export const MODEL_SOURCE_KINDS = ['kicad-board', 'resin-print', 'vendor', 'uploaded', 'kicad-library', 'parametric', 'generated'] as const;
 export type ModelSourceKind = (typeof MODEL_SOURCE_KINDS)[number];
 
 /**
@@ -73,6 +73,18 @@ export interface ModelLink {
    * `parametricAssetId(spec)`, and the viewer builds the geometry from the spec.
    */
   parametric?: ParametricSpec;
+  /**
+   * The file as uploaded, when the converted GLB is not the geometry to make it from: a shell's
+   * STL is kept beside its GLB (which may be thinned for the viewer), so print preparation slices
+   * the exact uploaded mesh (`server/print/api.ts`). `asset` is the stored file's sha256.
+   */
+  original?: { asset: string; mime: 'model/stl'; name: string; bytes: number };
+  /**
+   * `board-file`: the GLB keeps its source file's coordinates (a board's native `board.glb`, placed
+   * where the board sits in its KiCad sheet), not centred on its outline; a viewer that places it
+   * by its outline centres it first.
+   */
+  frame?: 'board-file';
 }
 
 export interface ModelLinkStore {

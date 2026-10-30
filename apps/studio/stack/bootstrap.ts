@@ -50,7 +50,7 @@ import { base64url, ensureSecret, explicitValue, hex, prepareDir, readSecret, se
 /** The bundled Garage's configuration; secrets are read from the volume, never written into it. */
 export function garageToml(options: { dir: string; region: string; rpcSecretFile: boolean; adminTokenFile: boolean }): string {
   return [
-    '# Garage, single node, for WireHub — written by the bootstrap service on',
+    '# Garage, single node, for WireHub — written by the app at startup, on',
     '# every start (apps/studio/stack/bootstrap.ts); edits here are replaced.',
     'metadata_dir = "/var/lib/garage/meta"',
     'data_dir = "/var/lib/garage/data"',

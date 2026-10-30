@@ -105,7 +105,8 @@ describe('the studio adapter over the studio API', () => {
 
   it('carries a refusal across as words and an issue list', async () => {
     const broken = structuredClone(REAL);
-    broken.instances.pcbas.push({ id: 'u9', def: 'no-such-board' });
+    // two parts under one id: the kind of problem a save still refuses (an unknown part only is a finding)
+    broken.instances.pcbas.push({ id: REAL.instances.connectors[0]!.id, def: 'no-such-board' });
 
     await adapter.load(REAL.id);
     const result = await adapter.save(broken);
@@ -113,7 +114,7 @@ describe('the studio adapter over the studio API', () => {
     if (result.ok) return;
     expect(result.message).toContain(REAL.id);
     expect(result.hint).toContain('Nothing was written');
-    expect(result.issues?.some((issue) => issue.code === 'unknown-def')).toBe(true);
+    expect(result.issues?.some((issue) => issue.code === 'duplicate-instance-id')).toBe(true);
   });
 
   it('creates, duplicates, renames and deletes through the right addresses', async () => {

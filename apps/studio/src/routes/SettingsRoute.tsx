@@ -12,25 +12,26 @@ import { helpForSettingsSection } from '../help.ts';
 import { useDocsBase } from '../hooks/useDocsBase.ts';
 import { useIsNarrow } from '../hooks/useIsNarrow.ts';
 import { InfoTip } from '../shell/InfoTip.tsx';
-import { SETTINGS_SECTIONS, sectionHelp, settingsSection } from '../settings-sections.ts';
+import { SETTINGS_SECTIONS, inSettingsNav, sectionHelp, settingsSection } from '../settings-sections.ts';
 import './settings-sections.css';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { toast } from 'sonner';
-import { Button, Checkbox, Field, Input, Page, Select, Textarea } from '@wirehub/editor-react';
+import { Button, Checkbox, FileDrop, HelpTip, Input, Page, Select, Textarea } from '@wirehub/editor-react';
 import { BUILTIN_LABEL_TEMPLATES, labelPresetOptions, LBX_PRINTERS, PAPERS, PAPER_IDS, TITLE_BLOCKS, TITLE_BLOCK_STANDARDS, type PaperId, type TitleBlockStandard } from '@wirehub/docs';
 
 import { brandingKey, brandingQuery, fetchFonts, fontsKey, saveBranding, uploadFont, type BrandingView, type FontChoice } from '../settings.browser.ts';
 import { EngineeringSettings } from './EngineeringSettings.tsx';
 import { PartNumberSettings } from './PartNumberSettings.tsx';
 import { RulesSettings } from './RulesSettings.tsx';
+import { ProcessesSettings } from './ProcessesSettings.tsx';
 import { ModuleSettings } from './ModuleSettings.tsx';
 import { RuntimeSettings } from './RuntimeSettings.tsx';
 import { WebhookSettings } from './WebhookSettings.tsx';
 import { useStudio } from '../studio-context.tsx';
 import { RouteHeader } from '../shell/RouteHeader.tsx';
-import { AccountFrame } from './AccountRoute.tsx';
+import { PeoplePanel } from './PeoplePanel.tsx';
 
 const NO_FACE = '__none__';
 
@@ -112,7 +113,7 @@ export function SettingsRoute(): JSX.Element {
   const readOnly = me?.role === 'viewer';
   // People (the hub's accounts) is a section of Settings for an owner of a hub with accounts
   const peopleAvailable = me?.source === 'session' && me.instance?.accounts === true && me.role === 'owner';
-  const visibleSections = SETTINGS_SECTIONS.filter((section) => section.id !== 'people' || peopleAvailable);
+  const visibleSections = SETTINGS_SECTIONS.filter((section) => inSettingsNav(section) && (section.id !== 'people' || peopleAvailable));
   const query = useQuery(brandingQuery);
   const [draft, setDraft] = useState<Draft>(draftOf(undefined));
   /** undefined: keep the stored logo; null: remove it; a data URI: replace it */
@@ -225,14 +226,15 @@ export function SettingsRoute(): JSX.Element {
         query.isError ? null : <div className="text-faint">Loading…</div>
       ) : (
         <form
-          className="flex max-w-[640px] flex-col gap-3"
+          className="flex flex-col gap-0.5"
           onSubmit={(e) => {
             e.preventDefault();
             void save();
           }}
         >
           {FIELDS.map((f) => (
-            <Field key={f.key} label={f.label} hint={f.hint}>
+            <div key={f.key} className="settings-row">
+              <span className="settings-row-label"><span>{f.label}</span><HelpTip label={`About ${f.label}`}>{f.hint}</HelpTip></span>
               <Input
                 aria-label={f.label}
                 value={draft[f.key]}
@@ -240,11 +242,10 @@ export function SettingsRoute(): JSX.Element {
                 maxLength={f.key === 'rights' ? 160 : f.key === 'filePrefix' ? 16 : f.key === 'labelQrUrl' ? 200 : 80}
                 onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })}
               />
-            </Field>
+            </div>
           ))}
-          <div className="flex gap-3">
-            <div className="flex flex-1 flex-col gap-0.5" title="The paper every document prints on unless a design or a download asks for another. The drawing, formboard, labels and schematic keep their own orientation.">
-              <span className="font-medium">Paper</span>
+            <div className="settings-row">
+              <span className="settings-row-label"><span>Paper</span><HelpTip label="About Paper">The paper every document prints on unless a design or a download asks for another. The drawing, formboard, labels and schematic keep their own orientation.</HelpTip></span>
               <Select
                 aria-label="Paper"
                 value={draft.paper === '' ? 'default' : draft.paper}
@@ -253,8 +254,8 @@ export function SettingsRoute(): JSX.Element {
                 options={[{ value: 'default', label: 'A4 (default)' }, ...PAPER_IDS.filter((id) => id !== 'A4').map((id) => ({ value: id, label: PAPERS[id].label }))]}
               />
             </div>
-            <div className="flex flex-1 flex-col gap-0.5" title="The title-block layout of every sheet: ISO 7200 (a block at the bottom right) or ANSI (a full-width block). By default the paper decides: ISO for the A sizes, ANSI for Letter and the larger American sizes.">
-              <span className="font-medium">Title block</span>
+            <div className="settings-row">
+              <span className="settings-row-label"><span>Title block</span><HelpTip label="About Title block">The title-block layout of every sheet: ISO 7200 (a block at the bottom right) or ANSI (a full-width block). By default the paper decides: ISO for the A sizes, ANSI for Letter and the larger American sizes.</HelpTip></span>
               <Select
                 aria-label="Title block"
                 value={draft.titleBlock === '' ? 'default' : draft.titleBlock}
@@ -263,10 +264,8 @@ export function SettingsRoute(): JSX.Element {
                 options={[{ value: 'default', label: 'Follow the paper' }, ...TITLE_BLOCK_STANDARDS.map((id) => ({ value: id, label: TITLE_BLOCKS[id].label }))]}
               />
             </div>
-          </div>
-          <div className="flex items-end gap-3">
-            <div className="flex flex-1 flex-col gap-0.5" title="The label stock the wire labels print on: the A4 and Letter sheets, or one label per page for a Brady or Dymo printer. A download can ask for another.">
-              <span className="font-medium">Label stock</span>
+            <div className="settings-row">
+              <span className="settings-row-label"><span>Label stock</span><HelpTip label="About Label stock">The label stock the wire labels print on: the A4 and Letter sheets, or one label per page for a Brady or Dymo printer. A download can ask for another.</HelpTip></span>
               <Select
                 aria-label="Label stock"
                 value={draft.labelPreset === '' ? 'default' : draft.labelPreset}
@@ -275,14 +274,12 @@ export function SettingsRoute(): JSX.Element {
                 options={[{ value: 'default', label: 'Follow the paper' }, ...labelPresetOptions()]}
               />
             </div>
-            <label className="flex items-center gap-1.5 pb-1" title="Print a QR code on each wire label: the part number and revision, or the address below.">
-              <input type="checkbox" aria-label="QR code on labels" checked={draft.labelQr} disabled={readOnly} onChange={(e) => setDraft({ ...draft, labelQr: e.target.checked })} />
-              <span className="font-medium">QR code on labels</span>
-            </label>
-          </div>
-          <div className="flex items-end gap-3">
-            <div className="flex flex-1 flex-col gap-0.5" title="How a tape label is laid out (P-touch tapes): a built-in layout, or one from this hub's drawing art or an installed pack.">
-              <span className="font-medium">Tape label layout</span>
+            <div className="settings-row">
+              <span className="settings-row-label"><span>QR code on labels</span><HelpTip label="About the QR code">Print a QR code on each wire label: the part number and revision, or the Label QR address.</HelpTip></span>
+              <input type="checkbox" className="justify-self-start" aria-label="QR code on labels" checked={draft.labelQr} disabled={readOnly} onChange={(e) => setDraft({ ...draft, labelQr: e.target.checked })} />
+            </div>
+            <div className="settings-row">
+              <span className="settings-row-label"><span>Tape label layout</span><HelpTip label="About Tape label layout">How a tape label is laid out (P-touch tapes): a built-in layout, or one from this hub's drawing art or an installed pack.</HelpTip></span>
               <Select
                 aria-label="Tape label layout"
                 value={draft.labelTemplate === '' ? 'default' : draft.labelTemplate}
@@ -291,8 +288,8 @@ export function SettingsRoute(): JSX.Element {
                 options={[{ value: 'default', label: 'Built-in' }, ...Object.entries({ ...BUILTIN_LABEL_TEMPLATES, ...((query.data?.art as { labelTemplates?: Record<string, { label?: string }> } | undefined)?.labelTemplates ?? {}) }).map(([id, t]) => ({ value: id, label: t.label ?? id }))]}
               />
             </div>
-            <div className="flex flex-1 flex-col gap-0.5" title="The printer named in P-touch Editor (.lbx) files.">
-              <span className="font-medium">Tape printer</span>
+            <div className="settings-row">
+              <span className="settings-row-label"><span>Tape printer</span><HelpTip label="About Tape printer">The printer named in P-touch Editor (.lbx) files.</HelpTip></span>
               <Select
                 aria-label="Tape printer"
                 value={draft.labelPrinter === '' ? 'default' : draft.labelPrinter}
@@ -301,9 +298,9 @@ export function SettingsRoute(): JSX.Element {
                 options={[{ value: 'default', label: 'Any P-touch printer' }, ...LBX_PRINTERS.filter((p) => p.id !== 'generic').map((p) => ({ value: p.id, label: p.label }))]}
               />
             </div>
-          </div>
-          <fieldset className="flex flex-col gap-1 border-0 p-0">
-            <legend className="font-medium">Drawing general note</legend>
+          <div className="settings-row is-top" role="group" aria-label="Drawing general note">
+            <span className="settings-row-label pt-1"><span>Drawing general note</span><HelpTip label="About the general note">The three lines beside the tolerances in the title block; up to 24 characters each. Empty keeps the generic note.</HelpTip></span>
+            <div className="flex flex-col gap-1">
             {DEFAULT_NOTES.map((placeholder, i) => (
               <Input
                 key={placeholder}
@@ -315,10 +312,11 @@ export function SettingsRoute(): JSX.Element {
                 onChange={(e) => setDraft({ ...draft, notes: draft.notes.map((line, j) => (j === i ? e.target.value : line)) as Draft['notes'] })}
               />
             ))}
-            <span className="text-faint">The three lines beside the tolerances in the title block; up to 24 characters each. Empty keeps the generic note.</span>
-          </fieldset>
-          <fieldset className="flex flex-col gap-1 border-0 p-0">
-            <legend className="font-medium">Drawing tolerances</legend>
+            </div>
+          </div>
+          <div className="settings-row is-top" role="group" aria-label="Drawing tolerances">
+            <span className="settings-row-label pt-1"><span>Drawing tolerances</span><HelpTip label="About the tolerances">Up to five rows, printed in the title block. Leave all empty to keep the generic table.</HelpTip></span>
+            <div className="flex flex-col gap-1">
             {DEFAULT_TOLERANCES.map(([labelHint, valueHint], i) => (
               <div key={i} className="flex gap-2">
                 <Input
@@ -341,14 +339,19 @@ export function SettingsRoute(): JSX.Element {
                 />
               </div>
             ))}
-            <span className="text-faint">Up to five rows, printed in the title block. Leave all empty to keep the generic table.</span>
-          </fieldset>
-          <div className="flex flex-col gap-1">
-            <span className="font-medium">Title-block logo</span>
-            {shown === undefined ? <span className="text-faint">No logo.</span> : <img src={shown} alt="Logo preview" className="max-h-16 max-w-48 self-start rounded-sm border border-line bg-white p-1" />}
+            </div>
+          </div>
+          <div className="settings-row is-top">
+            <span className="settings-row-label pt-1"><span>Title-block logo</span><HelpTip label="About the logo">PNG or SVG, up to 512 KiB. Metadata is stripped when it is saved; an SVG is cleaned of scripts and drawn to a PNG.</HelpTip></span>
+            <div className="flex flex-col gap-1">
+            {shown === undefined ? (readOnly ? <span className="text-faint">No logo.</span> : null) : <img src={shown} alt="Logo preview" className="max-h-16 max-w-48 self-start rounded-sm border border-line bg-white p-1" />}
             {readOnly ? null : (
               <div className="flex items-center gap-3">
-                <input type="file" accept="image/png,image/svg+xml" aria-label="Logo file" onChange={(e) => void pick(e.target.files?.[0])} />
+                <div className="w-72">
+                  <FileDrop accept="image/png,image/svg+xml" aria-label="Logo file" onFiles={([f]) => void pick(f)} onReject={() => toast.error('The logo must be a PNG or an SVG.')}>
+                    {shown === undefined ? 'Drop a PNG or SVG, or choose one' : 'Replace logo'}
+                  </FileDrop>
+                </div>
                 {shown === undefined ? null : (
                   <Button variant="ghost" size="xs" onClick={() => setLogo(null)}>
                     Remove
@@ -356,11 +359,16 @@ export function SettingsRoute(): JSX.Element {
                 )}
               </div>
             )}
-            <span className="text-faint">PNG or SVG, up to 512 KiB. Metadata is stripped when it is saved; an SVG is cleaned of scripts and drawn to a PNG.</span>
+            </div>
           </div>
-          <fieldset className="flex flex-col gap-1 border-0 p-0" data-testid="typeface">
-            <legend className="font-medium">Typeface</legend>
-            <span className="text-faint">The font the drawings, the HTML sheets and the PDFs are set in. Empty keeps the standard sans. It is stored with the hub and travels inline in each document.</span>
+          <details className="settings-subgroup" data-testid="typeface">
+            <summary>
+              <span>Typeface</span>
+              <span className="text-2xs font-normal text-faint">{face.regular === '' ? 'Standard sans' : (fonts.data?.fonts ?? []).find((f) => f.id === face.regular)?.family ?? 'Custom'}</span>
+            </summary>
+            <div className="flex flex-col gap-1 pb-2">
+            {/* the (?) sits in the body: a button inside <summary> is a nested control */}
+            <span className="self-start"><HelpTip label="About the typeface">The font the drawings, the HTML sheets and the PDFs are set in. Empty keeps the standard sans. It is stored with the hub and travels inline in each document.</HelpTip></span>
             {(['regular', 'bold'] as const).map((slot) => (
               <div key={slot} className="flex items-center gap-2">
                 <span className="w-14">{slot === 'regular' ? 'Regular' : 'Bold'}</span>
@@ -384,14 +392,20 @@ export function SettingsRoute(): JSX.Element {
               </div>
             ))}
             {(fonts.data?.fonts ?? []).filter((f) => f.id === face.regular || f.id === face.bold).map((f) => (
-              <span key={f.id} className="text-faint">
-                {f.family}: {FONT_NOTE[f.format]}
-                {f.format === 'otf' && f.embeddable ? ' It has TrueType outlines, so the formboard PDF embeds it too.' : ''}
+              <span key={f.id} className="flex items-center gap-1.5 text-faint">
+                {f.family} ({f.format})
+                <HelpTip label={`About ${f.family}`}>
+                  {FONT_NOTE[f.format]}
+                  {f.format === 'otf' && f.embeddable ? ' It has TrueType outlines, so the formboard PDF embeds it too.' : ''}
+                </HelpTip>
               </span>
             ))}
             {readOnly ? null : (
               <div className="mt-1 flex flex-col gap-1 rounded-md border border-line p-2">
-                <span className="font-medium">Upload a font</span>
+                <span className="flex items-center gap-1.5 font-medium">
+                  Upload a font
+                  <HelpTip label="About font uploads">TrueType, OpenType or WOFF2, up to {Math.round((fonts.data?.limits.bytes ?? 1536 * 1024) / 1024)} KiB, static (not a variable font). A font is kept as a file of the hub; fonts a data pack ships under fonts/ are offered here too.</HelpTip>
+                </span>
                 <input
                   type="file"
                   accept=".ttf,.otf,.woff2,font/ttf,font/otf,font/woff2"
@@ -402,24 +416,29 @@ export function SettingsRoute(): JSX.Element {
                   aria-label="I hold a licence for this font"
                   checked={upload.licence}
                   onCheckedChange={(on) => setUpload({ ...upload, licence: on })}
-                  label="I hold a licence that lets this font be embedded in the documents this hub generates (PDF, HTML sheets and drawings)."
+                  label="I hold a licence to embed this font in documents"
                 />
                 <div>
                   <Button disabled={upload.file === undefined || !upload.licence} loading={upload.busy} onClick={() => void sendFont()}>
                     {upload.busy ? 'Uploading\u2026' : 'Upload font'}
                   </Button>
                 </div>
-                <span className="text-faint">TrueType, OpenType or WOFF2, up to {Math.round((fonts.data?.limits.bytes ?? 1536 * 1024) / 1024)} KiB, static (not a variable font). A font is kept as a file of the hub; fonts a data pack ships under fonts/ are offered here too.</span>
               </div>
             )}
-          </fieldset>
-          <fieldset className="flex flex-col gap-1 border-0 p-0" data-testid="drawing-art">
-            <legend className="font-medium">Drawing art</legend>
-            <span className="text-faint">
-              Traced connector faces and plugs and wire cutaways, keyed by definition id, in the shape a module&rsquo;s art has. In force now:{' '}
-              {['faces', 'plugs', 'cutaways'].map((k) => `${Object.keys((query.data?.art as Record<string, Record<string, unknown>> | undefined)?.[k] ?? {}).length} ${k}`).join(', ')}
-              {' '}(this hub&rsquo;s and its packs&rsquo;). Empty keeps the generated art; a cutaway&rsquo;s SVG is cleaned of scripts and external references when it is saved.
-            </span>
+            </div>
+          </details>
+          <details className="settings-subgroup" data-testid="drawing-art">
+            <summary>
+              <span>Drawing art</span>
+              <span className="text-2xs font-normal text-faint">
+                In force now: {['faces', 'plugs', 'cutaways'].map((k) => `${Object.keys((query.data?.art as Record<string, Record<string, unknown>> | undefined)?.[k] ?? {}).length} ${k}`).join(', ')}
+              </span>
+            </summary>
+            <div className="pb-2">
+            {/* the (?) sits in the body: a button inside <summary> is a nested control */}
+            <span className="self-start"><HelpTip label="About drawing art">
+                Traced connector faces and plugs and wire cutaways, keyed by definition id, in the shape a module&rsquo;s art has (this hub&rsquo;s and its packs&rsquo; are in force). Empty keeps the generated art; a cutaway&rsquo;s SVG is cleaned of scripts and external references when it is saved.
+              </HelpTip></span>
             <Textarea
               mono
               className="min-h-24"
@@ -430,7 +449,8 @@ export function SettingsRoute(): JSX.Element {
               spellCheck={false}
               onChange={(e) => setArt(e.target.value)}
             />
-          </fieldset>
+            </div>
+          </details>
           {readOnly ? <div className="text-faint">Your role can view these settings but not change them.</div> : null}
           <div>
             <Button type="submit" variant="primary" disabled={readOnly} loading={busy}>
@@ -443,10 +463,11 @@ export function SettingsRoute(): JSX.Element {
         <section hidden={selected !== 'engineering'} aria-label="Engineering settings" data-settings-section="engineering"><EngineeringSettings /></section>
         <section hidden={selected !== 'numbering'} aria-label="Part numbering settings" data-settings-section="numbering"><PartNumberSettings /></section>
         <section hidden={selected !== 'rules'} aria-label="Validation rule settings" data-settings-section="rules"><RulesSettings /></section>
+        <section hidden={selected !== 'processes'} aria-label="Process settings" data-settings-section="processes">{selected === 'processes' ? <ProcessesSettings /> : null}</section>
         <section hidden={selected !== 'authentication'} aria-label="Authentication settings" data-settings-section="authentication"><RuntimeSettings section="authentication" /></section>
-        {peopleAvailable ? <section hidden={selected !== 'people'} aria-label="People" data-settings-section="people">{selected === 'people' ? <AccountFrame path="/settings/people" title="People of this hub" /> : null}</section> : null}
+        {peopleAvailable ? <section hidden={selected !== 'people'} aria-label="People" data-settings-section="people">{selected === 'people' ? <PeoplePanel /> : null}</section> : null}
         <section hidden={selected !== 'runtime'} aria-label="Runtime settings" data-settings-section="runtime"><RuntimeSettings section="runtime" /></section>
-        <section hidden={selected !== 'webhooks'} aria-label="Webhook settings" data-settings-section="webhooks"><WebhookSettings /></section>
+        <section hidden={selected !== 'webhooks'} aria-label="Webhook settings" data-settings-section="webhooks"><WebhookSettings /><div className="mt-6"><RuntimeSettings section="alerts" /></div></section>
         <section hidden={selected !== 'module-settings'} aria-label="Module settings" data-settings-section="module-settings"><ModuleSettings /></section>
         </fieldset>
       </div>

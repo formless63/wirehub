@@ -31,6 +31,7 @@ import {
 import type { PickOption } from '../vocab.ts';
 import { Field, FormSection, RowTools, SrcField } from './fields.tsx';
 import { CostFields, costOfExtra, withExtraCost } from './CostFields.tsx';
+import { MassFields, massOfExtra, withExtraMass } from './MassFields.tsx';
 import { SourcingFields, sourcingOfExtra, withExtraSourcing } from './SourcingFields.tsx';
 import { Pick } from './Pick.tsx';
 import { PartNumberField } from './PartNumberField.tsx';
@@ -126,17 +127,7 @@ export function ComponentEditor(props: ComponentEditorProps): JSX.Element {
             autoFocus
             wide
           />
-          <Field
-            label="Id"
-            say={
-              props.idLocked
-                ? 'Fixed: every design that uses this part refers to it by this id.'
-                : 'Short name used in files and links. Lowercase words joined by hyphens.'
-            }
-            value={draft.id}
-            onChange={(value) => set('id', value)}
-            placeholder="follows the name"
-          />
+
           <Pick
             label="Kind"
             say={`${KIND_SAY[draft.kind] ?? NEW_KIND_SAY} Picking a kind sets its terminals and its value list. Add a kind the list lacks by typing its name.`}
@@ -194,6 +185,18 @@ export function ComponentEditor(props: ComponentEditorProps): JSX.Element {
           cost={costOfExtra(draft.extra)}
           onChange={(cost) => {
             const extra = withExtraCost(draft.extra, cost);
+            const { extra: _drop, ...rest } = draft;
+            onChange({ ...rest, ...(extra === undefined ? {} : { extra }) });
+          }}
+        />
+      </FormSection>
+
+      <FormSection title="Mass" say="Optional. The BOM and mass.json add it up; a part without one is listed, never counted as zero.">
+        <MassFields
+          key={draft.id}
+          mass={massOfExtra(draft.extra)}
+          onChange={(mass) => {
+            const extra = withExtraMass(draft.extra, mass);
             const { extra: _drop, ...rest } = draft;
             onChange({ ...rest, ...(extra === undefined ? {} : { extra }) });
           }}

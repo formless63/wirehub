@@ -92,10 +92,11 @@ describe('the drawing sheet photo field, with a shared asset library', () => {
 
   it('offers "Choose from library…", and picking an asset drives the same preview an upload would', async () => {
     const adapter = stubAssets([DE9]);
+    const savePhoto = vi.fn(async (_id: string, photo: string | null) => ({ ok: true as const, value: photo === null ? {} : { photo } }));
     const drawings = {
       load: async () => ({ ok: true as const, value: { meta: {} } }),
       save: async (id: string, meta: unknown) => ({ ok: true as const, value: meta as never }),
-      savePhoto: async () => ({ ok: true as const, value: {} }),
+      savePhoto,
     };
 
     render(<DocumentsPane design={design} db={db} saved={design} drawings={drawings} assets={adapter} />);
@@ -108,11 +109,12 @@ describe('the drawing sheet photo field, with a shared asset library', () => {
 
     fireEvent.click(screen.getByTitle(`${DE9.originalName} — ${DE9.src}`));
 
-    // the picker closes, the field now shows a photo is set, and Save is
-    // live — exactly what a fresh upload would have done via `onPhoto`
+    // the picker closes, the field now has a photo (it can be removed), and the
+    // photo is written once editing pauses — exactly what a fresh upload would
+    // have done via `onPhoto` (the drawing details save themselves, no Save button)
     await waitFor(() => expect(screen.queryByLabelText('Search assets')).toBeNull());
-    expect(await screen.findByText('A photo is on the sheet.')).toBeTruthy();
-    expect(screen.getByText('unsaved')).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'remove' })).toBeTruthy();
+    await waitFor(() => expect(savePhoto).toHaveBeenCalledWith(design.id, expect.any(String)), { timeout: 3000 });
   });
 
   it('has no "Choose from library…" button without an assets adapter', async () => {

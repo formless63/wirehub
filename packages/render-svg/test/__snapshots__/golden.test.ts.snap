@@ -3,12 +3,11 @@
 exports[`golden schematics > dc-led-lead matches its depicted golden drawing 1`] = `
 "<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 349.97 152.7" width="349.97mm" height="152.7mm" role="img" aria-label="Terminal block → JST XH 2-pin, LED supply lead with series resistor" data-design="dc-led-lead">
 <title>Terminal block → JST XH 2-pin, LED supply lead with series resistor</title>
-<desc>Wiring schematic for dc-led-lead.</desc>
+<desc>Wiring schematic for Terminal block → JST XH 2-pin, LED supply lead with series resistor.</desc>
 <style>text{font-family:Helvetica,Arial,"Liberation Sans",Arimo,"Nimbus Sans","Nimbus Sans L","DejaVu Sans",sans-serif;fill:#14181d}.page{fill:#ffffff}.title{font-size:6px;font-weight:600}.subtitle{font-size:3px;fill:#5b6570}.direction{font-size:3.2px;fill:#5b6570;letter-spacing:0.08px}.legend-text{font-size:2.9px;fill:#5b6570}.block-outline{fill:#ffffff;stroke:#14181d;stroke-width:0.6}.block-title{font-size:3.8px;font-weight:600}.block-sub{font-size:3px;fill:#5b6570}.block-caption{font-size:2.6px;fill:#5b6570;letter-spacing:0.06px}.zebra{fill:#f3f5f7}.pin-id{font-size:3.6px;font-weight:600}.pin-label{font-size:3.6px;fill:#14181d}.block-foot{font-size:2.9px;fill:#5b6570}.internal-link{fill:none;stroke:#5b6570;stroke-width:0.35}.annot{font-size:2.9px;fill:#3a424b}.band-outline{fill:#fbfcfd;stroke:#2b3138;stroke-width:0.7}.band-label{font-size:3.4px;font-weight:600}.bracket{fill:none;stroke:#98a2ac;stroke-width:0.4}.group-label{font-size:3.1px;font-weight:600;fill:#3a424b}.track-label{font-size:3.1px;fill:#3a424b}.edge{fill:none;stroke-linecap:round;stroke-linejoin:round}.halo{fill:none;stroke:#6b7178;stroke-linecap:round;stroke-linejoin:round}.joint-dot{fill:#14181d}.symbol{fill:#ffffff;stroke:#14181d;stroke-width:0.5}.symbol-line{stroke:#14181d;stroke-width:0.5;fill:none}.comp-label{font-size:2.8px;font-weight:600;text-anchor:middle}.polarity{font-size:2.8px;font-weight:600;text-anchor:middle}.cut{stroke:#a8410f;stroke-width:0.5;fill:none}.cut-ref{font-size:2.7px;font-weight:600;fill:#a8410f}.xs-panel{fill:#fbfcfd;stroke:#98a2ac;stroke-width:0.4}.xs-title{font-size:3.8px;font-weight:600}.xs-sub{font-size:3px;fill:#5b6570}.xs-outline{fill:none;stroke:#14181d;stroke-width:0.15}.xs-hatch{fill:none;stroke:#3a424b;stroke-width:0.26;stroke-linecap:round}.xs-leader-halo{fill:none;stroke:#ffffff;stroke-width:1;stroke-linecap:round}.xs-leader{fill:none;stroke:#5b6570;stroke-width:0.3}.xs-tag{font-size:3px;font-weight:600}.xs-swatch{stroke:#14181d;stroke-width:0.15}.xs-key-tag{font-size:2.9px;font-weight:600}.xs-key{font-size:2.9px;fill:#3a424b}.xs-dim{fill:none;stroke:#5b6570;stroke-width:0.25}.xs-dim-text{font-size:2.9px;fill:#5b6570}.xs-rule{stroke:#14181d;stroke-width:0.3}.xs-rule-text{font-size:2.9px;fill:#5b6570}.notes-heading{font-size:3.4px;font-weight:600;letter-spacing:0.1px}.note-num{font-size:2.9px;font-weight:600;fill:#5b6570}.note-text{font-size:2.9px;fill:#14181d}.issue{font-size:3px;fill:#a8410f}.rule{stroke:#98a2ac;stroke-width:0.3}</style>
 <rect class="page" x="0" y="0" width="349.97" height="152.7"/>
 <g class="header">
 <text class="title" x="8" y="13">Terminal block → JST XH 2-pin, LED supply lead with series resistor</text>
-<text class="subtitle" x="8" y="18">dc-led-lead</text>
 <text class="direction" x="8" y="25">end a · source — Terminal block, 4-way, 5.08 mm</text>
 <text class="direction" x="341.97" y="25" text-anchor="end">JST XH 2-pin housing, DC (1 = +V) — destination · end b</text>
 <line class="rule" x1="8" y1="27.4" x2="339.57" y2="27.4"/>
@@ -187,12 +186,11 @@ exports[`golden schematics > dc-led-lead matches its depicted golden drawing 1`]
 exports[`golden schematics > dc-led-lead matches its golden drawing 1`] = `
 "<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 349.97 152.7" width="349.97mm" height="152.7mm" role="img" aria-label="Terminal block → JST XH 2-pin, LED supply lead with series resistor" data-design="dc-led-lead">
 <title>Terminal block → JST XH 2-pin, LED supply lead with series resistor</title>
-<desc>Wiring schematic for dc-led-lead.</desc>
+<desc>Wiring schematic for Terminal block → JST XH 2-pin, LED supply lead with series resistor.</desc>
 <style>text{font-family:Helvetica,Arial,"Liberation Sans",Arimo,"Nimbus Sans","Nimbus Sans L","DejaVu Sans",sans-serif;fill:#14181d}.page{fill:#ffffff}.title{font-size:6px;font-weight:600}.subtitle{font-size:3px;fill:#5b6570}.direction{font-size:3.2px;fill:#5b6570;letter-spacing:0.08px}.legend-text{font-size:2.9px;fill:#5b6570}.block-outline{fill:#ffffff;stroke:#14181d;stroke-width:0.6}.block-title{font-size:3.8px;font-weight:600}.block-sub{font-size:3px;fill:#5b6570}.block-caption{font-size:2.6px;fill:#5b6570;letter-spacing:0.06px}.zebra{fill:#f3f5f7}.pin-id{font-size:3.6px;font-weight:600}.pin-label{font-size:3.6px;fill:#14181d}.block-foot{font-size:2.9px;fill:#5b6570}.internal-link{fill:none;stroke:#5b6570;stroke-width:0.35}.annot{font-size:2.9px;fill:#3a424b}.band-outline{fill:#fbfcfd;stroke:#2b3138;stroke-width:0.7}.band-label{font-size:3.4px;font-weight:600}.bracket{fill:none;stroke:#98a2ac;stroke-width:0.4}.group-label{font-size:3.1px;font-weight:600;fill:#3a424b}.track-label{font-size:3.1px;fill:#3a424b}.edge{fill:none;stroke-linecap:round;stroke-linejoin:round}.halo{fill:none;stroke:#6b7178;stroke-linecap:round;stroke-linejoin:round}.joint-dot{fill:#14181d}.symbol{fill:#ffffff;stroke:#14181d;stroke-width:0.5}.symbol-line{stroke:#14181d;stroke-width:0.5;fill:none}.comp-label{font-size:2.8px;font-weight:600;text-anchor:middle}.polarity{font-size:2.8px;font-weight:600;text-anchor:middle}.cut{stroke:#a8410f;stroke-width:0.5;fill:none}.cut-ref{font-size:2.7px;font-weight:600;fill:#a8410f}.xs-panel{fill:#fbfcfd;stroke:#98a2ac;stroke-width:0.4}.xs-title{font-size:3.8px;font-weight:600}.xs-sub{font-size:3px;fill:#5b6570}.xs-outline{fill:none;stroke:#14181d;stroke-width:0.15}.xs-hatch{fill:none;stroke:#3a424b;stroke-width:0.26;stroke-linecap:round}.xs-leader-halo{fill:none;stroke:#ffffff;stroke-width:1;stroke-linecap:round}.xs-leader{fill:none;stroke:#5b6570;stroke-width:0.3}.xs-tag{font-size:3px;font-weight:600}.xs-swatch{stroke:#14181d;stroke-width:0.15}.xs-key-tag{font-size:2.9px;font-weight:600}.xs-key{font-size:2.9px;fill:#3a424b}.xs-dim{fill:none;stroke:#5b6570;stroke-width:0.25}.xs-dim-text{font-size:2.9px;fill:#5b6570}.xs-rule{stroke:#14181d;stroke-width:0.3}.xs-rule-text{font-size:2.9px;fill:#5b6570}.notes-heading{font-size:3.4px;font-weight:600;letter-spacing:0.1px}.note-num{font-size:2.9px;font-weight:600;fill:#5b6570}.note-text{font-size:2.9px;fill:#14181d}.issue{font-size:3px;fill:#a8410f}.rule{stroke:#98a2ac;stroke-width:0.3}</style>
 <rect class="page" x="0" y="0" width="349.97" height="152.7"/>
 <g class="header">
 <text class="title" x="8" y="13">Terminal block → JST XH 2-pin, LED supply lead with series resistor</text>
-<text class="subtitle" x="8" y="18">dc-led-lead</text>
 <text class="direction" x="8" y="25">end a · source — Terminal block, 4-way, 5.08 mm</text>
 <text class="direction" x="341.97" y="25" text-anchor="end">JST XH 2-pin housing, DC (1 = +V) — destination · end b</text>
 <line class="rule" x1="8" y1="27.4" x2="339.57" y2="27.4"/>
@@ -371,12 +369,11 @@ exports[`golden schematics > dc-led-lead matches its golden drawing 1`] = `
 exports[`golden schematics > dc-pigtail-lead matches its depicted golden drawing 1`] = `
 "<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 274.06 158.45" width="274.06mm" height="158.45mm" role="img" aria-label="JST XH 2-pin → flying leads, DC pigtail lead" data-design="dc-pigtail-lead">
 <title>JST XH 2-pin → flying leads, DC pigtail lead</title>
-<desc>Wiring schematic for dc-pigtail-lead. error: cavity-unknown-part cavity J1 pin 1 · +V names contact 'xh-contact-socket', which is not in the library error: cavity-unknown-part cavity J1 pin 2 · 0 V names contact 'xh-contact-socket', which is not in the library</desc>
+<desc>Wiring schematic for JST XH 2-pin → flying leads, DC pigtail lead. error: cavity-unknown-part cavity J1 pin 1 · +V names contact 'xh-contact-socket', which is not in the library error: cavity-unknown-part cavity J1 pin 2 · 0 V names contact 'xh-contact-socket', which is not in the library</desc>
 <style>text{font-family:Helvetica,Arial,"Liberation Sans",Arimo,"Nimbus Sans","Nimbus Sans L","DejaVu Sans",sans-serif;fill:#14181d}.page{fill:#ffffff}.title{font-size:6px;font-weight:600}.subtitle{font-size:3px;fill:#5b6570}.direction{font-size:3.2px;fill:#5b6570;letter-spacing:0.08px}.legend-text{font-size:2.9px;fill:#5b6570}.block-outline{fill:#ffffff;stroke:#14181d;stroke-width:0.6}.block-title{font-size:3.8px;font-weight:600}.block-sub{font-size:3px;fill:#5b6570}.block-caption{font-size:2.6px;fill:#5b6570;letter-spacing:0.06px}.zebra{fill:#f3f5f7}.pin-id{font-size:3.6px;font-weight:600}.pin-label{font-size:3.6px;fill:#14181d}.block-foot{font-size:2.9px;fill:#5b6570}.internal-link{fill:none;stroke:#5b6570;stroke-width:0.35}.annot{font-size:2.9px;fill:#3a424b}.band-outline{fill:#fbfcfd;stroke:#2b3138;stroke-width:0.7}.band-label{font-size:3.4px;font-weight:600}.bracket{fill:none;stroke:#98a2ac;stroke-width:0.4}.group-label{font-size:3.1px;font-weight:600;fill:#3a424b}.track-label{font-size:3.1px;fill:#3a424b}.edge{fill:none;stroke-linecap:round;stroke-linejoin:round}.halo{fill:none;stroke:#6b7178;stroke-linecap:round;stroke-linejoin:round}.joint-dot{fill:#14181d}.symbol{fill:#ffffff;stroke:#14181d;stroke-width:0.5}.symbol-line{stroke:#14181d;stroke-width:0.5;fill:none}.comp-label{font-size:2.8px;font-weight:600;text-anchor:middle}.polarity{font-size:2.8px;font-weight:600;text-anchor:middle}.cut{stroke:#a8410f;stroke-width:0.5;fill:none}.cut-ref{font-size:2.7px;font-weight:600;fill:#a8410f}.xs-panel{fill:#fbfcfd;stroke:#98a2ac;stroke-width:0.4}.xs-title{font-size:3.8px;font-weight:600}.xs-sub{font-size:3px;fill:#5b6570}.xs-outline{fill:none;stroke:#14181d;stroke-width:0.15}.xs-hatch{fill:none;stroke:#3a424b;stroke-width:0.26;stroke-linecap:round}.xs-leader-halo{fill:none;stroke:#ffffff;stroke-width:1;stroke-linecap:round}.xs-leader{fill:none;stroke:#5b6570;stroke-width:0.3}.xs-tag{font-size:3px;font-weight:600}.xs-swatch{stroke:#14181d;stroke-width:0.15}.xs-key-tag{font-size:2.9px;font-weight:600}.xs-key{font-size:2.9px;fill:#3a424b}.xs-dim{fill:none;stroke:#5b6570;stroke-width:0.25}.xs-dim-text{font-size:2.9px;fill:#5b6570}.xs-rule{stroke:#14181d;stroke-width:0.3}.xs-rule-text{font-size:2.9px;fill:#5b6570}.notes-heading{font-size:3.4px;font-weight:600;letter-spacing:0.1px}.note-num{font-size:2.9px;font-weight:600;fill:#5b6570}.note-text{font-size:2.9px;fill:#14181d}.issue{font-size:3px;fill:#a8410f}.rule{stroke:#98a2ac;stroke-width:0.3}</style>
 <rect class="page" x="0" y="0" width="274.06" height="158.45"/>
 <g class="header">
 <text class="title" x="8" y="13">JST XH 2-pin → flying leads, DC pigtail lead</text>
-<text class="subtitle" x="8" y="18">dc-pigtail-lead</text>
 <text class="issue" x="8" y="22">2 validation error(s) — see &lt;desc&gt;</text>
 <text class="direction" x="8" y="25">end a · source — JST XH 2-pin housing, DC (1 = +V)</text>
 <text class="direction" x="266.06" y="25" text-anchor="end">open — destination · end b</text>
@@ -530,7 +527,7 @@ exports[`golden schematics > dc-pigtail-lead matches its depicted golden drawing
 <g class="notes">
 <text class="notes-heading" x="8" y="139.95">NOTES</text>
 <text class="note-num" x="8" y="145.35">1.</text>
-<text class="note-text" x="15" y="145.35">Flying end: w1:red@b and w1:black@b are stripped and tinned, left free — the design that places this lead as a sub-assembly lands them.</text>
+<text class="note-text" x="15" y="145.35">Flying end: W1 +v (destination end) and W1 0 v (destination end) are stripped and tinned, left free — the design that places this lead as a sub-assembly lands them.</text>
 </g>
 </svg>"
 `;
@@ -538,12 +535,11 @@ exports[`golden schematics > dc-pigtail-lead matches its depicted golden drawing
 exports[`golden schematics > dc-pigtail-lead matches its golden drawing 1`] = `
 "<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 274.06 158.45" width="274.06mm" height="158.45mm" role="img" aria-label="JST XH 2-pin → flying leads, DC pigtail lead" data-design="dc-pigtail-lead">
 <title>JST XH 2-pin → flying leads, DC pigtail lead</title>
-<desc>Wiring schematic for dc-pigtail-lead. error: cavity-unknown-part cavity J1 pin 1 · +V names contact 'xh-contact-socket', which is not in the library error: cavity-unknown-part cavity J1 pin 2 · 0 V names contact 'xh-contact-socket', which is not in the library</desc>
+<desc>Wiring schematic for JST XH 2-pin → flying leads, DC pigtail lead. error: cavity-unknown-part cavity J1 pin 1 · +V names contact 'xh-contact-socket', which is not in the library error: cavity-unknown-part cavity J1 pin 2 · 0 V names contact 'xh-contact-socket', which is not in the library</desc>
 <style>text{font-family:Helvetica,Arial,"Liberation Sans",Arimo,"Nimbus Sans","Nimbus Sans L","DejaVu Sans",sans-serif;fill:#14181d}.page{fill:#ffffff}.title{font-size:6px;font-weight:600}.subtitle{font-size:3px;fill:#5b6570}.direction{font-size:3.2px;fill:#5b6570;letter-spacing:0.08px}.legend-text{font-size:2.9px;fill:#5b6570}.block-outline{fill:#ffffff;stroke:#14181d;stroke-width:0.6}.block-title{font-size:3.8px;font-weight:600}.block-sub{font-size:3px;fill:#5b6570}.block-caption{font-size:2.6px;fill:#5b6570;letter-spacing:0.06px}.zebra{fill:#f3f5f7}.pin-id{font-size:3.6px;font-weight:600}.pin-label{font-size:3.6px;fill:#14181d}.block-foot{font-size:2.9px;fill:#5b6570}.internal-link{fill:none;stroke:#5b6570;stroke-width:0.35}.annot{font-size:2.9px;fill:#3a424b}.band-outline{fill:#fbfcfd;stroke:#2b3138;stroke-width:0.7}.band-label{font-size:3.4px;font-weight:600}.bracket{fill:none;stroke:#98a2ac;stroke-width:0.4}.group-label{font-size:3.1px;font-weight:600;fill:#3a424b}.track-label{font-size:3.1px;fill:#3a424b}.edge{fill:none;stroke-linecap:round;stroke-linejoin:round}.halo{fill:none;stroke:#6b7178;stroke-linecap:round;stroke-linejoin:round}.joint-dot{fill:#14181d}.symbol{fill:#ffffff;stroke:#14181d;stroke-width:0.5}.symbol-line{stroke:#14181d;stroke-width:0.5;fill:none}.comp-label{font-size:2.8px;font-weight:600;text-anchor:middle}.polarity{font-size:2.8px;font-weight:600;text-anchor:middle}.cut{stroke:#a8410f;stroke-width:0.5;fill:none}.cut-ref{font-size:2.7px;font-weight:600;fill:#a8410f}.xs-panel{fill:#fbfcfd;stroke:#98a2ac;stroke-width:0.4}.xs-title{font-size:3.8px;font-weight:600}.xs-sub{font-size:3px;fill:#5b6570}.xs-outline{fill:none;stroke:#14181d;stroke-width:0.15}.xs-hatch{fill:none;stroke:#3a424b;stroke-width:0.26;stroke-linecap:round}.xs-leader-halo{fill:none;stroke:#ffffff;stroke-width:1;stroke-linecap:round}.xs-leader{fill:none;stroke:#5b6570;stroke-width:0.3}.xs-tag{font-size:3px;font-weight:600}.xs-swatch{stroke:#14181d;stroke-width:0.15}.xs-key-tag{font-size:2.9px;font-weight:600}.xs-key{font-size:2.9px;fill:#3a424b}.xs-dim{fill:none;stroke:#5b6570;stroke-width:0.25}.xs-dim-text{font-size:2.9px;fill:#5b6570}.xs-rule{stroke:#14181d;stroke-width:0.3}.xs-rule-text{font-size:2.9px;fill:#5b6570}.notes-heading{font-size:3.4px;font-weight:600;letter-spacing:0.1px}.note-num{font-size:2.9px;font-weight:600;fill:#5b6570}.note-text{font-size:2.9px;fill:#14181d}.issue{font-size:3px;fill:#a8410f}.rule{stroke:#98a2ac;stroke-width:0.3}</style>
 <rect class="page" x="0" y="0" width="274.06" height="158.45"/>
 <g class="header">
 <text class="title" x="8" y="13">JST XH 2-pin → flying leads, DC pigtail lead</text>
-<text class="subtitle" x="8" y="18">dc-pigtail-lead</text>
 <text class="issue" x="8" y="22">2 validation error(s) — see &lt;desc&gt;</text>
 <text class="direction" x="8" y="25">end a · source — JST XH 2-pin housing, DC (1 = +V)</text>
 <text class="direction" x="266.06" y="25" text-anchor="end">open — destination · end b</text>
@@ -697,7 +693,7 @@ exports[`golden schematics > dc-pigtail-lead matches its golden drawing 1`] = `
 <g class="notes">
 <text class="notes-heading" x="8" y="139.95">NOTES</text>
 <text class="note-num" x="8" y="145.35">1.</text>
-<text class="note-text" x="15" y="145.35">Flying end: w1:red@b and w1:black@b are stripped and tinned, left free — the design that places this lead as a sub-assembly lands them.</text>
+<text class="note-text" x="15" y="145.35">Flying end: W1 +v (destination end) and W1 0 v (destination end) are stripped and tinned, left free — the design that places this lead as a sub-assembly lands them.</text>
 </g>
 </svg>"
 `;
@@ -705,12 +701,11 @@ exports[`golden schematics > dc-pigtail-lead matches its golden drawing 1`] = `
 exports[`golden schematics > dc-y-from-leads matches its depicted golden drawing 1`] = `
 "<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 393.03 186.95" width="393.03mm" height="186.95mm" role="img" aria-label="Terminal block → 2 × JST XH 2-pin, DC Y built from two pigtail leads" data-design="dc-y-from-leads">
 <title>Terminal block → 2 × JST XH 2-pin, DC Y built from two pigtail leads</title>
-<desc>Wiring schematic for dc-y-from-leads.</desc>
+<desc>Wiring schematic for Terminal block → 2 × JST XH 2-pin, DC Y built from two pigtail leads.</desc>
 <style>text{font-family:Helvetica,Arial,"Liberation Sans",Arimo,"Nimbus Sans","Nimbus Sans L","DejaVu Sans",sans-serif;fill:#14181d}.page{fill:#ffffff}.title{font-size:6px;font-weight:600}.subtitle{font-size:3px;fill:#5b6570}.direction{font-size:3.2px;fill:#5b6570;letter-spacing:0.08px}.legend-text{font-size:2.9px;fill:#5b6570}.block-outline{fill:#ffffff;stroke:#14181d;stroke-width:0.6}.block-title{font-size:3.8px;font-weight:600}.block-sub{font-size:3px;fill:#5b6570}.block-caption{font-size:2.6px;fill:#5b6570;letter-spacing:0.06px}.zebra{fill:#f3f5f7}.pin-id{font-size:3.6px;font-weight:600}.pin-label{font-size:3.6px;fill:#14181d}.block-foot{font-size:2.9px;fill:#5b6570}.internal-link{fill:none;stroke:#5b6570;stroke-width:0.35}.annot{font-size:2.9px;fill:#3a424b}.band-outline{fill:#fbfcfd;stroke:#2b3138;stroke-width:0.7}.band-label{font-size:3.4px;font-weight:600}.bracket{fill:none;stroke:#98a2ac;stroke-width:0.4}.group-label{font-size:3.1px;font-weight:600;fill:#3a424b}.track-label{font-size:3.1px;fill:#3a424b}.edge{fill:none;stroke-linecap:round;stroke-linejoin:round}.halo{fill:none;stroke:#6b7178;stroke-linecap:round;stroke-linejoin:round}.joint-dot{fill:#14181d}.symbol{fill:#ffffff;stroke:#14181d;stroke-width:0.5}.symbol-line{stroke:#14181d;stroke-width:0.5;fill:none}.comp-label{font-size:2.8px;font-weight:600;text-anchor:middle}.polarity{font-size:2.8px;font-weight:600;text-anchor:middle}.cut{stroke:#a8410f;stroke-width:0.5;fill:none}.cut-ref{font-size:2.7px;font-weight:600;fill:#a8410f}.xs-panel{fill:#fbfcfd;stroke:#98a2ac;stroke-width:0.4}.xs-title{font-size:3.8px;font-weight:600}.xs-sub{font-size:3px;fill:#5b6570}.xs-outline{fill:none;stroke:#14181d;stroke-width:0.15}.xs-hatch{fill:none;stroke:#3a424b;stroke-width:0.26;stroke-linecap:round}.xs-leader-halo{fill:none;stroke:#ffffff;stroke-width:1;stroke-linecap:round}.xs-leader{fill:none;stroke:#5b6570;stroke-width:0.3}.xs-tag{font-size:3px;font-weight:600}.xs-swatch{stroke:#14181d;stroke-width:0.15}.xs-key-tag{font-size:2.9px;font-weight:600}.xs-key{font-size:2.9px;fill:#3a424b}.xs-dim{fill:none;stroke:#5b6570;stroke-width:0.25}.xs-dim-text{font-size:2.9px;fill:#5b6570}.xs-rule{stroke:#14181d;stroke-width:0.3}.xs-rule-text{font-size:2.9px;fill:#5b6570}.notes-heading{font-size:3.4px;font-weight:600;letter-spacing:0.1px}.note-num{font-size:2.9px;font-weight:600;fill:#5b6570}.note-text{font-size:2.9px;fill:#14181d}.issue{font-size:3px;fill:#a8410f}.rule{stroke:#98a2ac;stroke-width:0.3}</style>
 <rect class="page" x="0" y="0" width="393.03" height="186.95"/>
 <g class="header">
 <text class="title" x="8" y="13">Terminal block → 2 × JST XH 2-pin, DC Y built from two pigtail leads</text>
-<text class="subtitle" x="8" y="18">dc-y-from-leads</text>
 <text class="direction" x="8" y="25">end a · source — JST XH 2-pin housing, DC (1 = +V)</text>
 <text class="direction" x="385.03" y="25" text-anchor="end">Terminal block, 4-way, 5.08 mm — destination · end b</text>
 <line class="rule" x1="8" y1="27.4" x2="382.63" y2="27.4"/>
@@ -930,12 +925,11 @@ exports[`golden schematics > dc-y-from-leads matches its depicted golden drawing
 exports[`golden schematics > dc-y-from-leads matches its golden drawing 1`] = `
 "<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 393.03 186.95" width="393.03mm" height="186.95mm" role="img" aria-label="Terminal block → 2 × JST XH 2-pin, DC Y built from two pigtail leads" data-design="dc-y-from-leads">
 <title>Terminal block → 2 × JST XH 2-pin, DC Y built from two pigtail leads</title>
-<desc>Wiring schematic for dc-y-from-leads.</desc>
+<desc>Wiring schematic for Terminal block → 2 × JST XH 2-pin, DC Y built from two pigtail leads.</desc>
 <style>text{font-family:Helvetica,Arial,"Liberation Sans",Arimo,"Nimbus Sans","Nimbus Sans L","DejaVu Sans",sans-serif;fill:#14181d}.page{fill:#ffffff}.title{font-size:6px;font-weight:600}.subtitle{font-size:3px;fill:#5b6570}.direction{font-size:3.2px;fill:#5b6570;letter-spacing:0.08px}.legend-text{font-size:2.9px;fill:#5b6570}.block-outline{fill:#ffffff;stroke:#14181d;stroke-width:0.6}.block-title{font-size:3.8px;font-weight:600}.block-sub{font-size:3px;fill:#5b6570}.block-caption{font-size:2.6px;fill:#5b6570;letter-spacing:0.06px}.zebra{fill:#f3f5f7}.pin-id{font-size:3.6px;font-weight:600}.pin-label{font-size:3.6px;fill:#14181d}.block-foot{font-size:2.9px;fill:#5b6570}.internal-link{fill:none;stroke:#5b6570;stroke-width:0.35}.annot{font-size:2.9px;fill:#3a424b}.band-outline{fill:#fbfcfd;stroke:#2b3138;stroke-width:0.7}.band-label{font-size:3.4px;font-weight:600}.bracket{fill:none;stroke:#98a2ac;stroke-width:0.4}.group-label{font-size:3.1px;font-weight:600;fill:#3a424b}.track-label{font-size:3.1px;fill:#3a424b}.edge{fill:none;stroke-linecap:round;stroke-linejoin:round}.halo{fill:none;stroke:#6b7178;stroke-linecap:round;stroke-linejoin:round}.joint-dot{fill:#14181d}.symbol{fill:#ffffff;stroke:#14181d;stroke-width:0.5}.symbol-line{stroke:#14181d;stroke-width:0.5;fill:none}.comp-label{font-size:2.8px;font-weight:600;text-anchor:middle}.polarity{font-size:2.8px;font-weight:600;text-anchor:middle}.cut{stroke:#a8410f;stroke-width:0.5;fill:none}.cut-ref{font-size:2.7px;font-weight:600;fill:#a8410f}.xs-panel{fill:#fbfcfd;stroke:#98a2ac;stroke-width:0.4}.xs-title{font-size:3.8px;font-weight:600}.xs-sub{font-size:3px;fill:#5b6570}.xs-outline{fill:none;stroke:#14181d;stroke-width:0.15}.xs-hatch{fill:none;stroke:#3a424b;stroke-width:0.26;stroke-linecap:round}.xs-leader-halo{fill:none;stroke:#ffffff;stroke-width:1;stroke-linecap:round}.xs-leader{fill:none;stroke:#5b6570;stroke-width:0.3}.xs-tag{font-size:3px;font-weight:600}.xs-swatch{stroke:#14181d;stroke-width:0.15}.xs-key-tag{font-size:2.9px;font-weight:600}.xs-key{font-size:2.9px;fill:#3a424b}.xs-dim{fill:none;stroke:#5b6570;stroke-width:0.25}.xs-dim-text{font-size:2.9px;fill:#5b6570}.xs-rule{stroke:#14181d;stroke-width:0.3}.xs-rule-text{font-size:2.9px;fill:#5b6570}.notes-heading{font-size:3.4px;font-weight:600;letter-spacing:0.1px}.note-num{font-size:2.9px;font-weight:600;fill:#5b6570}.note-text{font-size:2.9px;fill:#14181d}.issue{font-size:3px;fill:#a8410f}.rule{stroke:#98a2ac;stroke-width:0.3}</style>
 <rect class="page" x="0" y="0" width="393.03" height="186.95"/>
 <g class="header">
 <text class="title" x="8" y="13">Terminal block → 2 × JST XH 2-pin, DC Y built from two pigtail leads</text>
-<text class="subtitle" x="8" y="18">dc-y-from-leads</text>
 <text class="direction" x="8" y="25">end a · source — JST XH 2-pin housing, DC (1 = +V)</text>
 <text class="direction" x="385.03" y="25" text-anchor="end">Terminal block, 4-way, 5.08 mm — destination · end b</text>
 <line class="rule" x1="8" y1="27.4" x2="382.63" y2="27.4"/>
@@ -1155,12 +1149,11 @@ exports[`golden schematics > dc-y-from-leads matches its golden drawing 1`] = `
 exports[`golden schematics > dc-y-splitter matches its depicted golden drawing 1`] = `
 "<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 462.89 208.3" width="462.89mm" height="208.3mm" role="img" aria-label="Terminal block → moulded Y → 2× JST XH, two-channel DC splitter" data-design="dc-y-splitter">
 <title>Terminal block → moulded Y → 2× JST XH, two-channel DC splitter</title>
-<desc>Wiring schematic for dc-y-splitter.</desc>
+<desc>Wiring schematic for Terminal block → moulded Y → 2× JST XH, two-channel DC splitter.</desc>
 <style>text{font-family:Helvetica,Arial,"Liberation Sans",Arimo,"Nimbus Sans","Nimbus Sans L","DejaVu Sans",sans-serif;fill:#14181d}.page{fill:#ffffff}.title{font-size:6px;font-weight:600}.subtitle{font-size:3px;fill:#5b6570}.direction{font-size:3.2px;fill:#5b6570;letter-spacing:0.08px}.legend-text{font-size:2.9px;fill:#5b6570}.block-outline{fill:#ffffff;stroke:#14181d;stroke-width:0.6}.block-title{font-size:3.8px;font-weight:600}.block-sub{font-size:3px;fill:#5b6570}.block-caption{font-size:2.6px;fill:#5b6570;letter-spacing:0.06px}.zebra{fill:#f3f5f7}.pin-id{font-size:3.6px;font-weight:600}.pin-label{font-size:3.6px;fill:#14181d}.block-foot{font-size:2.9px;fill:#5b6570}.internal-link{fill:none;stroke:#5b6570;stroke-width:0.35}.annot{font-size:2.9px;fill:#3a424b}.band-outline{fill:#fbfcfd;stroke:#2b3138;stroke-width:0.7}.band-label{font-size:3.4px;font-weight:600}.bracket{fill:none;stroke:#98a2ac;stroke-width:0.4}.group-label{font-size:3.1px;font-weight:600;fill:#3a424b}.track-label{font-size:3.1px;fill:#3a424b}.edge{fill:none;stroke-linecap:round;stroke-linejoin:round}.halo{fill:none;stroke:#6b7178;stroke-linecap:round;stroke-linejoin:round}.joint-dot{fill:#14181d}.symbol{fill:#ffffff;stroke:#14181d;stroke-width:0.5}.symbol-line{stroke:#14181d;stroke-width:0.5;fill:none}.comp-label{font-size:2.8px;font-weight:600;text-anchor:middle}.polarity{font-size:2.8px;font-weight:600;text-anchor:middle}.cut{stroke:#a8410f;stroke-width:0.5;fill:none}.cut-ref{font-size:2.7px;font-weight:600;fill:#a8410f}.xs-panel{fill:#fbfcfd;stroke:#98a2ac;stroke-width:0.4}.xs-title{font-size:3.8px;font-weight:600}.xs-sub{font-size:3px;fill:#5b6570}.xs-outline{fill:none;stroke:#14181d;stroke-width:0.15}.xs-hatch{fill:none;stroke:#3a424b;stroke-width:0.26;stroke-linecap:round}.xs-leader-halo{fill:none;stroke:#ffffff;stroke-width:1;stroke-linecap:round}.xs-leader{fill:none;stroke:#5b6570;stroke-width:0.3}.xs-tag{font-size:3px;font-weight:600}.xs-swatch{stroke:#14181d;stroke-width:0.15}.xs-key-tag{font-size:2.9px;font-weight:600}.xs-key{font-size:2.9px;fill:#3a424b}.xs-dim{fill:none;stroke:#5b6570;stroke-width:0.25}.xs-dim-text{font-size:2.9px;fill:#5b6570}.xs-rule{stroke:#14181d;stroke-width:0.3}.xs-rule-text{font-size:2.9px;fill:#5b6570}.notes-heading{font-size:3.4px;font-weight:600;letter-spacing:0.1px}.note-num{font-size:2.9px;font-weight:600;fill:#5b6570}.note-text{font-size:2.9px;fill:#14181d}.issue{font-size:3px;fill:#a8410f}.rule{stroke:#98a2ac;stroke-width:0.3}.mould{fill:#e9edf1;stroke:#2b3138;stroke-width:0.6}.mould-label{font-size:2.6px;font-weight:600}.mould-sub{font-size:2.2px;fill:#5b6570}.mould-nc{font-size:1.7px;font-weight:600;fill:#a8410f}</style>
 <rect class="page" x="0" y="0" width="462.89" height="208.3"/>
 <g class="header">
 <text class="title" x="8" y="13">Terminal block → moulded Y → 2× JST XH, two-channel DC splitter</text>
-<text class="subtitle" x="8" y="18">dc-y-splitter</text>
 <text class="direction" x="8" y="25">end a · source — Terminal block, 4-way, 5.08 mm</text>
 <text class="direction" x="454.89" y="25" text-anchor="end">breakout mould bk1 + 2× JST XH 2-pin housing, DC (1 = +V) — destination · end b</text>
 <line class="rule" x1="8" y1="27.4" x2="452.49" y2="27.4"/>
@@ -1265,7 +1258,7 @@ exports[`golden schematics > dc-y-splitter matches its depicted golden drawing 1
 </g>
 <g class="track track-drain" data-track="w1:drain" data-segment="w1" data-element="drain" data-kind="conductor" data-net="net-5">
 <line class="track-line" x1="109.92" y1="78" x2="234.92" y2="78" stroke="#b06a2c" stroke-width="1" stroke-dasharray="2.4 1 0.6 1"/>
-<text class="track-label" x="151.27" y="76.7">shields · 0 copper screens + drain, bonded</text>
+<text class="track-label" x="151.27" y="76.7">drain · Drain</text>
 </g>
 </g>
 <g class="band band-branch" data-segment="w2" data-left-end="a">
@@ -1494,7 +1487,7 @@ exports[`golden schematics > dc-y-splitter matches its depicted golden drawing 1
 <g class="notes">
 <text class="notes-heading" x="243.94" y="133.7">NOTES</text>
 <text class="note-num" x="243.94" y="139.1">1.</text>
-<text class="note-text" x="250.94" y="139.1">w1:foil@a and w1:drain@a are cut back at the terminal block — the screen is not used.</text>
+<text class="note-text" x="250.94" y="139.1">W1 overall foil (source end) and W1 drain (source end) are cut back at the terminal block — the screen is not used.</text>
 </g>
 </svg>"
 `;
@@ -1502,12 +1495,11 @@ exports[`golden schematics > dc-y-splitter matches its depicted golden drawing 1
 exports[`golden schematics > dc-y-splitter matches its golden drawing 1`] = `
 "<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 462.89 208.3" width="462.89mm" height="208.3mm" role="img" aria-label="Terminal block → moulded Y → 2× JST XH, two-channel DC splitter" data-design="dc-y-splitter">
 <title>Terminal block → moulded Y → 2× JST XH, two-channel DC splitter</title>
-<desc>Wiring schematic for dc-y-splitter.</desc>
+<desc>Wiring schematic for Terminal block → moulded Y → 2× JST XH, two-channel DC splitter.</desc>
 <style>text{font-family:Helvetica,Arial,"Liberation Sans",Arimo,"Nimbus Sans","Nimbus Sans L","DejaVu Sans",sans-serif;fill:#14181d}.page{fill:#ffffff}.title{font-size:6px;font-weight:600}.subtitle{font-size:3px;fill:#5b6570}.direction{font-size:3.2px;fill:#5b6570;letter-spacing:0.08px}.legend-text{font-size:2.9px;fill:#5b6570}.block-outline{fill:#ffffff;stroke:#14181d;stroke-width:0.6}.block-title{font-size:3.8px;font-weight:600}.block-sub{font-size:3px;fill:#5b6570}.block-caption{font-size:2.6px;fill:#5b6570;letter-spacing:0.06px}.zebra{fill:#f3f5f7}.pin-id{font-size:3.6px;font-weight:600}.pin-label{font-size:3.6px;fill:#14181d}.block-foot{font-size:2.9px;fill:#5b6570}.internal-link{fill:none;stroke:#5b6570;stroke-width:0.35}.annot{font-size:2.9px;fill:#3a424b}.band-outline{fill:#fbfcfd;stroke:#2b3138;stroke-width:0.7}.band-label{font-size:3.4px;font-weight:600}.bracket{fill:none;stroke:#98a2ac;stroke-width:0.4}.group-label{font-size:3.1px;font-weight:600;fill:#3a424b}.track-label{font-size:3.1px;fill:#3a424b}.edge{fill:none;stroke-linecap:round;stroke-linejoin:round}.halo{fill:none;stroke:#6b7178;stroke-linecap:round;stroke-linejoin:round}.joint-dot{fill:#14181d}.symbol{fill:#ffffff;stroke:#14181d;stroke-width:0.5}.symbol-line{stroke:#14181d;stroke-width:0.5;fill:none}.comp-label{font-size:2.8px;font-weight:600;text-anchor:middle}.polarity{font-size:2.8px;font-weight:600;text-anchor:middle}.cut{stroke:#a8410f;stroke-width:0.5;fill:none}.cut-ref{font-size:2.7px;font-weight:600;fill:#a8410f}.xs-panel{fill:#fbfcfd;stroke:#98a2ac;stroke-width:0.4}.xs-title{font-size:3.8px;font-weight:600}.xs-sub{font-size:3px;fill:#5b6570}.xs-outline{fill:none;stroke:#14181d;stroke-width:0.15}.xs-hatch{fill:none;stroke:#3a424b;stroke-width:0.26;stroke-linecap:round}.xs-leader-halo{fill:none;stroke:#ffffff;stroke-width:1;stroke-linecap:round}.xs-leader{fill:none;stroke:#5b6570;stroke-width:0.3}.xs-tag{font-size:3px;font-weight:600}.xs-swatch{stroke:#14181d;stroke-width:0.15}.xs-key-tag{font-size:2.9px;font-weight:600}.xs-key{font-size:2.9px;fill:#3a424b}.xs-dim{fill:none;stroke:#5b6570;stroke-width:0.25}.xs-dim-text{font-size:2.9px;fill:#5b6570}.xs-rule{stroke:#14181d;stroke-width:0.3}.xs-rule-text{font-size:2.9px;fill:#5b6570}.notes-heading{font-size:3.4px;font-weight:600;letter-spacing:0.1px}.note-num{font-size:2.9px;font-weight:600;fill:#5b6570}.note-text{font-size:2.9px;fill:#14181d}.issue{font-size:3px;fill:#a8410f}.rule{stroke:#98a2ac;stroke-width:0.3}.mould{fill:#e9edf1;stroke:#2b3138;stroke-width:0.6}.mould-label{font-size:2.6px;font-weight:600}.mould-sub{font-size:2.2px;fill:#5b6570}.mould-nc{font-size:1.7px;font-weight:600;fill:#a8410f}</style>
 <rect class="page" x="0" y="0" width="462.89" height="208.3"/>
 <g class="header">
 <text class="title" x="8" y="13">Terminal block → moulded Y → 2× JST XH, two-channel DC splitter</text>
-<text class="subtitle" x="8" y="18">dc-y-splitter</text>
 <text class="direction" x="8" y="25">end a · source — Terminal block, 4-way, 5.08 mm</text>
 <text class="direction" x="454.89" y="25" text-anchor="end">breakout mould bk1 + 2× JST XH 2-pin housing, DC (1 = +V) — destination · end b</text>
 <line class="rule" x1="8" y1="27.4" x2="452.49" y2="27.4"/>
@@ -1612,7 +1604,7 @@ exports[`golden schematics > dc-y-splitter matches its golden drawing 1`] = `
 </g>
 <g class="track track-drain" data-track="w1:drain" data-segment="w1" data-element="drain" data-kind="conductor" data-net="net-5">
 <line class="track-line" x1="109.92" y1="78" x2="234.92" y2="78" stroke="#b06a2c" stroke-width="1" stroke-dasharray="2.4 1 0.6 1"/>
-<text class="track-label" x="151.27" y="76.7">shields · 0 copper screens + drain, bonded</text>
+<text class="track-label" x="151.27" y="76.7">drain · Drain</text>
 </g>
 </g>
 <g class="band band-branch" data-segment="w2" data-left-end="a">
@@ -1841,7 +1833,7 @@ exports[`golden schematics > dc-y-splitter matches its golden drawing 1`] = `
 <g class="notes">
 <text class="notes-heading" x="243.94" y="133.7">NOTES</text>
 <text class="note-num" x="243.94" y="139.1">1.</text>
-<text class="note-text" x="250.94" y="139.1">w1:foil@a and w1:drain@a are cut back at the terminal block — the screen is not used.</text>
+<text class="note-text" x="250.94" y="139.1">W1 overall foil (source end) and W1 drain (source end) are cut back at the terminal block — the screen is not used.</text>
 </g>
 </svg>"
 `;
@@ -1849,12 +1841,11 @@ exports[`golden schematics > dc-y-splitter matches its golden drawing 1`] = `
 exports[`golden schematics > de9-crossover matches its depicted golden drawing 1`] = `
 "<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 331.62 210.2" width="331.62mm" height="210.2mm" role="img" aria-label="DE-9 → DE-9, crossover lead (2 ↔ 3) with local loopbacks" data-design="de9-crossover">
 <title>DE-9 → DE-9, crossover lead (2 ↔ 3) with local loopbacks</title>
-<desc>Wiring schematic for de9-crossover.</desc>
+<desc>Wiring schematic for DE-9 → DE-9, crossover lead (2 ↔ 3) with local loopbacks.</desc>
 <style>text{font-family:Helvetica,Arial,"Liberation Sans",Arimo,"Nimbus Sans","Nimbus Sans L","DejaVu Sans",sans-serif;fill:#14181d}.page{fill:#ffffff}.title{font-size:6px;font-weight:600}.subtitle{font-size:3px;fill:#5b6570}.direction{font-size:3.2px;fill:#5b6570;letter-spacing:0.08px}.legend-text{font-size:2.9px;fill:#5b6570}.block-outline{fill:#ffffff;stroke:#14181d;stroke-width:0.6}.block-title{font-size:3.8px;font-weight:600}.block-sub{font-size:3px;fill:#5b6570}.block-caption{font-size:2.6px;fill:#5b6570;letter-spacing:0.06px}.zebra{fill:#f3f5f7}.pin-id{font-size:3.6px;font-weight:600}.pin-label{font-size:3.6px;fill:#14181d}.block-foot{font-size:2.9px;fill:#5b6570}.internal-link{fill:none;stroke:#5b6570;stroke-width:0.35}.annot{font-size:2.9px;fill:#3a424b}.band-outline{fill:#fbfcfd;stroke:#2b3138;stroke-width:0.7}.band-label{font-size:3.4px;font-weight:600}.bracket{fill:none;stroke:#98a2ac;stroke-width:0.4}.group-label{font-size:3.1px;font-weight:600;fill:#3a424b}.track-label{font-size:3.1px;fill:#3a424b}.edge{fill:none;stroke-linecap:round;stroke-linejoin:round}.halo{fill:none;stroke:#6b7178;stroke-linecap:round;stroke-linejoin:round}.joint-dot{fill:#14181d}.symbol{fill:#ffffff;stroke:#14181d;stroke-width:0.5}.symbol-line{stroke:#14181d;stroke-width:0.5;fill:none}.comp-label{font-size:2.8px;font-weight:600;text-anchor:middle}.polarity{font-size:2.8px;font-weight:600;text-anchor:middle}.cut{stroke:#a8410f;stroke-width:0.5;fill:none}.cut-ref{font-size:2.7px;font-weight:600;fill:#a8410f}.xs-panel{fill:#fbfcfd;stroke:#98a2ac;stroke-width:0.4}.xs-title{font-size:3.8px;font-weight:600}.xs-sub{font-size:3px;fill:#5b6570}.xs-outline{fill:none;stroke:#14181d;stroke-width:0.15}.xs-hatch{fill:none;stroke:#3a424b;stroke-width:0.26;stroke-linecap:round}.xs-leader-halo{fill:none;stroke:#ffffff;stroke-width:1;stroke-linecap:round}.xs-leader{fill:none;stroke:#5b6570;stroke-width:0.3}.xs-tag{font-size:3px;font-weight:600}.xs-swatch{stroke:#14181d;stroke-width:0.15}.xs-key-tag{font-size:2.9px;font-weight:600}.xs-key{font-size:2.9px;fill:#3a424b}.xs-dim{fill:none;stroke:#5b6570;stroke-width:0.25}.xs-dim-text{font-size:2.9px;fill:#5b6570}.xs-rule{stroke:#14181d;stroke-width:0.3}.xs-rule-text{font-size:2.9px;fill:#5b6570}.notes-heading{font-size:3.4px;font-weight:600;letter-spacing:0.1px}.note-num{font-size:2.9px;font-weight:600;fill:#5b6570}.note-text{font-size:2.9px;fill:#14181d}.issue{font-size:3px;fill:#a8410f}.rule{stroke:#98a2ac;stroke-width:0.3}.block-outline-art{fill:none}.depiction{color:#14181d}.callout{font-size:3.1px;fill:#14181d}.callout-leader{fill:none;stroke:#98a2ac;stroke-width:0.25}.face-caption{font-size:2.6px;font-weight:600;fill:#5b6570;letter-spacing:0.12px}.pad-label{font-size:3.2px;font-weight:600;fill:#14181d}.link-ghost{fill:#ffffff;stroke:#5b6570;stroke-width:0.3}.board-part-box{fill:#7b3fb0;fill-opacity:0.2;stroke:#7b3fb0;stroke-width:0.12}.board-part.is-unset .board-part-box{fill:none;stroke-dasharray:0.4 0.3}.board-part-pin1{fill:#e7e7ea;stroke:#8a8f96;stroke-width:0.05}.board-part-label{font-size:1.1px;text-anchor:middle;dominant-baseline:central;fill:#14181d;stroke:#ffffff;stroke-width:0.3px;paint-order:stroke}.pt-chip-body{fill:#1c1c1c;stroke:#050505;stroke-width:0.05}.pt-chip-end{fill:#c7ccd2;stroke:#9aa0a8;stroke-width:0.04}.pt-mlcc-body{fill:#b9905a;stroke:#8a6a3e;stroke-width:0.05}.pt-mlcc-end{fill:#c7ccd2;stroke:#9aa0a8;stroke-width:0.04}.pt-tant-body{fill:#e2a13a;stroke:#a8741f;stroke-width:0.05}.pt-tant-band{fill:#241d15}.pt-elec-body{fill:#46484c;stroke:#202224;stroke-width:0.06}.pt-elec-stripe{fill:#d8dadd}.pt-ic-body{fill:#1c1c1c;stroke:#050505;stroke-width:0.05}.pt-ic-lead{fill:#c7ccd2;stroke:#9aa0a8;stroke-width:0.04}.pt-diode-body{fill:#17181a;stroke:#050505;stroke-width:0.05}.pt-diode-band{fill:#e6e8ea}.pt-led-body{fill:#17181a;stroke:#050505;stroke-width:0.05}.pt-led-dome{fill:#e2894a;fill-opacity:0.55}.pt-jumper-blob{fill:#d7dade;stroke:#9aa0a8;stroke-width:0.05}.pt-jumper-pad{fill:#c3a765;stroke:#8a763f;stroke-width:0.05}.pt-marking{font-size:0.55px;text-anchor:middle;dominant-baseline:central;fill:#f2f2f2}.ca{stroke:#14181d;stroke-linejoin:round}.ca-flange{fill:#eef0f2}.ca-shell{fill:#d9dde1}.ca-insert{fill:#f8f9fa}.ca-hole{fill:#ffffff}.ca-metal{fill:#c3c9cf}.ca-boot{fill:#6b7178}.ca-grip{fill:#8a929a}.ca-knurl{fill:none;stroke:#3a424b}.ca-band{fill:#98a2ac}.ca-copper{fill:#d49a4e}.ca-dark{fill:#3a424b}.ca-key{fill:#aab2ba}.ca-pin{fill:#ffffff;stroke:#7c848c}.ca-pin.is-used{fill:#14181d;stroke:#14181d}.ca-label{font-size:9px;font-weight:600;fill:#5b6570}</style>
 <rect class="page" x="0" y="0" width="331.62" height="210.2"/>
 <g class="header">
 <text class="title" x="8" y="13">DE-9 → DE-9, crossover lead (2 ↔ 3) with local loopbacks</text>
-<text class="subtitle" x="8" y="18">de9-crossover</text>
 <text class="direction" x="8" y="25">end a · source — DE-9 female, pins by number</text>
 <text class="direction" x="323.62" y="25" text-anchor="end">DE-9 female, pins by number — destination · end b</text>
 <line class="rule" x1="8" y1="27.4" x2="321.22" y2="27.4"/>
@@ -2006,7 +1997,7 @@ exports[`golden schematics > de9-crossover matches its depicted golden drawing 1
 </g>
 <g class="track track-drain" data-track="w1:drain" data-segment="w1" data-element="drain" data-kind="conductor" data-net="net-6">
 <line class="track-line" x1="103.31" y1="78" x2="228.31" y2="78" stroke="#b06a2c" stroke-width="1" stroke-dasharray="2.4 1 0.6 1"/>
-<text class="track-label" x="144.66" y="76.7">shields · 0 copper screens + drain, bonded</text>
+<text class="track-label" x="144.66" y="76.7">drain · Drain</text>
 </g>
 <g class="pigtail" data-pigtail="w1:pigtail:shield@a" data-members="w1:drain" data-net="net-6">
 <title>foil and drain twisted together</title>
@@ -2243,11 +2234,12 @@ exports[`golden schematics > de9-crossover matches its depicted golden drawing 1
 <g class="notes">
 <text class="notes-heading" x="237.34" y="135.6">NOTES</text>
 <text class="note-num" x="237.34" y="141">1.</text>
-<text class="note-text" x="244.34" y="141">w1:drain@b is cut back at end B — the shield is</text>
-<text class="note-text" x="244.34" y="144.9">grounded at end A only.</text>
+<text class="note-text" x="244.34" y="141">W1 drain (destination end) is cut back at end B —</text>
+<text class="note-text" x="244.34" y="144.9">the shield is grounded at end A only.</text>
 <text class="note-num" x="237.34" y="150">2.</text>
-<text class="note-text" x="244.34" y="150">w1:pair-2.b@a and w1:pair-2.b@b are a spare core,</text>
-<text class="note-text" x="244.34" y="153.9">cut back and insulated at both ends.</text>
+<text class="note-text" x="244.34" y="150">W1 pair 2 · orange (source end) and W1 pair 2 ·</text>
+<text class="note-text" x="244.34" y="153.9">orange (destination end) are a spare core, cut back</text>
+<text class="note-text" x="244.34" y="157.8">and insulated at both ends.</text>
 </g>
 </svg>"
 `;
@@ -2255,12 +2247,11 @@ exports[`golden schematics > de9-crossover matches its depicted golden drawing 1
 exports[`golden schematics > de9-crossover matches its golden drawing 1`] = `
 "<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 331.62 205.2" width="331.62mm" height="205.2mm" role="img" aria-label="DE-9 → DE-9, crossover lead (2 ↔ 3) with local loopbacks" data-design="de9-crossover">
 <title>DE-9 → DE-9, crossover lead (2 ↔ 3) with local loopbacks</title>
-<desc>Wiring schematic for de9-crossover.</desc>
+<desc>Wiring schematic for DE-9 → DE-9, crossover lead (2 ↔ 3) with local loopbacks.</desc>
 <style>text{font-family:Helvetica,Arial,"Liberation Sans",Arimo,"Nimbus Sans","Nimbus Sans L","DejaVu Sans",sans-serif;fill:#14181d}.page{fill:#ffffff}.title{font-size:6px;font-weight:600}.subtitle{font-size:3px;fill:#5b6570}.direction{font-size:3.2px;fill:#5b6570;letter-spacing:0.08px}.legend-text{font-size:2.9px;fill:#5b6570}.block-outline{fill:#ffffff;stroke:#14181d;stroke-width:0.6}.block-title{font-size:3.8px;font-weight:600}.block-sub{font-size:3px;fill:#5b6570}.block-caption{font-size:2.6px;fill:#5b6570;letter-spacing:0.06px}.zebra{fill:#f3f5f7}.pin-id{font-size:3.6px;font-weight:600}.pin-label{font-size:3.6px;fill:#14181d}.block-foot{font-size:2.9px;fill:#5b6570}.internal-link{fill:none;stroke:#5b6570;stroke-width:0.35}.annot{font-size:2.9px;fill:#3a424b}.band-outline{fill:#fbfcfd;stroke:#2b3138;stroke-width:0.7}.band-label{font-size:3.4px;font-weight:600}.bracket{fill:none;stroke:#98a2ac;stroke-width:0.4}.group-label{font-size:3.1px;font-weight:600;fill:#3a424b}.track-label{font-size:3.1px;fill:#3a424b}.edge{fill:none;stroke-linecap:round;stroke-linejoin:round}.halo{fill:none;stroke:#6b7178;stroke-linecap:round;stroke-linejoin:round}.joint-dot{fill:#14181d}.symbol{fill:#ffffff;stroke:#14181d;stroke-width:0.5}.symbol-line{stroke:#14181d;stroke-width:0.5;fill:none}.comp-label{font-size:2.8px;font-weight:600;text-anchor:middle}.polarity{font-size:2.8px;font-weight:600;text-anchor:middle}.cut{stroke:#a8410f;stroke-width:0.5;fill:none}.cut-ref{font-size:2.7px;font-weight:600;fill:#a8410f}.xs-panel{fill:#fbfcfd;stroke:#98a2ac;stroke-width:0.4}.xs-title{font-size:3.8px;font-weight:600}.xs-sub{font-size:3px;fill:#5b6570}.xs-outline{fill:none;stroke:#14181d;stroke-width:0.15}.xs-hatch{fill:none;stroke:#3a424b;stroke-width:0.26;stroke-linecap:round}.xs-leader-halo{fill:none;stroke:#ffffff;stroke-width:1;stroke-linecap:round}.xs-leader{fill:none;stroke:#5b6570;stroke-width:0.3}.xs-tag{font-size:3px;font-weight:600}.xs-swatch{stroke:#14181d;stroke-width:0.15}.xs-key-tag{font-size:2.9px;font-weight:600}.xs-key{font-size:2.9px;fill:#3a424b}.xs-dim{fill:none;stroke:#5b6570;stroke-width:0.25}.xs-dim-text{font-size:2.9px;fill:#5b6570}.xs-rule{stroke:#14181d;stroke-width:0.3}.xs-rule-text{font-size:2.9px;fill:#5b6570}.notes-heading{font-size:3.4px;font-weight:600;letter-spacing:0.1px}.note-num{font-size:2.9px;font-weight:600;fill:#5b6570}.note-text{font-size:2.9px;fill:#14181d}.issue{font-size:3px;fill:#a8410f}.rule{stroke:#98a2ac;stroke-width:0.3}</style>
 <rect class="page" x="0" y="0" width="331.62" height="205.2"/>
 <g class="header">
 <text class="title" x="8" y="13">DE-9 → DE-9, crossover lead (2 ↔ 3) with local loopbacks</text>
-<text class="subtitle" x="8" y="18">de9-crossover</text>
 <text class="direction" x="8" y="25">end a · source — DE-9 female, pins by number</text>
 <text class="direction" x="323.62" y="25" text-anchor="end">DE-9 female, pins by number — destination · end b</text>
 <line class="rule" x1="8" y1="27.4" x2="321.22" y2="27.4"/>
@@ -2366,7 +2357,7 @@ exports[`golden schematics > de9-crossover matches its golden drawing 1`] = `
 </g>
 <g class="track track-drain" data-track="w1:drain" data-segment="w1" data-element="drain" data-kind="conductor" data-net="net-6">
 <line class="track-line" x1="103.31" y1="78" x2="228.31" y2="78" stroke="#b06a2c" stroke-width="1" stroke-dasharray="2.4 1 0.6 1"/>
-<text class="track-label" x="144.66" y="76.7">shields · 0 copper screens + drain, bonded</text>
+<text class="track-label" x="144.66" y="76.7">drain · Drain</text>
 </g>
 <g class="pigtail" data-pigtail="w1:pigtail:shield@a" data-members="w1:drain" data-net="net-6">
 <title>foil and drain twisted together</title>
@@ -2609,11 +2600,12 @@ exports[`golden schematics > de9-crossover matches its golden drawing 1`] = `
 <g class="notes">
 <text class="notes-heading" x="237.34" y="130.6">NOTES</text>
 <text class="note-num" x="237.34" y="136">1.</text>
-<text class="note-text" x="244.34" y="136">w1:drain@b is cut back at end B — the shield is</text>
-<text class="note-text" x="244.34" y="139.9">grounded at end A only.</text>
+<text class="note-text" x="244.34" y="136">W1 drain (destination end) is cut back at end B —</text>
+<text class="note-text" x="244.34" y="139.9">the shield is grounded at end A only.</text>
 <text class="note-num" x="237.34" y="145">2.</text>
-<text class="note-text" x="244.34" y="145">w1:pair-2.b@a and w1:pair-2.b@b are a spare core,</text>
-<text class="note-text" x="244.34" y="148.9">cut back and insulated at both ends.</text>
+<text class="note-text" x="244.34" y="145">W1 pair 2 · orange (source end) and W1 pair 2 ·</text>
+<text class="note-text" x="244.34" y="148.9">orange (destination end) are a spare core, cut back</text>
+<text class="note-text" x="244.34" y="152.8">and insulated at both ends.</text>
 </g>
 </svg>"
 `;
@@ -2621,12 +2613,11 @@ exports[`golden schematics > de9-crossover matches its golden drawing 1`] = `
 exports[`golden schematics > de9-terminal-board matches its depicted golden drawing 1`] = `
 "<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 350.5 185" width="350.5mm" height="185mm" role="img" aria-label="DE-9 → terminal adapter board, terminated pair" data-design="de9-terminal-board">
 <title>DE-9 → terminal adapter board, terminated pair</title>
-<desc>Wiring schematic for de9-terminal-board.</desc>
+<desc>Wiring schematic for DE-9 → terminal adapter board, terminated pair.</desc>
 <style>text{font-family:Helvetica,Arial,"Liberation Sans",Arimo,"Nimbus Sans","Nimbus Sans L","DejaVu Sans",sans-serif;fill:#14181d}.page{fill:#ffffff}.title{font-size:6px;font-weight:600}.subtitle{font-size:3px;fill:#5b6570}.direction{font-size:3.2px;fill:#5b6570;letter-spacing:0.08px}.legend-text{font-size:2.9px;fill:#5b6570}.block-outline{fill:#ffffff;stroke:#14181d;stroke-width:0.6}.block-title{font-size:3.8px;font-weight:600}.block-sub{font-size:3px;fill:#5b6570}.block-caption{font-size:2.6px;fill:#5b6570;letter-spacing:0.06px}.zebra{fill:#f3f5f7}.pin-id{font-size:3.6px;font-weight:600}.pin-label{font-size:3.6px;fill:#14181d}.block-foot{font-size:2.9px;fill:#5b6570}.internal-link{fill:none;stroke:#5b6570;stroke-width:0.35}.annot{font-size:2.9px;fill:#3a424b}.band-outline{fill:#fbfcfd;stroke:#2b3138;stroke-width:0.7}.band-label{font-size:3.4px;font-weight:600}.bracket{fill:none;stroke:#98a2ac;stroke-width:0.4}.group-label{font-size:3.1px;font-weight:600;fill:#3a424b}.track-label{font-size:3.1px;fill:#3a424b}.edge{fill:none;stroke-linecap:round;stroke-linejoin:round}.halo{fill:none;stroke:#6b7178;stroke-linecap:round;stroke-linejoin:round}.joint-dot{fill:#14181d}.symbol{fill:#ffffff;stroke:#14181d;stroke-width:0.5}.symbol-line{stroke:#14181d;stroke-width:0.5;fill:none}.comp-label{font-size:2.8px;font-weight:600;text-anchor:middle}.polarity{font-size:2.8px;font-weight:600;text-anchor:middle}.cut{stroke:#a8410f;stroke-width:0.5;fill:none}.cut-ref{font-size:2.7px;font-weight:600;fill:#a8410f}.xs-panel{fill:#fbfcfd;stroke:#98a2ac;stroke-width:0.4}.xs-title{font-size:3.8px;font-weight:600}.xs-sub{font-size:3px;fill:#5b6570}.xs-outline{fill:none;stroke:#14181d;stroke-width:0.15}.xs-hatch{fill:none;stroke:#3a424b;stroke-width:0.26;stroke-linecap:round}.xs-leader-halo{fill:none;stroke:#ffffff;stroke-width:1;stroke-linecap:round}.xs-leader{fill:none;stroke:#5b6570;stroke-width:0.3}.xs-tag{font-size:3px;font-weight:600}.xs-swatch{stroke:#14181d;stroke-width:0.15}.xs-key-tag{font-size:2.9px;font-weight:600}.xs-key{font-size:2.9px;fill:#3a424b}.xs-dim{fill:none;stroke:#5b6570;stroke-width:0.25}.xs-dim-text{font-size:2.9px;fill:#5b6570}.xs-rule{stroke:#14181d;stroke-width:0.3}.xs-rule-text{font-size:2.9px;fill:#5b6570}.notes-heading{font-size:3.4px;font-weight:600;letter-spacing:0.1px}.note-num{font-size:2.9px;font-weight:600;fill:#5b6570}.note-text{font-size:2.9px;fill:#14181d}.issue{font-size:3px;fill:#a8410f}.rule{stroke:#98a2ac;stroke-width:0.3}.block-outline-art{fill:none}.depiction{color:#14181d}.callout{font-size:3.1px;fill:#14181d}.callout-leader{fill:none;stroke:#98a2ac;stroke-width:0.25}.face-caption{font-size:2.6px;font-weight:600;fill:#5b6570;letter-spacing:0.12px}.pad-label{font-size:3.2px;font-weight:600;fill:#14181d}.link-ghost{fill:#ffffff;stroke:#5b6570;stroke-width:0.3}.board-part-box{fill:#7b3fb0;fill-opacity:0.2;stroke:#7b3fb0;stroke-width:0.12}.board-part.is-unset .board-part-box{fill:none;stroke-dasharray:0.4 0.3}.board-part-pin1{fill:#e7e7ea;stroke:#8a8f96;stroke-width:0.05}.board-part-label{font-size:1.1px;text-anchor:middle;dominant-baseline:central;fill:#14181d;stroke:#ffffff;stroke-width:0.3px;paint-order:stroke}.pt-chip-body{fill:#1c1c1c;stroke:#050505;stroke-width:0.05}.pt-chip-end{fill:#c7ccd2;stroke:#9aa0a8;stroke-width:0.04}.pt-mlcc-body{fill:#b9905a;stroke:#8a6a3e;stroke-width:0.05}.pt-mlcc-end{fill:#c7ccd2;stroke:#9aa0a8;stroke-width:0.04}.pt-tant-body{fill:#e2a13a;stroke:#a8741f;stroke-width:0.05}.pt-tant-band{fill:#241d15}.pt-elec-body{fill:#46484c;stroke:#202224;stroke-width:0.06}.pt-elec-stripe{fill:#d8dadd}.pt-ic-body{fill:#1c1c1c;stroke:#050505;stroke-width:0.05}.pt-ic-lead{fill:#c7ccd2;stroke:#9aa0a8;stroke-width:0.04}.pt-diode-body{fill:#17181a;stroke:#050505;stroke-width:0.05}.pt-diode-band{fill:#e6e8ea}.pt-led-body{fill:#17181a;stroke:#050505;stroke-width:0.05}.pt-led-dome{fill:#e2894a;fill-opacity:0.55}.pt-jumper-blob{fill:#d7dade;stroke:#9aa0a8;stroke-width:0.05}.pt-jumper-pad{fill:#c3a765;stroke:#8a763f;stroke-width:0.05}.pt-marking{font-size:0.55px;text-anchor:middle;dominant-baseline:central;fill:#f2f2f2}.ca{stroke:#14181d;stroke-linejoin:round}.ca-flange{fill:#eef0f2}.ca-shell{fill:#d9dde1}.ca-insert{fill:#f8f9fa}.ca-hole{fill:#ffffff}.ca-metal{fill:#c3c9cf}.ca-boot{fill:#6b7178}.ca-grip{fill:#8a929a}.ca-knurl{fill:none;stroke:#3a424b}.ca-band{fill:#98a2ac}.ca-copper{fill:#d49a4e}.ca-dark{fill:#3a424b}.ca-key{fill:#aab2ba}.ca-pin{fill:#ffffff;stroke:#7c848c}.ca-pin.is-used{fill:#14181d;stroke:#14181d}.ca-label{font-size:9px;font-weight:600;fill:#5b6570}</style>
 <rect class="page" x="0" y="0" width="350.5" height="185"/>
 <g class="header">
 <text class="title" x="8" y="13">DE-9 → terminal adapter board, terminated pair</text>
-<text class="subtitle" x="8" y="18">de9-terminal-board</text>
 <text class="direction" x="8" y="25">end a · source — DE-9 male, pins by number</text>
 <text class="direction" x="342.5" y="25" text-anchor="end">PCA-00001 Rev1 — destination · end b</text>
 <line class="rule" x1="8" y1="27.4" x2="340.1" y2="27.4"/>
@@ -2736,7 +2727,7 @@ exports[`golden schematics > de9-terminal-board matches its depicted golden draw
 </g>
 <g class="track track-drain" data-track="w1:drain" data-segment="w1" data-element="drain" data-kind="conductor" data-net="net-5">
 <line class="track-line" x1="99.2" y1="78" x2="224.2" y2="78" stroke="#b06a2c" stroke-width="1" stroke-dasharray="2.4 1 0.6 1"/>
-<text class="track-label" x="140.55" y="76.7">shields · 0 copper screens + drain, bonded</text>
+<text class="track-label" x="140.55" y="76.7">drain · Drain</text>
 </g>
 <g class="pigtail" data-pigtail="w1:pigtail:shield@a" data-members="w1:drain" data-net="net-5">
 <title>foil and drain twisted together</title>
@@ -2905,6 +2896,8 @@ exports[`golden schematics > de9-terminal-board matches its depicted golden draw
 </g>
 <g class="pcba-link" data-from="u1:A" data-to="u1:B" data-net="net-4 net-1">
 <path class="internal-link" d="M293.95 57.9 L320.38 57.9 L320.38 65.4 L293.95 65.4" stroke-dasharray="1.6 1.2"/>
+</g>
+<g class="pcba-link pcba-link-note" data-from="u1:A" data-to="u1:B" data-net="net-4 net-1">
 <text class="annot">«via»</text>
 </g>
 <g class="port port-cable" data-terminal="u1:A" data-pin="A" data-net="net-4">
@@ -2974,8 +2967,9 @@ exports[`golden schematics > de9-terminal-board matches its depicted golden draw
 <g class="notes">
 <text class="notes-heading" x="233.22" y="110.4">NOTES</text>
 <text class="note-num" x="233.22" y="115.8">1.</text>
-<text class="note-text" x="240.22" y="115.8">w1:pair-2.b@b is cut back and insulated at the board — the supply</text>
-<text class="note-text" x="240.22" y="119.7">on pin 6 is not used when JP1 terminates on the board.</text>
+<text class="note-text" x="240.22" y="115.8">W1 pair 2 · orange (destination end) is cut back and insulated at the</text>
+<text class="note-text" x="240.22" y="119.7">board — the supply on pin 6 is not used when JP1 terminates on the</text>
+<text class="note-text" x="240.22" y="123.6">board.</text>
 </g>
 </svg>"
 `;
@@ -2983,12 +2977,11 @@ exports[`golden schematics > de9-terminal-board matches its depicted golden draw
 exports[`golden schematics > de9-terminal-board matches its golden drawing 1`] = `
 "<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 350.5 175.2" width="350.5mm" height="175.2mm" role="img" aria-label="DE-9 → terminal adapter board, terminated pair" data-design="de9-terminal-board">
 <title>DE-9 → terminal adapter board, terminated pair</title>
-<desc>Wiring schematic for de9-terminal-board.</desc>
+<desc>Wiring schematic for DE-9 → terminal adapter board, terminated pair.</desc>
 <style>text{font-family:Helvetica,Arial,"Liberation Sans",Arimo,"Nimbus Sans","Nimbus Sans L","DejaVu Sans",sans-serif;fill:#14181d}.page{fill:#ffffff}.title{font-size:6px;font-weight:600}.subtitle{font-size:3px;fill:#5b6570}.direction{font-size:3.2px;fill:#5b6570;letter-spacing:0.08px}.legend-text{font-size:2.9px;fill:#5b6570}.block-outline{fill:#ffffff;stroke:#14181d;stroke-width:0.6}.block-title{font-size:3.8px;font-weight:600}.block-sub{font-size:3px;fill:#5b6570}.block-caption{font-size:2.6px;fill:#5b6570;letter-spacing:0.06px}.zebra{fill:#f3f5f7}.pin-id{font-size:3.6px;font-weight:600}.pin-label{font-size:3.6px;fill:#14181d}.block-foot{font-size:2.9px;fill:#5b6570}.internal-link{fill:none;stroke:#5b6570;stroke-width:0.35}.annot{font-size:2.9px;fill:#3a424b}.band-outline{fill:#fbfcfd;stroke:#2b3138;stroke-width:0.7}.band-label{font-size:3.4px;font-weight:600}.bracket{fill:none;stroke:#98a2ac;stroke-width:0.4}.group-label{font-size:3.1px;font-weight:600;fill:#3a424b}.track-label{font-size:3.1px;fill:#3a424b}.edge{fill:none;stroke-linecap:round;stroke-linejoin:round}.halo{fill:none;stroke:#6b7178;stroke-linecap:round;stroke-linejoin:round}.joint-dot{fill:#14181d}.symbol{fill:#ffffff;stroke:#14181d;stroke-width:0.5}.symbol-line{stroke:#14181d;stroke-width:0.5;fill:none}.comp-label{font-size:2.8px;font-weight:600;text-anchor:middle}.polarity{font-size:2.8px;font-weight:600;text-anchor:middle}.cut{stroke:#a8410f;stroke-width:0.5;fill:none}.cut-ref{font-size:2.7px;font-weight:600;fill:#a8410f}.xs-panel{fill:#fbfcfd;stroke:#98a2ac;stroke-width:0.4}.xs-title{font-size:3.8px;font-weight:600}.xs-sub{font-size:3px;fill:#5b6570}.xs-outline{fill:none;stroke:#14181d;stroke-width:0.15}.xs-hatch{fill:none;stroke:#3a424b;stroke-width:0.26;stroke-linecap:round}.xs-leader-halo{fill:none;stroke:#ffffff;stroke-width:1;stroke-linecap:round}.xs-leader{fill:none;stroke:#5b6570;stroke-width:0.3}.xs-tag{font-size:3px;font-weight:600}.xs-swatch{stroke:#14181d;stroke-width:0.15}.xs-key-tag{font-size:2.9px;font-weight:600}.xs-key{font-size:2.9px;fill:#3a424b}.xs-dim{fill:none;stroke:#5b6570;stroke-width:0.25}.xs-dim-text{font-size:2.9px;fill:#5b6570}.xs-rule{stroke:#14181d;stroke-width:0.3}.xs-rule-text{font-size:2.9px;fill:#5b6570}.notes-heading{font-size:3.4px;font-weight:600;letter-spacing:0.1px}.note-num{font-size:2.9px;font-weight:600;fill:#5b6570}.note-text{font-size:2.9px;fill:#14181d}.issue{font-size:3px;fill:#a8410f}.rule{stroke:#98a2ac;stroke-width:0.3}</style>
 <rect class="page" x="0" y="0" width="350.5" height="175.2"/>
 <g class="header">
 <text class="title" x="8" y="13">DE-9 → terminal adapter board, terminated pair</text>
-<text class="subtitle" x="8" y="18">de9-terminal-board</text>
 <text class="direction" x="8" y="25">end a · source — DE-9 male, pins by number</text>
 <text class="direction" x="342.5" y="25" text-anchor="end">PCA-00001 Rev1 — destination · end b</text>
 <line class="rule" x1="8" y1="27.4" x2="340.1" y2="27.4"/>
@@ -3074,7 +3067,7 @@ exports[`golden schematics > de9-terminal-board matches its golden drawing 1`] =
 </g>
 <g class="track track-drain" data-track="w1:drain" data-segment="w1" data-element="drain" data-kind="conductor" data-net="net-5">
 <line class="track-line" x1="99.2" y1="78" x2="224.2" y2="78" stroke="#b06a2c" stroke-width="1" stroke-dasharray="2.4 1 0.6 1"/>
-<text class="track-label" x="140.55" y="76.7">shields · 0 copper screens + drain, bonded</text>
+<text class="track-label" x="140.55" y="76.7">drain · Drain</text>
 </g>
 <g class="pigtail" data-pigtail="w1:pigtail:shield@a" data-members="w1:drain" data-net="net-5">
 <title>foil and drain twisted together</title>
@@ -3244,6 +3237,8 @@ exports[`golden schematics > de9-terminal-board matches its golden drawing 1`] =
 </g>
 <g class="pcba-link" data-from="u1:A" data-to="u1:B" data-net="net-4 net-1">
 <path class="internal-link" d="M293.95 57.9 L320.38 57.9 L320.38 65.4 L293.95 65.4" stroke-dasharray="1.6 1.2"/>
+</g>
+<g class="pcba-link pcba-link-note" data-from="u1:A" data-to="u1:B" data-net="net-4 net-1">
 <text class="annot">«via»</text>
 </g>
 <g class="port port-cable" data-terminal="u1:A" data-pin="A" data-net="net-4">
@@ -3313,8 +3308,9 @@ exports[`golden schematics > de9-terminal-board matches its golden drawing 1`] =
 <g class="notes">
 <text class="notes-heading" x="233.22" y="100.6">NOTES</text>
 <text class="note-num" x="233.22" y="106">1.</text>
-<text class="note-text" x="240.22" y="106">w1:pair-2.b@b is cut back and insulated at the board — the supply</text>
-<text class="note-text" x="240.22" y="109.9">on pin 6 is not used when JP1 terminates on the board.</text>
+<text class="note-text" x="240.22" y="106">W1 pair 2 · orange (destination end) is cut back and insulated at the</text>
+<text class="note-text" x="240.22" y="109.9">board — the supply on pin 6 is not used when JP1 terminates on the</text>
+<text class="note-text" x="240.22" y="113.8">board.</text>
 </g>
 </svg>"
 `;

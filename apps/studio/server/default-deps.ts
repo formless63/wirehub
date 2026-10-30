@@ -20,11 +20,15 @@ import { dataPath, derivedDir, installedAcross, livePacksDir, loadDb } from '@wi
 
 import type { WorkbenchDeps } from './api.ts';
 import { fileAssetStore } from './assets.ts';
+import { fileAssetReferences } from './asset-remove.ts';
 import type { BlobStore } from './blobs.ts';
+import { fileToolOutputStore } from './tools/file-outputs.ts';
 import { readCatalogJson } from './catalog-files.ts';
 import { rekeyBoardLinks } from './models/board-art.ts';
 import { fileModelLinkStore } from './models/links.ts';
 import { fileModelCache } from './models/cache.ts';
+import { fileThumbnailCache } from './thumbnails.ts';
+import { fileDocumentCache } from './document-cache.ts';
 import { fileBuildsStore } from './builds.ts';
 import { fileDefinitionStore } from './definition-store.ts';
 import { fileDesignStore } from './designs.ts';
@@ -34,13 +38,16 @@ import { fileWireLibraryStore } from './wire-library.ts';
 import { fileVersionStore } from './versions.ts';
 import { localStudioUser } from './me.ts';
 import { memoryLockStore } from './locks/lock-store.ts';
+import { fileInventoryStore } from './inventory/store.ts';
+import { fileUnitTestStore } from './units/store.ts';
+import { fileOfferStore } from './sourcing/offers.ts';
 import { filePrefsStore } from './user-prefs.ts';
 import { fileCatalogVersion } from './storage/catalog-version.ts';
 import { registry } from './modules.ts';
 import { moduleDerivedStore } from './module-derived.ts';
 import { memoryEventHub } from './events.ts';
 import { defaultDepictionDeps, fileDepictionStore, type DepictionDeps } from './depictions.ts';
-import { fileDocStore } from './storage/doc-store.ts';
+import { fileCatalogFileStore, fileDocStore } from './storage/doc-store.ts';
 import { checkoutPacksDir } from './env.ts';
 import { parseSuggestedModules } from './setup.ts';
 import { mediaTypeOf } from '@wirehub/catalog/src/codec/index.ts';
@@ -54,6 +61,8 @@ import { createWebhookEmitter } from './webhooks/emitter.ts';
 import { moduleJobHandlers, moduleJobKinds } from './jobs/module-queues.ts';
 import { modelCacheTrigger } from './jobs/model-cache.ts';
 import { createJobService, inlineJobRunner, memoryJobStore } from './jobs/service.ts';
+import { inlineToolStageKinds, toolStageHandlers } from './jobs/tool-stages.ts';
+import { jobInputCapture } from './effective-inputs.ts';
 import { testDefaultsFromEnv } from './documents.ts';
 import { pdfEngineFromEnv } from './render/browser-pdf.ts';
 import { DEFAULT_AUTH_DATA_DIR } from './auth/config.ts';
@@ -137,6 +146,12 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
     modelLinks: fileModelLinkStore(),
     // converted models (gitignored cache)
     modelCache: fileModelCache(),
+    // tool-pack runs and their outputs (gitignored, beside the catalog): board outputs, device exports
+    toolOutputs: fileToolOutputStore(),
+    // photo thumbnails (gitignored cache beside it)
+    thumbnails: fileThumbnailCache(),
+    // released revision renders by render key (gitignored cache beside it)
+    documentCache: fileDocumentCache(),
     vocab: fileVocabStore(),
     tags,
     wireLibrary: fileWireLibraryStore(),
@@ -144,6 +159,8 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
     // artwork and catalog documents, staged like the rest (B7)
     depictions: fileDepictionStore(),
     docs,
+    // binary catalog files (captured cover images): beside the documents, staged like them
+    files: fileCatalogFileStore(),
     versions: fileVersionStore(),
     loadDb,
     // which records came from a pack (read-only; fork to edit): both the layers and anything merged into the catalog
@@ -151,11 +168,13 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
     // the unit of work reuses the loaded db until one of its files changes
     // …and the packs directory: an install (packs.json) or regenerated derived tags change it too
     catalogVersion: () => `${fileCatalogVersion(dataPath(''), modules.catalogDirs())}:${fileCatalogVersion(packsDir)}:${fileCatalogVersion(derivedDir(packsDir))}`,
+    // what names an asset before one is removed: the catalog files and their git history
+    assetReferences: fileAssetReferences(dataPath('')),
     // GET /api/blobs/:sha: the file backend's content-addressed files are its uploads
     blob: async (sha) => {
       const found = await assets.get(sha);
       if (found !== undefined) return { bytes: new Uint8Array(found.bytes), mediaType: found.record.mime, filename: found.record.originalName };
-      return depictionBlob(sha, livePacksDir());
+      return depictionBlob(sha, livePacksDir()) ?? (await deps.toolOutputs?.file(sha));
     },
     // a restore reads an earlier drawing photo by its hash: uploads are never removed
     blobByHash: async (sha) => {
@@ -175,6 +194,10 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
     locks: memoryLockStore(),
     // per-person UI preferences: files beside the catalog, never part of it
     userPrefs: filePrefsStore(dataPath('.user-prefs')),
+    // workshop inventory: files beside the catalog, never part of it
+    inventory: fileInventoryStore(dataPath('.inventory')),
+    unitTests: fileUnitTestStore(dataPath('.inventory')),
+    offers: fileOfferStore(dataPath('.inventory')),
     // what changed, for GET /api/events: this process is the only writer
     events: memoryEventHub(),
     // the deployment's modules (modules.config.ts), and the derived records they keep
@@ -200,11 +223,16 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
   };
   // jobs (imports, model builds) run in this process, one at a time, and are remembered in memory
   const jobStore = memoryJobStore();
+  const toolKinds = inlineToolStageKinds(options.env ?? process.env, deps.toolOutputs !== undefined);
+  const toolHandlers = toolStageHandlers({ deps, env: options.env ?? process.env });
   deps.jobs = createJobService({
     store: jobStore,
-    runner: inlineJobRunner(jobStore, () => ({ ...baseJobHandlers({ deps, liveEnv: () => deps.runtimeSettings?.env() ?? process.env, ...(options.blobs === undefined ? {} : { blobs: options.blobs }) }), ...moduleJobHandlers(deps.modules, deps) }), undefined, (job) => deps.webhooks?.jobFinished(job)),
-    // the module queues follow the registry: a runtime code module's queue runs here as soon as it is loaded
-    kinds: () => ['import', 'model-cache', 'webhook', ...moduleJobKinds(deps.modules)],
+    runner: inlineJobRunner(jobStore, () => ({ ...baseJobHandlers({ deps, liveEnv: () => deps.runtimeSettings?.env() ?? process.env, ...(options.blobs === undefined ? {} : { blobs: options.blobs }) }), ...moduleJobHandlers(deps.modules, deps), ...toolHandlers }), undefined, (job) => deps.webhooks?.jobFinished(job)),
+    // the module queues follow the registry: a runtime code module's queue runs here as soon as it is loaded;
+    // firmware compiles and enclosure generation run here too when WIREHUB_TOOL_RUNNER=docker (jobs/tool-stages.ts)
+    kinds: () => ['import', 'model-cache', 'webhook', ...toolKinds, ...moduleJobKinds(deps.modules)],
+    // a job naming a design records the exact inputs it starts from
+    captureInputs: jobInputCapture(() => deps),
   });
   // outbound event webhooks: deliveries are jobs, signed with a secret kept in the settings secrets store
   deps.webhooks = createWebhookEmitter({ docs: () => deps.docs, jobs: () => deps.jobs, env: () => deps.runtimeSettings?.env() ?? process.env });
